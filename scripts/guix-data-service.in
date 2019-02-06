@@ -1,0 +1,65 @@
+#!@GUILE@ --no-auto-compile
+-*- scheme -*-
+-*- geiser-scheme-implementation: guile -*-
+!#
+;;; Guix Data Service -- Information about Guix over time
+;;; Copyright © 2016, 2017 Ricardo Wurmus <rekado@elephly.net>
+;;; Copyright © 2018 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2019 Christopher Baines <mail@cbaines.net>
+;;;
+;;; This file is part of guix-data-service.
+;;;
+;;; guix-data-service is free software; you can redistribute it and/or modify it
+;;; under the terms of the GNU General Public License as published by
+;;; the Free Software Foundation; either version 3 of the License, or
+;;; (at your option) any later version.
+;;;
+;;; guix-data-service is distributed in the hope that it will be useful, but
+;;; WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;;; General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU General Public License
+;;; along with the guix-data-service.  If not, see
+;;; <http://www.gnu.org/licenses/>.
+
+(use-modules (srfi srfi-1)
+             (srfi srfi-37)
+             (system repl server)
+             (guix-data-service web server))
+
+(define %default-repl-server-port
+  ;; Default port to run REPL server on, if --listen-repl is provided
+  ;; but no port is mentioned
+  37146)
+
+(define %options
+  ;; Specifications of the command-line options
+  (list (option '("listen-repl") #f #t
+                (lambda (opt name arg result)
+                  (let ((port (cond (arg => string->number)
+                                    (else %default-repl-server-port))))
+                    (if port
+                        (alist-cons 'listen-repl port
+                                    (alist-delete 'listen-repl result))
+                        (error "invalid REPL server port" arg)))))))
+
+(define %default-options
+  ;; Alist of default option values
+  `((listen-repl . #f)))
+
+(define (parse-options args)
+  (args-fold
+   args %options
+   (lambda (opt name arg result)
+     (error "unrecognized option" name))
+   (lambda (arg result)
+     (error "extraneous argument" arg))
+   %default-options))
+
+(let ((opts (parse-options (cdr (program-arguments)))))
+  (let ((repl-port (assoc-ref opts 'listen-repl)))
+    (when repl-port
+      (spawn-server (make-tcp-server-socket #:port repl-port)))))
+
+(start-guix-data-service-web-server 8765)

@@ -1,0 +1,135 @@
+@media all {html {font-size: 28px;}}
+
+html, body {
+    background-color: #fff;
+    width: 100%;
+    height: 100%;
+    line-height: 1.4em;
+    padding: 0px;
+    margin: 0px;
+    font-family: sans-serif;
+}
+
+h1 {
+    clear: both;
+    font-size: 32px;
+    line-height: 105%;
+    margin-top: 1.3rem;
+    margin-bottom: 0.5rem;
+    padding: 0px;
+    display: block;
+    font-weight: 400;
+    color: #333;
+}
+
+.logo:link,
+.logo:visited {
+    background-image: url("../img/logo.png");
+    background-position: bottom;
+    background-repeat: no-repeat;
+    border-style: none;
+    display: inline-block;
+    height: 55px;
+    width: 170px;
+}
+
+.logo:active,
+.logo:focus,
+.logo:hover {
+    background-position: top;
+}
+
+.title {
+    clear: both;
+    font-size: 16px;
+    margin-bottom: 1rem;
+    border-bottom: 1px dashed #ddd;
+    padding: 0px;
+    padding-bottom: 1rem;
+    color: #586069;
+}
+
+h2 {
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+}
+
+ul.merged li, ul.blockedby li, ul.blocks li {
+    display: inline-block;
+}
+ul.merged li + li:before,
+ul.blockedby li + li:before,
+ul.blocks li + li:before {
+    content: ", ";
+}
+
+p {
+    max-width: 70rem;
+}
+
+p + p {
+    text-indent: 0.5rem;
+    margin-top: 1.0rem;
+}
+
+
+form {
+    padding-bottom: 2em;
+}
+
+label {
+    text-align: right;
+    margin-right: 0.5em;
+}
+
+tr {
+    border-bottom: 1px solid #ddd;
+}
+
+tr td:nth-child(3){
+    min-width: 8rem;
+}
+
+tr.serious td:nth-child(1) {
+    background-color: #ff5a2a;
+    color: #fff;
+}
+tr.important td:nth-child(1) {
+    background-color: #feaaaa;
+}
+
+#header {
+    background: #333333;
+    border-color: #1A1A1A1A;
+    border-style: none none solid none;
+    border-width: thin;
+    width: 100%;
+    margin-bottom: 1rem;
+    padding: .5em;
+    color: #fff;
+    border-radius: 0;
+}
+#header .navbar-brand {
+    padding: 0;
+}
+
+#header #search input:focus {
+    width: 500px;
+}
+
+footer {
+    border-color: #1A1A1A1A;
+    border-style: dashed none none none;
+    border-width: 2px;
+    width: 100%;
+    align-items: center;
+    text-align: center;
+    margin-top: 3rem;
+    padding: 1rem;
+    color: #586069;
+    background: #fafafa;
+}
+
+table {
+    width: 100%;
+}
