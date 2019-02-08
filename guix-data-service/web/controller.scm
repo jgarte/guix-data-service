@@ -65,30 +65,40 @@
                               uri-query
                               parse-query-string
                               (cut assoc-ref <> "target_commit"))))
-       (let-values
-           (((base-packages-vhash target-packages-vhash)
-             (package-data->package-data-vhashes
-              (package-differences-data conn
-                                        (commit->revision-id conn base-commit)
-                                        (commit->revision-id conn target-commit)))))
-         (let* ((new-packages
-                 (package-data-vhashes->new-packages base-packages-vhash
-                                                     target-packages-vhash))
-                (removed-packages
-                 (package-data-vhashes->removed-packages base-packages-vhash
-                                                         target-packages-vhash))
-                (version-changes
-                 (package-data-version-changes base-packages-vhash
-                                               target-packages-vhash))
-                (other-changes
-                 (package-data-other-changes base-packages-vhash
-                                             target-packages-vhash)))
+       (let ((base-revision-id (commit->revision-id conn base-commit))
+             (target-revision-id (commit->revision-id conn target-commit)))
+         (cond
+          ((eq? base-revision-id #f)
            (apply render-html
-                  (compare base-commit
-                           target-commit
-                           new-packages
-                           removed-packages
-                           version-changes
-                           other-changes))))))
+                  (compare-unknown-commit base-commit)))
+          ((eq? target-revision-id #f)
+           (apply render-html
+                  (compare-unknown-commit target-commit)))
+          (else
+           (let-values
+               (((base-packages-vhash target-packages-vhash)
+                 (package-data->package-data-vhashes
+                  (package-differences-data conn
+                                            base-revision-id
+                                            target-revision-id))))
+             (let* ((new-packages
+                     (package-data-vhashes->new-packages base-packages-vhash
+                                                         target-packages-vhash))
+                    (removed-packages
+                     (package-data-vhashes->removed-packages base-packages-vhash
+                                                             target-packages-vhash))
+                    (version-changes
+                     (package-data-version-changes base-packages-vhash
+                                                   target-packages-vhash))
+                    (other-changes
+                     (package-data-other-changes base-packages-vhash
+                                                 target-packages-vhash)))
+               (apply render-html
+                      (compare base-commit
+                               target-commit
+                               new-packages
+                               removed-packages
+                               version-changes
+                               other-changes)))))))))
     ((GET path ...)
      (render-static-asset request))))

@@ -14,7 +14,8 @@
           conn "SELECT id FROM guix_revisions WHERE commit = $1 LIMIT 1"
           (list commit))
     (((id))
-     id)))
+     id)
+    (() #f)))
 
 (define (insert-guix-revision conn url commit store_path)
   (define insert

@@ -24,7 +24,7 @@
   #:use-module (srfi srfi-19)
   #:export (index
             compare
-            unknown
+            compare-unknown-commit
             error-page))
 
 (define* (header)
@@ -226,14 +226,13 @@
                        (td ,version))))
                   other-changes)))))))))
 
-(define (unknown id)
+(define (compare-unknown-commit commit)
   (layout
    #:body
    `(,(header)
      (div (@ (class "container"))
-          (h1 "Patch not found")
-          (p "There is no submission with id " (strong ,id))
-          (p (a (@ (href "/")) "Try another one?"))))))
+          (h1 "Unknown commit")
+          (p "No known revision with commit  " (strong (samp ,commit)))))))
 
 (define (error-page message)
   (layout
