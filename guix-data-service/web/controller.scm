@@ -50,9 +50,7 @@
   ;;     (render-html (error-page message))))
   )
 
-(define (controller request body)
-  (define conn (connect-to-postgres-paramstring "dbname=guix_data_service"))
-
+(define (controller request body conn)
   (match-lambda
     ((GET)
      (apply render-html (index (most-recent-n-guix-revisions conn 10))))

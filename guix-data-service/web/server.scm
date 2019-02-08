@@ -21,15 +21,32 @@
   #:use-module (web http)
   #:use-module (web request)
   #:use-module (web uri)
+  #:use-module (squee)
   #:use-module (fibers web server)
   #:use-module (guix-data-service web controller)
   #:use-module (guix-data-service web util)
   #:export (start-guix-data-service-web-server))
 
+;; TODO This isn't exported for some reason
+(define pg-conn-finish
+  (@@ (squee) pg-conn-finish))
+
+(define (with-postgresql-connection paramstring f)
+  (let* ((conn (connect-to-postgres-paramstring paramstring)))
+    (dynamic-wind
+      (const #t)
+      (lambda ()
+        (f conn))
+      (lambda ()
+        (pg-conn-finish conn)))))
+
 (define (run-controller controller request body)
-  ((controller request body)
-   (cons (request-method request)
-         (request-path-components request))))
+  (with-postgresql-connection
+   "dbname=guix_data_service"
+   (lambda (conn)
+     ((controller request body conn)
+      (cons (request-method request)
+            (request-path-components request))))))
 
 (define (handler request body controller)
   (format #t "~a ~a\n"
