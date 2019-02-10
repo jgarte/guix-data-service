@@ -4,8 +4,10 @@
   #:use-module (ice-9 vlist)
   #:use-module (ice-9 match)
   #:use-module (squee)
+  #:use-module (guix-data-service model derivation)
   #:export (package-data->package-data-vhashes
             package-differences-data
+            package-data-vhashes->derivations
             package-data-vhashes->new-packages
             package-data-vhashes->removed-packages
             package-data-version-changes
@@ -44,6 +46,24 @@ ORDER BY base_packages.name, base_packages.version, target_packages.name, target
                             (add-data-to-vhash target-row-part target-package-data))))))
                (list vlist-null vlist-null)
                package-data)))
+
+(define (package-data-vhashes->derivations conn
+                                           base-packages-vhash
+                                           target-packages-vhash)
+  (define (vhash->derivation-ids vhash)
+    (vhash-fold (lambda (key value result)
+                  (cons (third value)
+                        result))
+                '()
+                vhash))
+
+  (let* ((derivation-ids
+          (delete-duplicates
+           (append (vhash->derivation-ids base-packages-vhash)
+                   (vhash->derivation-ids target-packages-vhash))))
+         (derivation-data
+          (select-derivations-by-id conn derivation-ids)))
+    derivation-data))
 
 (define (package-data-vhash->package-name-and-version-vhash vhash)
   (vhash-fold (lambda (name details result)

@@ -19,7 +19,11 @@
          (packages-metadata-ids
           (inferior-packages->package-metadata-ids conn packages))
          (packages-derivation-ids
-          (inferior-packages->derivation-ids store conn packages)))
+          (derivations->derivation-ids conn
+                                       (map (lambda (package)
+                                              (inferior-package-derivation
+                                               store package))
+                                            packages))))
 
     (inferior-packages->package-ids
      conn packages packages-metadata-ids packages-derivation-ids)))

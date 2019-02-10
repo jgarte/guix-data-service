@@ -2,9 +2,13 @@
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 vlist)
   #:use-module (squee)
-  #:export (value->quoted-string-or-null
+  #:export (quote-string
+            value->quoted-string-or-null
             exec-query->vhash
             two-lists->vhash))
+
+(define (quote-string s)
+  (string-append "'" s "'"))
 
 (define (value->quoted-string-or-null value)
   (if (string? value)
