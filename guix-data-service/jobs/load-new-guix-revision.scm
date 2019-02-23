@@ -7,6 +7,7 @@
   #:use-module (guix inferior)
   #:use-module (guix profiles)
   #:use-module (guix derivations)
+  #:use-module (guix build utils)
   #:use-module (guix-data-service model package)
   #:use-module (guix-data-service model guix-revision)
   #:use-module (guix-data-service model guix-revision-package)
@@ -29,17 +30,29 @@
      conn packages packages-metadata-ids packages-derivation-ids)))
 
 (define (channel->manifest-store-item store channel)
-  (define (build-and-get-output-path store profile-derv)
-    (run-with-store store
-      (mbegin %store-monad
-        (built-derivations (list profile-derv))
-        (return (derivation->output-path profile-derv)))))
-
-  (let ((instances (latest-channel-instances store (list channel))))
-    (run-with-store store
-      (mlet* %store-monad ((manifest (channel-instances->manifest instances))
-                           (derv (profile-derivation manifest)))
-        ((store-lift build-and-get-output-path) derv)))))
+  (let ((inferior (open-inferior
+                   (dirname
+                    (dirname
+                     (which "guix"))))))
+    (inferior-eval '(use-modules (guix channels)
+                                 (guix profiles))
+                   inferior)
+    (inferior-eval-with-store
+     inferior
+     store
+     `(lambda (store)
+        (let ((instances (latest-channel-instances
+                          store
+                          (list (channel (name   ',(channel-name channel))
+                                         (url    ,(channel-url channel))
+                                         (branch ,(channel-branch channel))
+                                         (commit ,(channel-commit channel)))))))
+          (run-with-store store
+            (mlet* %store-monad ((manifest (channel-instances->manifest instances))
+                                 (derv (profile-derivation manifest)))
+              (mbegin %store-monad
+                (built-derivations (list derv))
+                (return (derivation->output-path derv))))))))))
 
 (define (channel->guix-store-item store channel)
   (dirname
