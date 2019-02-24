@@ -7,7 +7,7 @@
   #:use-module (guix-data-service model derivation)
   #:export (package-data->package-data-vhashes
             package-differences-data
-            package-data-vhashes->derivations
+            package-data-vhash->derivations
             package-data-vhashes->new-packages
             package-data-vhashes->removed-packages
             package-data-version-changes
@@ -47,9 +47,7 @@ ORDER BY base_packages.name, base_packages.version, target_packages.name, target
                (list vlist-null vlist-null)
                package-data)))
 
-(define (package-data-vhashes->derivations conn
-                                           base-packages-vhash
-                                           target-packages-vhash)
+(define (package-data-vhash->derivations conn packages-vhash)
   (define (vhash->derivation-ids vhash)
     (vhash-fold (lambda (key value result)
                   (cons (third value)
@@ -58,9 +56,7 @@ ORDER BY base_packages.name, base_packages.version, target_packages.name, target
                 vhash))
 
   (let* ((derivation-ids
-          (delete-duplicates
-           (append (vhash->derivation-ids base-packages-vhash)
-                   (vhash->derivation-ids target-packages-vhash))))
+          (vhash->derivation-ids packages-vhash))
          (derivation-data
           (select-derivations-by-id conn derivation-ids)))
     derivation-data))

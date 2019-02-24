@@ -24,6 +24,7 @@
   #:use-module (srfi srfi-19)
   #:export (index
             compare
+            compare/derivations
             compare-unknown-commit
             error-page))
 
@@ -225,6 +226,54 @@
                        (td ,name)
                        (td ,version))))
                   other-changes)))))))))
+
+(define (compare/derivations base-commit
+                              target-commit
+                              base-derivations
+                              target-derivations)
+  (layout
+   #:extra-headers
+   '((cache-control . ((max-age . 60))))
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (h1 "Comparing "
+          (samp ,(string-take base-commit 8) "…")
+          " and "
+          (samp ,(string-take target-commit 8) "…"))
+      (h3 "Base ("
+          (samp ,base-commit)
+          ")")
+      (p "Derivations found only in the base revision.")
+      (table
+       (@ (class "table"))
+       (thead
+        (tr
+         (th (@ (class "col-md-12")) "File Name")))
+       (tbody
+        ,@(map
+           (match-lambda
+             ((id file-name)
+              `(tr
+                (td ,file-name))))
+           base-derivations)))
+      (h3 "Target ("
+          (samp ,target-commit)
+          ")")
+      (p "Derivations found only in the target revision.")
+      (table
+       (@ (class "table"))
+       (thead
+        (tr
+         (th (@ (class "col-md-12")) "File Name")))
+       (tbody
+        ,@(map
+           (match-lambda
+             ((id file-name)
+              `(tr
+                (td ,file-name))))
+           target-derivations)))))))
 
 (define (compare-unknown-commit commit)
   (layout

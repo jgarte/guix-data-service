@@ -100,5 +100,42 @@
                                removed-packages
                                version-changes
                                other-changes)))))))))
+    ((GET "compare" "derivations")
+     (let ((base-commit (-> request
+                            request-uri
+                            uri-query
+                            parse-query-string
+                            (cut assoc-ref <> "base_commit")))
+           (target-commit (-> request
+                              request-uri
+                              uri-query
+                              parse-query-string
+                              (cut assoc-ref <> "target_commit"))))
+       (let ((base-revision-id (commit->revision-id conn base-commit))
+             (target-revision-id (commit->revision-id conn target-commit)))
+         (cond
+          ((eq? base-revision-id #f)
+           (apply render-html
+                  (compare-unknown-commit base-commit)))
+          ((eq? target-revision-id #f)
+           (apply render-html
+                  (compare-unknown-commit target-commit)))
+          (else
+           (let-values
+               (((base-packages-vhash target-packages-vhash)
+                 (package-data->package-data-vhashes
+                  (package-differences-data conn
+                                            base-revision-id
+                                            target-revision-id))))
+               (apply render-html
+                      (compare/derivations
+                       base-commit
+                       target-commit
+                       (package-data-vhash->derivations
+                        conn
+                        base-packages-vhash)
+                       (package-data-vhash->derivations
+                        conn
+                        target-packages-vhash)))))))))
     ((GET path ...)
      (render-static-asset request))))
