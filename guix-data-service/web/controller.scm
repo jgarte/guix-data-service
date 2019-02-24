@@ -27,6 +27,7 @@
   #:use-module (squee)
   #:use-module (guix-data-service comparison)
   #:use-module (guix-data-service model guix-revision)
+  #:use-module (guix-data-service jobs load-new-guix-revision)
   #:use-module (guix-data-service web render)
   #:use-module (guix-data-service web util)
   #:use-module (guix-data-service web view html)
@@ -68,12 +69,16 @@
        (let ((base-revision-id (commit->revision-id conn base-commit))
              (target-revision-id (commit->revision-id conn target-commit)))
          (cond
-          ((eq? base-revision-id #f)
+          ((not (and base-revision-id target-revision-id))
            (apply render-html
-                  (compare-unknown-commit base-commit)))
-          ((eq? target-revision-id #f)
-           (apply render-html
-                  (compare-unknown-commit target-commit)))
+                  (compare-unknown-commit base-commit
+                                          target-commit
+                                          (if base-revision-id #t #f)
+                                          (if target-revision-id #t #f)
+                                          (select-job-for-commit conn
+                                                                 base-commit)
+                                          (select-job-for-commit conn
+                                                                 target-commit))))
           (else
            (let-values
                (((base-packages-vhash target-packages-vhash)
@@ -114,12 +119,16 @@
        (let ((base-revision-id (commit->revision-id conn base-commit))
              (target-revision-id (commit->revision-id conn target-commit)))
          (cond
-          ((eq? base-revision-id #f)
+          ((not (and base-revision-id target-revision-id))
            (apply render-html
-                  (compare-unknown-commit base-commit)))
-          ((eq? target-revision-id #f)
-           (apply render-html
-                  (compare-unknown-commit target-commit)))
+                  (compare-unknown-commit base-commit
+                                          target-commit
+                                          (if base-revision-id #t #f)
+                                          (if target-revision-id #t #f)
+                                          (select-job-for-commit conn
+                                                                 base-commit)
+                                          (select-job-for-commit conn
+                                                                 target-commit))))
           (else
            (let-values
                (((base-packages-vhash target-packages-vhash)

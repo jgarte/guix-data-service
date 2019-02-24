@@ -15,7 +15,8 @@
   #:use-module (guix-data-service model guix-revision-package)
   #:use-module (guix-data-service model package-metadata)
   #:use-module (guix-data-service model derivation)
-  #:export (process-next-load-new-guix-revision-job))
+  #:export (process-next-load-new-guix-revision-job
+            select-job-for-commit))
 
 (define (inferior-guix->package-ids store conn inf)
   (let* ((packages (inferior-packages inf))
@@ -144,6 +145,14 @@
                                     (url url)
                                     (commit commit)))))
           (extract-information-from store conn url commit store-item)))))
+
+(define (select-job-for-commit conn commit)
+  (let ((result
+         (exec-query
+          conn
+          "SELECT * FROM load_new_guix_revision_jobs WHERE commit = $1"
+          (list commit))))
+    result))
 
 (define (process-next-load-new-guix-revision-job conn)
   (let ((next

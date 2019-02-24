@@ -275,13 +275,28 @@
                 (td ,file-name))))
            target-derivations)))))))
 
-(define (compare-unknown-commit commit)
+(define (compare-unknown-commit base-commit target-commit
+                                base-exists? target-exists?
+                                base-job target-job)
   (layout
    #:body
    `(,(header)
      (div (@ (class "container"))
           (h1 "Unknown commit")
-          (p "No known revision with commit  " (strong (samp ,commit)))))))
+          ,(if base-exists?
+               '()
+               `(p "No known revision with commit "
+                   (strong (samp ,base-commit))
+                   ,(if (null? base-job)
+                        " and it is not currently queued for processing"
+                        " but it is queued for processing")))
+          ,(if target-exists?
+               '()
+               `(p "No known revision with commit "
+                   (strong (samp ,target-commit))
+                   ,(if (null? target-job)
+                        " and it is not currently queued for processing"
+                        " but it is queued for processing")))))))
 
 (define (error-page message)
   (layout
