@@ -51,100 +51,189 @@
   ;;     (render-html (error-page message))))
   )
 
+(define (with-base-and-target-commits request conn f)
+  (let ((base-commit (-> request
+                         request-uri
+                         uri-query
+                         parse-query-string
+                         (cut assoc-ref <> "base_commit")))
+        (target-commit (-> request
+                           request-uri
+                           uri-query
+                           parse-query-string
+                           (cut assoc-ref <> "target_commit"))))
+    (f base-commit
+       (commit->revision-id conn base-commit)
+       target-commit
+       (commit->revision-id conn target-commit))))
+
+(define (render-compare-unknown-commit content-type
+                                       conn
+                                       base-commit
+                                       base-revision-id
+                                       target-commit
+                                       target-revision-id)
+  (cond
+   ((eq? content-type 'json)
+    (render-json
+     '((compare . #t))))
+   (else
+    (apply render-html
+           (compare-unknown-commit base-commit
+                                   target-commit
+                                   (if base-revision-id #t #f)
+                                   (if target-revision-id #t #f)
+                                   (select-job-for-commit conn
+                                                          base-commit)
+                                   (select-job-for-commit conn
+                                                          target-commit))))))
+
+(define (render-compare content-type
+                        conn
+                        base-commit
+                        base-revision-id
+                        target-commit
+                        target-revision-id)
+  (let-values
+      (((base-packages-vhash target-packages-vhash)
+        (package-data->package-data-vhashes
+         (package-differences-data conn
+                                   base-revision-id
+                                   target-revision-id))))
+    (let* ((new-packages
+            (package-data-vhashes->new-packages base-packages-vhash
+                                                target-packages-vhash))
+           (removed-packages
+            (package-data-vhashes->removed-packages base-packages-vhash
+                                                    target-packages-vhash))
+           (version-changes
+            (package-data-version-changes base-packages-vhash
+                                          target-packages-vhash))
+           (other-changes
+            (package-data-other-changes base-packages-vhash
+                                        target-packages-vhash)))
+      (cond
+       ((eq? content-type 'json)
+        (render-json
+         `((new-packages . ,new-packages)
+           (removed-packages . ,removed-packages)
+           (version-changes . ,version-changes)
+           (other-changes . ,other-changes))))
+       (else
+        (apply render-html
+               (compare base-commit
+                        target-commit
+                        new-packages
+                        removed-packages
+                        version-changes
+                        other-changes)))))))
+
+(define (render-compare/derivations content-type
+                                    conn
+                                    base-commit
+                                    base-revision-id
+                                    target-commit
+                                    target-revision-id)
+  (let-values
+      (((base-packages-vhash target-packages-vhash)
+        (package-data->package-data-vhashes
+         (package-differences-data conn
+                                   base-revision-id
+                                   target-revision-id))))
+    (let ((base-derivations
+           (package-data-vhash->derivations
+            conn
+            base-packages-vhash))
+          (target-derivations
+           (package-data-vhash->derivations
+            conn
+            target-packages-vhash)))
+    (cond
+     ((eq? content-type 'json)
+      (render-json
+       `((base . ((commit . ,base-commit)
+                  (derivations . ,base-derivations)))
+         (target . ((commit . ,target-commit)
+                    (derivations . ,target-derivations))))))
+     (else
+      (apply render-html
+             (compare/derivations
+              base-commit
+              target-commit
+              base-derivations
+              target-derivations)))))))
+
 (define (controller request body conn)
   (match-lambda
     ((GET)
      (apply render-html (index (most-recent-n-guix-revisions conn 10))))
     ((GET "compare")
-     (let ((base-commit (-> request
-                            request-uri
-                            uri-query
-                            parse-query-string
-                            (cut assoc-ref <> "base_commit")))
-           (target-commit (-> request
-                              request-uri
-                              uri-query
-                              parse-query-string
-                              (cut assoc-ref <> "target_commit"))))
-       (let ((base-revision-id (commit->revision-id conn base-commit))
-             (target-revision-id (commit->revision-id conn target-commit)))
-         (cond
-          ((not (and base-revision-id target-revision-id))
-           (apply render-html
-                  (compare-unknown-commit base-commit
-                                          target-commit
-                                          (if base-revision-id #t #f)
-                                          (if target-revision-id #t #f)
-                                          (select-job-for-commit conn
-                                                                 base-commit)
-                                          (select-job-for-commit conn
-                                                                 target-commit))))
-          (else
-           (let-values
-               (((base-packages-vhash target-packages-vhash)
-                 (package-data->package-data-vhashes
-                  (package-differences-data conn
-                                            base-revision-id
-                                            target-revision-id))))
-             (let* ((new-packages
-                     (package-data-vhashes->new-packages base-packages-vhash
-                                                         target-packages-vhash))
-                    (removed-packages
-                     (package-data-vhashes->removed-packages base-packages-vhash
-                                                             target-packages-vhash))
-                    (version-changes
-                     (package-data-version-changes base-packages-vhash
-                                                   target-packages-vhash))
-                    (other-changes
-                     (package-data-other-changes base-packages-vhash
-                                                 target-packages-vhash)))
-               (apply render-html
-                      (compare base-commit
-                               target-commit
-                               new-packages
-                               removed-packages
-                               version-changes
-                               other-changes)))))))))
+     (with-base-and-target-commits
+      request conn
+      (lambda (base-commit base-revision-id target-commit target-revision-id)
+        (if (not (and base-revision-id target-revision-id))
+            (render-compare-unknown-commit 'html
+                                           conn
+                                           base-commit
+                                           base-revision-id
+                                           target-commit
+                                           target-revision-id)
+            (render-compare 'html
+                            conn
+                            base-commit
+                            base-revision-id
+                            target-commit
+                            target-revision-id)))))
+    ((GET "compare.json")
+     (with-base-and-target-commits
+      request conn
+      (lambda (base-commit base-revision-id target-commit target-revision-id)
+        (if (not (and base-revision-id target-revision-id))
+            (render-compare-unknown-commit 'json
+                                           conn
+                                           base-commit
+                                           base-revision-id
+                                           target-commit
+                                           target-revision-id)
+            (render-compare 'json
+                            conn
+                            base-commit
+                            base-revision-id
+                            target-commit
+                            target-revision-id)))))
     ((GET "compare" "derivations")
-     (let ((base-commit (-> request
-                            request-uri
-                            uri-query
-                            parse-query-string
-                            (cut assoc-ref <> "base_commit")))
-           (target-commit (-> request
-                              request-uri
-                              uri-query
-                              parse-query-string
-                              (cut assoc-ref <> "target_commit"))))
-       (let ((base-revision-id (commit->revision-id conn base-commit))
-             (target-revision-id (commit->revision-id conn target-commit)))
-         (cond
-          ((not (and base-revision-id target-revision-id))
-           (apply render-html
-                  (compare-unknown-commit base-commit
-                                          target-commit
-                                          (if base-revision-id #t #f)
-                                          (if target-revision-id #t #f)
-                                          (select-job-for-commit conn
-                                                                 base-commit)
-                                          (select-job-for-commit conn
-                                                                 target-commit))))
-          (else
-           (let-values
-               (((base-packages-vhash target-packages-vhash)
-                 (package-data->package-data-vhashes
-                  (package-differences-data conn
-                                            base-revision-id
-                                            target-revision-id))))
-               (apply render-html
-                      (compare/derivations
-                       base-commit
-                       target-commit
-                       (package-data-vhash->derivations
-                        conn
-                        base-packages-vhash)
-                       (package-data-vhash->derivations
-                        conn
-                        target-packages-vhash)))))))))
+     (with-base-and-target-commits
+      request conn
+      (lambda (base-commit base-revision-id target-commit target-revision-id)
+        (if (not (and base-revision-id target-revision-id))
+            (render-compare-unknown-commit 'html
+                                           conn
+                                           base-commit
+                                           base-revision-id
+                                           target-commit
+                                           target-revision-id)
+            (render-compare/derivations 'html
+                                        conn
+                                        base-commit
+                                        base-revision-id
+                                        target-commit
+                                        target-revision-id)))))
+    ((GET "compare" "derivations.json")
+     (with-base-and-target-commits
+      request conn
+      (lambda (base-commit base-revision-id target-commit target-revision-id)
+        (if (not (and base-revision-id target-revision-id))
+            (render-compare-unknown-commit 'json
+                                           conn
+                                           base-commit
+                                           base-revision-id
+                                           target-commit
+                                           target-revision-id)
+            (render-compare/derivations 'json
+                                        conn
+                                        base-commit
+                                        base-revision-id
+                                        target-commit
+                                        target-revision-id)))))
     ((GET path ...)
      (render-static-asset request))))
