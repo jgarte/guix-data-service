@@ -19,12 +19,14 @@
 
 (define-module (guix-data-service web view html)
   #:use-module (guix-data-service config)
+  #:use-module (ice-9 vlist)
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-19)
   #:export (index
             compare
             compare/derivations
+            compare/packages
             compare-unknown-commit
             error-page))
 
@@ -274,6 +276,58 @@
               `(tr
                 (td ,file-name))))
            target-derivations)))))))
+
+(define (compare/packages base-commit
+                          target-commit
+                          base-packages-vhash
+                          target-packages-vhash)
+  (layout
+   #:extra-headers
+   '((cache-control . ((max-age . 60))))
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (h1 "Comparing "
+          (samp ,(string-take base-commit 8) "…")
+          " and "
+          (samp ,(string-take target-commit 8) "…"))
+      (h3 "Base ("
+          (samp ,base-commit)
+          ")")
+      (p "Packages found in the base revision.")
+      (table
+       (@ (class "table"))
+       (thead
+        (tr
+         (th (@ (class "col-md-6")) "Name")
+         (th (@ (class "col-md-6")) "Version")))
+       (tbody
+        ,@(map
+           (match-lambda
+             ((name version rest ...)
+              `(tr
+                (td ,name)
+                (td ,version))))
+           (vlist->list base-packages-vhash))))
+      (h3 "Target ("
+          (samp ,target-commit)
+          ")")
+      (p "Packages found in the target revision.")
+      (table
+       (@ (class "table"))
+       (thead
+        (tr
+         (th (@ (class "col-md-6")) "Name")
+         (th (@ (class "col-md-6")) "Version")))
+       (tbody
+        ,@(map
+           (match-lambda
+             ((name version rest ...)
+              `(tr
+                (td ,name)
+                (td ,version))))
+           (vlist->list target-packages-vhash))))))))
 
 (define (compare-unknown-commit base-commit target-commit
                                 base-exists? target-exists?

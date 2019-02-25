@@ -18,6 +18,7 @@
 
 (define-module (guix-data-service web controller)
   #:use-module (ice-9 match)
+  #:use-module (ice-9 vlist)
   #:use-module (ice-9 pretty-print)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-11)
@@ -163,6 +164,40 @@
               base-derivations
               target-derivations)))))))
 
+(define (render-compare/packages content-type
+                                 conn
+                                 base-commit
+                                 base-revision-id
+                                 target-commit
+                                 target-revision-id)
+  (define (package-data-vhash->json vh)
+    (vhash-fold (lambda (name data result)
+                  (cons (string-append name "@" (car data))
+                        result))
+                '()
+                vh))
+
+  (let-values
+      (((base-packages-vhash target-packages-vhash)
+        (package-data->package-data-vhashes
+         (package-differences-data conn
+                                   base-revision-id
+                                   target-revision-id))))
+    (cond
+     ((eq? content-type 'json)
+      (render-json
+       `((base . ((commit . ,base-commit)
+                  (packages . ,(package-data-vhash->json base-packages-vhash))))
+         (target . ((commit . ,target-commit)
+                    (packages . ,(package-data-vhash->json target-packages-vhash)))))))
+     (else
+      (apply render-html
+             (compare/packages
+              base-commit
+              target-commit
+              base-packages-vhash
+              target-packages-vhash))))))
+
 (define (controller request body conn)
   (match-lambda
     ((GET)
@@ -235,5 +270,39 @@
                                         base-revision-id
                                         target-commit
                                         target-revision-id)))))
+    ((GET "compare" "packages")
+     (with-base-and-target-commits
+      request conn
+      (lambda (base-commit base-revision-id target-commit target-revision-id)
+        (if (not (and base-revision-id target-revision-id))
+            (render-compare-unknown-commit 'html
+                                           conn
+                                           base-commit
+                                           base-revision-id
+                                           target-commit
+                                           target-revision-id)
+            (render-compare/packages 'html
+                                     conn
+                                     base-commit
+                                     base-revision-id
+                                     target-commit
+                                     target-revision-id)))))
+    ((GET "compare" "packages.json")
+     (with-base-and-target-commits
+      request conn
+      (lambda (base-commit base-revision-id target-commit target-revision-id)
+        (if (not (and base-revision-id target-revision-id))
+            (render-compare-unknown-commit 'json
+                                           conn
+                                           base-commit
+                                           base-revision-id
+                                           target-commit
+                                           target-revision-id)
+            (render-compare/packages 'json
+                                     conn
+                                     base-commit
+                                     base-revision-id
+                                     target-commit
+                                     target-revision-id)))))
     ((GET path ...)
      (render-static-asset request))))
