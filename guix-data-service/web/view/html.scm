@@ -138,6 +138,10 @@
                  removed-packages
                  version-changes
                  other-changes)
+  (define query-params
+    (string-append "?base_commit=" base-commit
+                   "&target_commit=" target-commit))
+
   (layout
    #:extra-headers
    '((cache-control . ((max-age . 60))))
@@ -145,76 +149,34 @@
    `(,(header)
      (div
       (@ (class "container"))
-      (h1 "Comparing "
-          (samp ,(string-take base-commit 8) "…")
-          " and "
-          (samp ,(string-take target-commit 8) "…"))
-      (h3 "New packages")
-      ,(if (null? new-packages)
-           '(p "No new packages")
-           `(table
-             (@ (class "table"))
-             (thead
-              (tr
-               (th (@ (class "col-md-3")) "Name")
-               (th (@ (class "col-md-9")) "Version")))
-             (tbody
-              ,@(map
-                 (match-lambda
-                   ((name version rest ...)
-                    `(tr
-                      (td ,name)
-                      (td ,version))))
-                 new-packages))))
-      (h3 "Removed packages")
-      ,(if (null? removed-packages)
-           '(p "No removed packages")
-           `(table
-             (@ (class "table"))
-             (thead
-              (tr
-               (th (@ (class "col-md-3")) "Name")
-               (th (@ (class "col-md-9")) "Version")))
-             (tbody
-              ,@(map
-                 (match-lambda
-                   ((name version rest ...)
-                    `(tr
-                      (td ,name)
-                      (td ,version))))
-                 removed-packages))))
-      (h3 "Version changes")
-      ,(if (null? version-changes)
-           '(p "No version changes")
-           `(table
-             (@ (class "table"))
-             (thead
-              (tr
-               (th (@ (class "col-md-3")) "Name")
-               (th (@ (class "col-md-9")) "Versions")))
-             (tbody
-              ,@(map
-                 (match-lambda
-                   ((name . versions)
-                    `(tr
-                      (td ,name)
-                      (td (ul
-                           ,@(map (match-lambda
-                                    ((type . version)
-                                     `(li (@ (class ,(if (eq? type 'base)
-                                                         "text-danger"
-                                                         "text-success")))
-                                          ,version
-                                          ,(if (eq? type 'base)
-                                               " (old)"
-                                               " (new)"))))
-                                  versions))))))
-                 version-changes))))
-      (h3 "Other changed packages")
-      ,@(if (null? other-changes)
-           '((p "No other changes"))
-           `((p "The metadata or derivation for these packages has changed.")
-             (table
+      (div
+       (@ (class "row"))
+       (h1 (@ (class "pull-left"))
+           "Comparing "
+           (samp ,(string-take base-commit 8) "…")
+           " and "
+           (samp ,(string-take target-commit 8) "…"))
+       (div
+        (@ (class "btn-group-vertical btn-group-lg pull-right") (role "group"))
+        (a (@ (class "btn btn-default")
+              (href ,(string-append "/compare/packages" query-params)))
+           "Compare packages")
+        (a (@ (class "btn btn-default")
+              (href ,(string-append "/compare/derivations" query-params)))
+           "Compare derivations")))
+      (div
+       (@ (class "row") (style "clear: left;"))
+       (a (@ (class "btn btn-default btn-lg")
+             (href ,(string-append
+                     "/compare.json" query-params)))
+          "View JSON"))
+      (div
+       (@ (class "row"))
+       (h3 (@ (style "clear: both;"))
+           "New packages")
+       ,(if (null? new-packages)
+            '(p "No new packages")
+            `(table
               (@ (class "table"))
               (thead
                (tr
@@ -223,16 +185,88 @@
               (tbody
                ,@(map
                   (match-lambda
-                    (((name . version) . (metadata-id derivation-id))
+                    ((name version rest ...)
                      `(tr
                        (td ,name)
                        (td ,version))))
-                  other-changes)))))))))
+                  new-packages)))))
+      (div
+       (@ (class "row"))
+       (h3 "Removed packages")
+       ,(if (null? removed-packages)
+            '(p "No removed packages")
+            `(table
+              (@ (class "table"))
+              (thead
+               (tr
+                (th (@ (class "col-md-3")) "Name")
+                (th (@ (class "col-md-9")) "Version")))
+              (tbody
+               ,@(map
+                  (match-lambda
+                    ((name version rest ...)
+                     `(tr
+                       (td ,name)
+                       (td ,version))))
+                  removed-packages)))))
+      (div
+       (@ (class "row"))
+       (h3 "Version changes")
+       ,(if (null? version-changes)
+            '(p "No version changes")
+            `(table
+              (@ (class "table"))
+              (thead
+               (tr
+                (th (@ (class "col-md-3")) "Name")
+                (th (@ (class "col-md-9")) "Versions")))
+              (tbody
+               ,@(map
+                  (match-lambda
+                    ((name . versions)
+                     `(tr
+                       (td ,name)
+                       (td (ul
+                            ,@(map (match-lambda
+                                     ((type . version)
+                                      `(li (@ (class ,(if (eq? type 'base)
+                                                          "text-danger"
+                                                          "text-success")))
+                                           ,version
+                                           ,(if (eq? type 'base)
+                                                " (old)"
+                                                " (new)"))))
+                                   versions))))))
+                  version-changes)))))
+      (div
+       (@ (class "row"))
+       (h3 "Other changed packages")
+       ,@(if (null? other-changes)
+             '((p "No other changes"))
+             `((p "The metadata or derivation for these packages has changed.")
+               (table
+                (@ (class "table"))
+                (thead
+                 (tr
+                  (th (@ (class "col-md-3")) "Name")
+                  (th (@ (class "col-md-9")) "Version")))
+                (tbody
+                 ,@(map
+                    (match-lambda
+                      (((name . version) . (metadata-id derivation-id))
+                       `(tr
+                         (td ,name)
+                         (td ,version))))
+                    other-changes))))))))))
 
 (define (compare/derivations base-commit
-                              target-commit
-                              base-derivations
-                              target-derivations)
+                             target-commit
+                             base-derivations
+                             target-derivations)
+  (define query-params
+    (string-append "?base_commit=" base-commit
+                   "&target_commit=" target-commit))
+
   (layout
    #:extra-headers
    '((cache-control . ((max-age . 60))))
@@ -240,47 +274,61 @@
    `(,(header)
      (div
       (@ (class "container"))
-      (h1 "Comparing "
-          (samp ,(string-take base-commit 8) "…")
-          " and "
-          (samp ,(string-take target-commit 8) "…"))
-      (h3 "Base ("
-          (samp ,base-commit)
-          ")")
-      (p "Derivations found only in the base revision.")
-      (table
-       (@ (class "table"))
-       (thead
-        (tr
-         (th (@ (class "col-md-12")) "File Name")))
-       (tbody
-        ,@(map
-           (match-lambda
-             ((id file-name)
-              `(tr
-                (td ,file-name))))
-           base-derivations)))
-      (h3 "Target ("
-          (samp ,target-commit)
-          ")")
-      (p "Derivations found only in the target revision.")
-      (table
-       (@ (class "table"))
-       (thead
-        (tr
-         (th (@ (class "col-md-12")) "File Name")))
-       (tbody
-        ,@(map
-           (match-lambda
-             ((id file-name)
-              `(tr
-                (td ,file-name))))
-           target-derivations)))))))
+      (div
+       (@ (class "row"))
+       (h1 "Comparing "
+           (samp ,(string-take base-commit 8) "…")
+           " and "
+           (samp ,(string-take target-commit 8) "…"))
+       (a (@ (class "btn btn-default btn-lg")
+             (href ,(string-append
+                     "/compare/derivations.json" query-params)))
+          "View JSON"))
+      (div
+       (@ (class "row"))
+       (h3 "Base ("
+           (samp ,base-commit)
+           ")")
+       (p "Derivations found only in the base revision.")
+       (table
+        (@ (class "table"))
+        (thead
+         (tr
+          (th (@ (class "col-md-12")) "File Name")))
+        (tbody
+         ,@(map
+            (match-lambda
+              ((id file-name)
+               `(tr
+                 (td ,file-name))))
+            base-derivations))))
+      (div
+       (@ (class "row"))
+       (h3 "Target ("
+           (samp ,target-commit)
+           ")")
+       (p "Derivations found only in the target revision.")
+       (table
+        (@ (class "table"))
+        (thead
+         (tr
+          (th (@ (class "col-md-12")) "File Name")))
+        (tbody
+         ,@(map
+            (match-lambda
+              ((id file-name)
+               `(tr
+                 (td ,file-name))))
+            target-derivations))))))))
 
 (define (compare/packages base-commit
                           target-commit
                           base-packages-vhash
                           target-packages-vhash)
+  (define query-params
+    (string-append "?base_commit=" base-commit
+                   "&target_commit=" target-commit))
+
   (layout
    #:extra-headers
    '((cache-control . ((max-age . 60))))
@@ -288,46 +336,56 @@
    `(,(header)
      (div
       (@ (class "container"))
-      (h1 "Comparing "
-          (samp ,(string-take base-commit 8) "…")
-          " and "
-          (samp ,(string-take target-commit 8) "…"))
-      (h3 "Base ("
-          (samp ,base-commit)
-          ")")
-      (p "Packages found in the base revision.")
-      (table
-       (@ (class "table"))
-       (thead
-        (tr
-         (th (@ (class "col-md-6")) "Name")
-         (th (@ (class "col-md-6")) "Version")))
-       (tbody
-        ,@(map
-           (match-lambda
-             ((name version rest ...)
-              `(tr
-                (td ,name)
-                (td ,version))))
-           (vlist->list base-packages-vhash))))
-      (h3 "Target ("
-          (samp ,target-commit)
-          ")")
-      (p "Packages found in the target revision.")
-      (table
-       (@ (class "table"))
-       (thead
-        (tr
-         (th (@ (class "col-md-6")) "Name")
-         (th (@ (class "col-md-6")) "Version")))
-       (tbody
-        ,@(map
-           (match-lambda
-             ((name version rest ...)
-              `(tr
-                (td ,name)
-                (td ,version))))
-           (vlist->list target-packages-vhash))))))))
+      (div
+       (@ (class "row"))
+       (h1 "Comparing "
+           (samp ,(string-take base-commit 8) "…")
+           " and "
+           (samp ,(string-take target-commit 8) "…"))
+       (a (@ (class "btn btn-default btn-lg")
+             (href ,(string-append
+                     "/compare/packages.json" query-params)))
+          "View JSON"))
+      (div
+       (@ (class "row"))
+       (h3 "Base ("
+           (samp ,base-commit)
+           ")")
+       (p "Packages found in the base revision.")
+       (table
+        (@ (class "table"))
+        (thead
+         (tr
+          (th (@ (class "col-md-6")) "Name")
+          (th (@ (class "col-md-6")) "Version")))
+        (tbody
+         ,@(map
+            (match-lambda
+              ((name version rest ...)
+               `(tr
+                 (td ,name)
+                 (td ,version))))
+            (vlist->list base-packages-vhash)))))
+      (div
+       (@ (class "row"))
+       (h3 "Target ("
+           (samp ,target-commit)
+           ")")
+       (p "Packages found in the target revision.")
+       (table
+        (@ (class "table"))
+        (thead
+         (tr
+          (th (@ (class "col-md-6")) "Name")
+          (th (@ (class "col-md-6")) "Version")))
+        (tbody
+         ,@(map
+            (match-lambda
+              ((name version rest ...)
+               `(tr
+                 (td ,name)
+                 (td ,version))))
+            (vlist->list target-packages-vhash)))))))))
 
 (define (compare-unknown-commit base-commit target-commit
                                 base-exists? target-exists?
