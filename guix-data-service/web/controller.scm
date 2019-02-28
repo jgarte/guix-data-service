@@ -77,7 +77,7 @@
   (cond
    ((eq? content-type 'json)
     (render-json
-     '((compare . #t))))
+     '((unknown_commit . #t))))
    (else
     (apply render-html
            (compare-unknown-commit base-commit
