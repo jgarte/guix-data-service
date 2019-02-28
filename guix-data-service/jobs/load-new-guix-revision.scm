@@ -160,10 +160,10 @@
           conn
           "SELECT * FROM load_new_guix_revision_jobs ORDER BY id ASC LIMIT 1")))
     (match next
-      (((id url commit))
+      (((id url commit source))
        (begin
-         (simple-format #t "Processing job ~A (url: ~A, commit: ~A)\n\n"
-                        id url commit)
+         (simple-format #t "Processing job ~A (url: ~A, commit: ~A, source: ~A)\n\n"
+                        id url commit source)
          (load-new-guix-revision conn url commit)
          (exec-query
           conn
