@@ -108,11 +108,17 @@
     (derivation->output-path derivation)))
 
 (define (channel->guix-store-item store channel)
-  (dirname
-   (readlink
-    (string-append (channel->manifest-store-item store
-                                                 channel)
-                   "/bin"))))
+  (catch
+    #t
+    (lambda ()
+      (dirname
+       (readlink
+        (string-append (channel->manifest-store-item store
+                                                     channel)
+                       "/bin"))))
+    (lambda args
+      (simple-format #t "guix-data-service: load-new-guix-revision: error: ~A\n" args)
+      #f)))
 
 (define (extract-information-from store conn url commit store_path)
   (let ((inf (open-inferior/container store store_path
@@ -144,7 +150,8 @@
                            (channel (name 'guix)
                                     (url url)
                                     (commit commit)))))
-          (extract-information-from store conn url commit store-item)))))
+          (and store-item
+               (extract-information-from store conn url commit store-item))))))
 
 (define (select-job-for-commit conn commit)
   (let ((result
