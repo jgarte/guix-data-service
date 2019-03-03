@@ -23,11 +23,23 @@
          (packages-metadata-ids
           (inferior-packages->package-metadata-ids conn packages))
          (packages-derivation-ids
-          (derivations->derivation-ids conn
-                                       (map (lambda (package)
-                                              (inferior-package-derivation
-                                               store package))
-                                            packages))))
+          (derivations->derivation-ids
+           conn
+           (filter-map
+            (lambda (package)
+              (catch
+                #t
+                (lambda ()
+                  (inferior-package-derivation
+                   store package))
+                (lambda args
+                  (simple-format
+                   #t "guix-data-service: inferior-guix->package-ids: error processing derivation ~A\n"
+                   package)
+                  (simple-format
+                   #t "guix-data-service: inferior-guix->package-ids: error: ~A\n" args)
+                  #f)))
+            packages))))
 
     (inferior-packages->package-ids
      conn packages packages-metadata-ids packages-derivation-ids)))
