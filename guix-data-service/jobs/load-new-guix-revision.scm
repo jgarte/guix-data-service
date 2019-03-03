@@ -16,7 +16,8 @@
   #:use-module (guix-data-service model package-metadata)
   #:use-module (guix-data-service model derivation)
   #:export (process-next-load-new-guix-revision-job
-            select-job-for-commit))
+            select-job-for-commit
+            most-recent-n-load-new-guix-revision-jobs))
 
 (define (inferior-guix->package-ids store conn inf)
   (let* ((packages (inferior-packages inf))
@@ -171,6 +172,14 @@
           conn
           "SELECT * FROM load_new_guix_revision_jobs WHERE commit = $1"
           (list commit))))
+    result))
+
+(define (most-recent-n-load-new-guix-revision-jobs conn n)
+  (let ((result
+         (exec-query
+          conn
+          "SELECT * FROM load_new_guix_revision_jobs LIMIT $1"
+          (list (number->string n)))))
     result))
 
 (define (process-next-load-new-guix-revision-job conn)

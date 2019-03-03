@@ -81,7 +81,7 @@
                           "source code here") ".")))))
     #:extra-headers ,extra-headers))
 
-(define (index guix-revisions)
+(define (index guix-revisions queued-guix-revisions)
   (layout
    #:extra-headers
    '((cache-control . ((max-age . 60))))
@@ -89,48 +89,80 @@
    `(,(header)
      (div
       (@ (class "container"))
-      (h1 "Guix Data Service")
-      (form (@ (id "compare")
-               (action "/compare"))
-            (div
-             (@ (class "form-group"))
-             (label (@ (for "base_commit"))
-                    "Base commit")
-             (input (@ (type "text")
-                       (class "form-control")
-                       (id   "base_commit")
-                       (name "base_commit")
-                       (placeholder "base commit"))))
-            (div
-             (@ (class "form-group"))
-             (label (@ (for "target_commit"))
-                    "Target commit")
-             (input (@ (type "text")
-                       (class "form-control")
-                       (id   "target_commit")
-                       (name "target_commit")
-                       (placeholder "target commit"))))
-            (button
-             (@ (type "submit")
-                (class "btn btn-lg btn-primary"))
-             "Compare"))
-      (h3 "Recent fetched revisions")
-      ,(if (null? guix-revisions)
-           '(p "No revisions")
-           `(table
-             (@ (class "table"))
-             (thead
-              (tr
-               (th (@ (class "col-md-6")) "Source Repository URL")
-               (th (@ (class "col-md-6")) "Commit")))
-             (tbody
-              ,@(map
-                 (match-lambda
-                   ((id url commit store_path)
-                    `(tr
-                      (td ,url)
-                      (td (samp ,commit)))))
-                 guix-revisions))))))))
+      (div
+       (@ (class "row"))
+       (h1 "Guix Data Service"))
+      (div
+       (@ (class "row"))
+       (form
+        (@ (id "compare")
+           (action "/compare"))
+        (div
+         (@ (class "col-md-6"))
+         (div
+          (@ (class "form-group"))
+          (label (@ (for "base_commit"))
+                 "Base commit")
+          (input (@ (type "text")
+                    (class "form-control")
+                    (id   "base_commit")
+                    (name "base_commit")
+                    (placeholder "base commit"))))
+         (div
+          (@ (class "form-group"))
+          (label (@ (for "target_commit"))
+                 "Target commit")
+          (input (@ (type "text")
+                    (class "form-control")
+                    (id   "target_commit")
+                    (name "target_commit")
+                    (placeholder "target commit")))))
+        (div
+         (@ (class "col-md-6"))
+         (button
+          (@ (type "submit")
+             (class "btn btn-lg btn-primary"))
+          "Compare"))))
+      (div
+       (@ (class "row"))
+       (h3 "Recent fetched revisions")
+       ,(if (null? guix-revisions)
+            '(p "No revisions")
+            `(table
+              (@ (class "table"))
+              (thead
+               (tr
+                (th (@ (class "col-md-6")) "Source Repository URL")
+                (th (@ (class "col-md-6")) "Commit")))
+              (tbody
+               ,@(map
+                  (match-lambda
+                    ((id url commit store_path)
+                     `(tr
+                       (td ,url)
+                       (td (samp ,commit)))))
+                  guix-revisions)))))
+      (div
+       (@ (class "row"))
+       (h3 "Queued revisions")
+       ,(if (null? queued-guix-revisions)
+            '(p "No queued revisions")
+            `(table
+              (@ (class "table"))
+              (thead
+               (tr
+                (th (@ (class "col-md-4")) "Source Repository URL")
+                (th (@ (class "col-md-4")) "Commit")
+                (th (@ (class "col-md-4")) "Source")))
+              (tbody
+               ,@(map
+                  (match-lambda
+                    ((id url commit source)
+                     `(tr
+                       (td ,url)
+                       (td (samp ,commit))
+                       (td ,source))))
+                  queued-guix-revisions)))))))))
 
 (define (compare base-commit
                  target-commit

@@ -201,7 +201,9 @@
 (define (controller request body conn)
   (match-lambda
     ((GET)
-     (apply render-html (index (most-recent-n-guix-revisions conn 10))))
+     (apply render-html (index
+                         (most-recent-n-guix-revisions conn 10)
+                         (most-recent-n-load-new-guix-revision-jobs conn 1000))))
     ((GET "compare")
      (with-base-and-target-commits
       request conn
