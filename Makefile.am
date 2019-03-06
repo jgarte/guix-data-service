@@ -31,8 +31,11 @@ assetsdir = $(datadir)/@PACKAGE@
 SOURCES =						\
   guix-data-service/comparison.scm			\
   guix-data-service/config.scm				\
-  guix-data-service/jobs/load-new-guix-revision.scm	\
   guix-data-service/jobs.scm				\
+  guix-data-service/jobs/load-new-guix-revision.scm	\
+  guix-data-service/model/build-server.scm		\
+  guix-data-service/model/build-status.scm		\
+  guix-data-service/model/build.scm			\
   guix-data-service/model/derivation.scm		\
   guix-data-service/model/guix-revision-package.scm	\
   guix-data-service/model/guix-revision.scm		\
