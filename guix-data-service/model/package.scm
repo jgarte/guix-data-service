@@ -6,6 +6,7 @@
   #:use-module (guix inferior)
   #:use-module (guix-data-service model utils)
   #:export (select-existing-package-entries
+            select-packages-in-revision
             insert-into-package-entries
             inferior-packages->package-ids))
 
@@ -27,6 +28,20 @@
                  "packages.package_metadata_id = vals.package_metadata_id AND "
                  "packages.derivation_id = vals.derivation_id"
                  ";"))
+
+(define (select-packages-in-revision conn commit-hash)
+  (define query
+    (string-append
+     "SELECT packages.name, packages.version, packages.derivation_id "
+     "FROM packages "
+     "INNER JOIN guix_revision_packages"
+     " ON packages.id = guix_revision_packages.package_id "
+     "INNER JOIN guix_revisions"
+     " ON guix_revision_packages.revision_id = guix_revisions.id "
+     "WHERE guix_revisions.commit = $1 "
+     "ORDER BY packages.name, packages.version"))
+
+  (exec-query conn query (list commit-hash)))
 
 (define (insert-into-package-entries package-entries)
   (string-append "INSERT INTO packages "

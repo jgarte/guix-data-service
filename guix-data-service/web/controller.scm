@@ -28,6 +28,8 @@
   #:use-module (squee)
   #:use-module (guix-data-service comparison)
   #:use-module (guix-data-service model guix-revision)
+  #:use-module (guix-data-service model package)
+  #:use-module (guix-data-service model build)
   #:use-module (guix-data-service jobs load-new-guix-revision)
   #:use-module (guix-data-service web render)
   #:use-module (guix-data-service web util)
@@ -204,6 +206,19 @@
      (apply render-html (index
                          (most-recent-n-guix-revisions conn 10)
                          (most-recent-n-load-new-guix-revision-jobs conn 1000))))
+    ((GET "builds")
+     (apply render-html
+            (view-builds (select-build-stats conn)
+                         (select-builds-with-context conn))))
+    ((GET "revision" commit-hash)
+     (apply render-html
+            (view-revision commit-hash
+                           (select-packages-in-revision conn
+                                                        commit-hash))))
+    ((GET "derivation" derivation-file-name ...)
+     (apply render-html
+            (view-derivation (string-append
+                              "/" (string-join derivation-file-name "/")))))
     ((GET "compare")
      (with-base-and-target-commits
       request conn

@@ -24,6 +24,9 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-19)
   #:export (index
+            view-revision
+            view-builds
+            view-derivation
             compare
             compare/derivations
             compare/packages
@@ -163,6 +166,104 @@
                        (td (samp ,commit))
                        (td ,source))))
                   queued-guix-revisions)))))))))
+
+(define (view-revision commit-hash packages)
+  (layout
+   #:extra-headers
+   '((cache-control . ((max-age . 60))))
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (h1 "Revision " (samp ,commit-hash)))
+      (div
+       (@ (class "row"))
+       (h3 "Packages")
+       (table
+        (@ (class "table"))
+        (thead
+         (tr
+          (th (@ (class "col-md-3")) "Name")
+          (th (@ (class "col-md-9")) "Version")))
+        (tbody
+         ,@(map
+            (match-lambda
+              ((name version rest ...)
+               `(tr
+                 (td ,name)
+                 (td ,version))))
+            packages))))))))
+
+(define (view-builds stats builds)
+  (layout
+   #:extra-headers
+   '((cache-control . ((max-age . 60))))
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (h1 "Builds")
+       (table
+        (@ (class "table"))
+        (thead
+         (tr
+          (th (@ (class "col-md-2")) "Status")
+          (th (@ (class "col-md-2")) "Count")))
+        (tbody
+         ,@(map
+            (match-lambda
+              ((status count)
+               `(tr
+                 (td ,status)
+                 (td ,count))))
+            stats))))
+      (div
+       (@ (class "row"))
+       (table
+        (@ (class "table"))
+        (thead
+         (tr
+          (th (@ (class "col-xs-2")) "Status")
+          (th (@ (class "col-xs-9")) "Derivation")
+          (th (@ (class "col-xs-1")) "Started at")
+          (th (@ (class "col-xs-1")) "Finished at")
+          (th (@ (class "col-xs-1")) "")))
+        (tbody
+         ,@(map
+            (match-lambda
+              ((build-id build-server-url derivation-file-name
+                         status-fetched-at starttime stoptime status)
+               `(tr
+                 (td (@ (class ,(cond
+                                 ((string=? status "succeeded")
+                                  "bg-success")
+                                 ((string=? status "failed")
+                                  "bg-danger")
+                                 (else ""))))
+                     ,status)
+                 (td ,derivation-file-name)
+                 (td ,starttime)
+                 (td ,stoptime)
+                 (td (a (@ (href ,(simple-format
+                                   #f "~Abuild/~A" build-server-url build-id)))
+                        "View build on " ,build-server-url)))))
+            builds))))))))
+
+(define (view-derivation derivation-file-name)
+  (layout
+   #:extra-headers
+   '((cache-control . ((max-age . 60))))
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (h1 "Derivation " (samp ,derivation-file-name)))))))
 
 (define (compare base-commit
                  target-commit
