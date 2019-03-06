@@ -326,13 +326,15 @@
         (@ (class "table"))
         (thead
          (tr
-          (th (@ (class "col-md-12")) "File Name")))
+          (th (@ (class "col-md-8")) "File Name")
+          (th (@ (class "col-md-4")) "Build status")))
         (tbody
          ,@(map
             (match-lambda
-              ((id file-name)
+              ((id file-name build-status)
                `(tr
-                 (td ,file-name))))
+                 (td ,file-name)
+                 (td ,build-status))))
             base-derivations))))
       (div
        (@ (class "row"))
@@ -344,13 +346,15 @@
         (@ (class "table"))
         (thead
          (tr
-          (th (@ (class "col-md-12")) "File Name")))
+          (th (@ (class "col-md-8")) "File Name")
+          (th (@ (class "col-md-4")) "Build status")))
         (tbody
          ,@(map
             (match-lambda
-              ((id file-name)
+              ((id file-name build-status)
                `(tr
-                 (td ,file-name))))
+                 (td ,file-name)
+                 (td ,build-status))))
             target-derivations))))))))
 
 (define (compare/packages base-commit

@@ -8,6 +8,7 @@
   #:export (package-data->package-data-vhashes
             package-differences-data
             package-data-vhash->derivations
+            package-data-vhash->derivations-and-build-status
             package-data-vhashes->new-packages
             package-data-vhashes->removed-packages
             package-data-version-changes
@@ -59,6 +60,20 @@ ORDER BY base_packages.name, base_packages.version, target_packages.name, target
           (vhash->derivation-ids packages-vhash))
          (derivation-data
           (select-derivations-by-id conn derivation-ids)))
+    derivation-data))
+
+(define (package-data-vhash->derivations-and-build-status conn packages-vhash)
+  (define (vhash->derivation-ids vhash)
+    (vhash-fold (lambda (key value result)
+                  (cons (third value)
+                        result))
+                '()
+                vhash))
+
+  (let* ((derivation-ids
+          (vhash->derivation-ids packages-vhash))
+         (derivation-data
+          (select-derivations-and-build-status-by-id conn derivation-ids)))
     derivation-data))
 
 (define (package-data-vhash->package-name-and-version-vhash vhash)

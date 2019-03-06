@@ -9,6 +9,7 @@
   #:use-module (guix-data-service model utils)
   #:export (select-existing-derivations
             select-derivations-by-id
+            select-derivations-and-build-status-by-id
             insert-into-derivations
             derivations->derivation-ids))
 
@@ -286,6 +287,27 @@
                                          ids)
                                     ",")
                    ");"))
+
+  (exec-query conn query))
+
+(define (select-derivations-and-build-status-by-id conn ids)
+  (define query
+    (string-append
+     "SELECT derivations.id, derivations.file_name, latest_build_status.status "
+     "FROM derivations "
+     "LEFT OUTER JOIN builds ON derivations.id = builds.derivation_id "
+     "LEFT OUTER JOIN "
+     "(SELECT DISTINCT ON (internal_build_id) * "
+     "FROM build_status "
+     "ORDER BY internal_build_id, status_fetched_at DESC"
+     ") AS latest_build_status "
+     "ON builds.internal_id = latest_build_status.internal_build_id "
+     "WHERE derivations.id IN "
+     "(" (string-join (map (lambda (id)
+                             (simple-format #f "'~A'" id))
+                           ids)
+                      ",")
+     ");"))
 
   (exec-query conn query))
 

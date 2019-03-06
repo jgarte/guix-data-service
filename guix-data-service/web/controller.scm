@@ -142,27 +142,27 @@
                                    base-revision-id
                                    target-revision-id))))
     (let ((base-derivations
-           (package-data-vhash->derivations
+           (package-data-vhash->derivations-and-build-status
             conn
             base-packages-vhash))
           (target-derivations
-           (package-data-vhash->derivations
+           (package-data-vhash->derivations-and-build-status
             conn
             target-packages-vhash)))
-    (cond
-     ((eq? content-type 'json)
-      (render-json
-       `((base . ((commit . ,base-commit)
-                  (derivations . ,base-derivations)))
-         (target . ((commit . ,target-commit)
-                    (derivations . ,target-derivations))))))
-     (else
-      (apply render-html
-             (compare/derivations
-              base-commit
-              target-commit
-              base-derivations
-              target-derivations)))))))
+      (cond
+       ((eq? content-type 'json)
+        (render-json
+         `((base . ((commit . ,base-commit)
+                    (derivations . ,base-derivations)))
+           (target . ((commit . ,target-commit)
+                      (derivations . ,target-derivations))))))
+       (else
+        (apply render-html
+               (compare/derivations
+                base-commit
+                target-commit
+                base-derivations
+                target-derivations)))))))
 
 (define (render-compare/packages content-type
                                  conn
