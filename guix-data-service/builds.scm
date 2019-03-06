@@ -70,17 +70,14 @@
    (select-derivations-with-no-known-build conn)))
 
 (define (fetch-build-for-derivation url derivation-file-name)
-  (match (array->list
-          (fetch-latest-builds-for-derivation url derivation-file-name))
-    (#f #f)
-    (()
-     (match (array->list
-             (fetch-queued-builds-for-derivation url derivation-file-name))
-       (#f #f)
-       (() #f)
-       ((status)
+  (match (fetch-latest-builds-for-derivation url derivation-file-name)
+    ((or #f #())
+     (match (fetch-queued-builds-for-derivation url derivation-file-name)
+       ((or #f #())
+        #f)
+       (#(status)
         status)))
-    ((status)
+    (#(status)
      status)))
 
 (define (json-string->scm* string)
@@ -94,33 +91,37 @@
       (simple-format #t "error parsing: ~A\n" string)
       #f)))
 
-(define (fetch-latest-builds-for-derivation url derivation-file-name)
-  (let-values
-      (((response body)
-        (http-request (string-append
-                       url
-                       "api/latestbuilds?nr=10"
-                       "&derivation=" derivation-file-name))))
+(define (fetch-latest-builds-for-derivation base-url derivation-file-name)
+  (define url
+    (string-append base-url
+                   "api/latestbuilds?nr=10"
+                   "&derivation=" derivation-file-name))
 
-    (cond
-     ((eq? (response-code response) 200)
-      (json-string->scm
-       (bytevector->string body "utf-8")))
-     (else #f))))
+  (let-values (((response body) (http-request url)))
+    (let ((code (response-code response)))
+      (cond
+       ((eq? code 200)
+        (json-string->scm
+         (bytevector->string body "utf-8")))
+       (else
+        (simple-format #t "error: response code ~A: ~A\n" url code)
+        #f)))))
 
-(define (fetch-queued-builds-for-derivation url derivation-file-name)
-  (let-values
-      (((response body)
-        (http-request (string-append
-                       url
-                       "api/queue?nr=10"
-                       "&derivation=" derivation-file-name))))
+(define (fetch-queued-builds-for-derivation base-url derivation-file-name)
+  (define url
+    (string-append base-url
+                   "api/queue?nr=10"
+                   "&derivation=" derivation-file-name))
 
-    (cond
-     ((eq? (response-code response) 200)
-      (json-string->scm
-       (bytevector->string body "utf-8")))
-     (else #f))))
+  (let-values (((response body) (http-request url)))
+    (let ((code (response-code response)))
+      (cond
+       ((eq? code 200)
+        (json-string->scm
+         (bytevector->string body "utf-8")))
+       (else
+        (simple-format #t "error: response code ~A: ~A\n" url code)
+        #f)))))
 
 (define (fetch-build url id)
   (let-values
