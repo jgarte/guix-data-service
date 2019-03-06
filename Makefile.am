@@ -22,13 +22,15 @@ include guile.am
 
 bin_SCRIPTS =						\
   scripts/guix-data-service				\
-  scripts/guix-data-service-process-jobs
+  scripts/guix-data-service-process-jobs		\
+  scripts/guix-data-service-query-build-servers
 
 moddir = $(prefix)/share/guile/site/$(GUILE_EFFECTIVE_VERSION)
 godir  = $(moddir)
 assetsdir = $(datadir)/@PACKAGE@
 
 SOURCES =						\
+  guix-data-service/builds.scm				\
   guix-data-service/comparison.scm			\
   guix-data-service/config.scm				\
   guix-data-service/jobs.scm				\

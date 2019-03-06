@@ -11,4 +11,5 @@ configure
 guix-data-service/config.scm
 scripts/guix-data-service
 scripts/guix-data-service-process-jobs
+scripts/guix-data-service-query-build-servers
 pre-inst-env
