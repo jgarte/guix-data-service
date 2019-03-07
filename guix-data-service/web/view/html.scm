@@ -24,6 +24,7 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-19)
   #:export (index
+            view-revision-package-and-version
             view-revision
             view-builds
             view-derivation
@@ -144,7 +145,9 @@
                     ((id url commit store_path)
                      `(tr
                        (td ,url)
-                       (td (samp ,commit)))))
+                       (td (a (@ (href ,(string-append
+                                         "/revision/" commit)))
+                              (samp ,commit))))))
                   guix-revisions)))))
       (div
        (@ (class "row"))
@@ -168,6 +171,18 @@
                        (td ,source))))
                   queued-guix-revisions)))))))))
 
+(define (view-revision-package-and-version revision-commit-hash name version)
+  (layout
+   #:extra-headers
+   '((cache-control . ((max-age . 60))))
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (h1 "Package " ,name " @ " ,version))))))
+
 (define (view-revision commit-hash packages)
   (layout
    #:extra-headers
@@ -187,13 +202,16 @@
         (thead
          (tr
           (th (@ (class "col-md-3")) "Name")
-          (th (@ (class "col-md-9")) "Version")))
+          (th (@ (class "col-md-3")) "Version")))
         (tbody
          ,@(map
             (match-lambda
               ((name version rest ...)
                `(tr
-                 (td ,name)
+                 (td (a (@ (href ,(string-append
+                                   "/revision/" commit-hash
+                                   "/package/" name "/" version)))
+                        ,name))
                  (td ,version))))
             packages))))))))
 
@@ -258,7 +276,7 @@
 (define (display-store-item-short item)
   `((span (@ (style "font-size: small; font-family: monospace; display: block;"))
           ,(string-take item 44))
-    (span (@ (style "font-size: x-large; font-family: monospace;"))
+    (span (@ (style "font-size: x-large; font-family: monospace; display: block;"))
           ,(string-drop item 44))))
 
 (define (display-store-item item)
@@ -267,7 +285,22 @@
     (span (@ (style "font-size: x-large; font-family: monospace;"))
           ,(string-drop item 44))))
 
-(define (view-store-item filename)
+(define (display-store-item-title item)
+  `(h1 (span (@ (style "font-size: 1em; font-family: monospace; display: block;"))
+             ,(string-take item 44))
+       (span (@ (style "line-height: 1.7em; font-size: 1.5em; font-family: monospace;"))
+             ,(string-drop item 44))))
+
+(define (display-file-in-store-item filename)
+  (match (string-split filename #\/)
+    (("" "gnu" "store" item fileparts ...)
+     `(,(let ((full-item (string-append "/gnu/store/" item)))
+          `(a (@ (href ,full-item))
+              ,(display-store-item-short full-item)))
+       ,(string-append
+         "/" (string-join fileparts "/"))))))
+
+(define (view-store-item filename derivation derivations-using-store-item)
   (layout
    #:extra-headers
    '((cache-control . ((max-age . 60))))
@@ -277,9 +310,32 @@
       (@ (class "container"))
       (div
        (@ (class "row"))
-       (h1 (samp ,filename)))))))
+       ,(display-store-item-title filename))
+      (div
+       (@ (class "row"))
+       (h4 "Derivation: ")
+       ,(match derivation
+          ((file-name output-id)
+           `(a (@ (href ,file-name))
+               ,(display-store-item file-name)))))
+      (div
+       (@ (class "row"))
+       (h2 "Derivations using this store item "
+           ,(let ((count (length derivations-using-store-item)))
+              (if (eq? count 100)
+                  "(> 100)"
+                  (simple-format #f "(~A)" count))))
+       (ul
+        (@ (class "list-unstyled"))
+        ,(map
+          (match-lambda
+            ((file-name)
+             `(li (a (@ (href ,file-name))
+                     ,(display-store-item file-name)))))
+          derivations-using-store-item)))))))
 
-(define (view-derivation derivation derivation-inputs derivation-outputs)
+(define (view-derivation derivation derivation-inputs derivation-outputs
+                         builds)
   (layout
    #:extra-headers
    '((cache-control . ((max-age . 60))))
@@ -291,7 +347,7 @@
          ((id file-name builder args env-vars system)
           `(div
             (@ (class "row"))
-            (h1 "Derivation " (samp ,file-name)))))
+            ,(display-store-item-title file-name))))
       (div
        (@ (class "row"))
        (div
@@ -311,7 +367,31 @@
                  derivation-inputs))))
        (div
         (@ (class "col-md-4"))
-        "Details")
+        (h3 "Derivation details")
+        ,(match derivation
+           ((id file-name builder args env-vars system)
+            `(table
+              (@ (class "table"))
+              (tbody
+               (tr
+                (td "Builder")
+                (td (a (@ (href ,builder))
+                       ,(display-file-in-store-item builder))))
+               (tr
+                (td "System")
+                (td (samp ,system)))))))
+        (h3 "Build status")
+        ,@(map
+           (match-lambda
+             ((build-id build-server-url status-fetched-at
+                        starttime stoptime status)
+              `(div
+                (@ (class "text-center"))
+                (div ,status)
+                (a (@ (href ,(simple-format
+                              #f "~Abuild/~A" build-server-url build-id)))
+                   "View build on " ,build-server-url))))
+           builds))
        (div
         (@ (class "col-md-4"))
         (h3 "Outputs")

@@ -2,6 +2,7 @@
   #:use-module (squee)
   #:export (select-build-stats
             select-builds-with-context
+            select-builds-with-context-by-derivation-id
             select-build-by-build-server-and-id
             insert-build
             ensure-build-exists))
@@ -41,6 +42,25 @@
      "LIMIT 100"))
 
   (exec-query conn query))
+
+(define (select-builds-with-context-by-derivation-id conn derivation-id)
+  (define query
+    (string-append
+     "SELECT builds.id, build_servers.url, "
+     "latest_build_status.status_fetched_at, latest_build_status.starttime, "
+     "latest_build_status.stoptime, latest_build_status.status "
+     "FROM builds "
+     "INNER JOIN build_servers ON build_servers.id = builds.build_server_id "
+     "INNER JOIN "
+     "(SELECT DISTINCT ON (internal_build_id) * "
+     "FROM build_status "
+     "ORDER BY internal_build_id, status_fetched_at DESC"
+     ") AS latest_build_status "
+     "ON latest_build_status.internal_build_id = builds.internal_id "
+     "WHERE builds.derivation_id = $1 "
+     "ORDER BY latest_build_status.status_fetched_at DESC "))
+
+  (exec-query conn query (list derivation-id)))
 
 (define (select-build-by-build-server-and-id
          conn build-server-id id)

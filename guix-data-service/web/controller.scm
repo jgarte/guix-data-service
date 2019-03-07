@@ -210,17 +210,31 @@
                                   (first derivation)))
               (derivation-outputs (select-derivation-outputs-by-derivation-id
                                    conn
-                                   (first derivation))))
+                                   (first derivation)))
+              (builds (select-builds-with-context-by-derivation-id
+                       conn
+                       (first derivation))))
           (apply render-html
                  (view-derivation derivation
                                   derivation-inputs
-                                  derivation-outputs)))
+                                  derivation-outputs
+                                  builds)))
         #f ;; TODO
         )))
 
 (define (render-store-item conn filename)
-  (apply render-html
-         (view-store-item filename)))
+  (let ((derivation (select-derivation-by-output-filename conn filename)))
+    (match derivation
+      (()
+       #f)
+      ((derivation)
+       (apply render-html
+              (view-store-item filename
+                               derivation
+                               (match derivation
+                                 ((file-name output-id rest ...)
+                                  (select-derivations-using-output
+                                   conn output-id)))))))))
 
 (define (controller request body conn)
   (match-lambda
@@ -237,6 +251,11 @@
             (view-revision commit-hash
                            (select-packages-in-revision conn
                                                         commit-hash))))
+    ((GET "revision" commit-hash "package" name version)
+     (apply render-html
+            (view-revision-package-and-version commit-hash
+                                               name
+                                               version)))
     ((GET "gnu" "store" filename)
      (if (string-suffix? ".drv" filename)
          (render-derivation conn (string-append "/gnu/store/" filename))

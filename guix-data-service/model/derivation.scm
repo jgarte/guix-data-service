@@ -9,6 +9,8 @@
   #:use-module (guix-data-service model utils)
   #:export (select-derivation-by-file-name
             select-derivation-outputs-by-derivation-id
+            select-derivation-by-output-filename
+            select-derivations-using-output
             select-derivation-inputs-by-derivation-id
             select-existing-derivations
             select-derivations-by-id
@@ -33,6 +35,32 @@
    (string-join (map quote-string paths)
                 ",")
    ")"))
+
+(define (select-derivation-by-output-filename conn filename)
+  (define query
+    (string-append
+     "SELECT derivations.file_name, derivation_outputs.id "
+     "FROM derivation_output_details "
+     "INNER JOIN derivation_outputs"
+     " ON derivation_output_details.id = derivation_outputs.derivation_output_details_id "
+     "INNER JOIN derivations"
+     " ON derivation_outputs.derivation_id = derivations.id "
+     "WHERE derivation_output_details.path = $1"))
+
+  (exec-query conn query (list filename)))
+
+(define (select-derivations-using-output conn output-id)
+  (define query
+    (string-append
+     "SELECT derivations.file_name "
+     "FROM derivations "
+     "INNER JOIN derivation_inputs"
+     " ON derivation_inputs.derivation_id = derivations.id "
+     "WHERE derivation_output_id = $1 "
+     "ORDER BY derivations.file_name "
+     "LIMIT 100 "))
+
+  (exec-query conn query (list output-id)))
 
 (define (insert-derivation-outputs conn
                                    derivation-id
