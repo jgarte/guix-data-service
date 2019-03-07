@@ -7,7 +7,10 @@
   #:use-module (guix inferior)
   #:use-module (guix derivations)
   #:use-module (guix-data-service model utils)
-  #:export (select-existing-derivations
+  #:export (select-derivation-by-file-name
+            select-derivation-outputs-by-derivation-id
+            select-derivation-inputs-by-derivation-id
+            select-existing-derivations
             select-derivations-by-id
             select-derivations-and-build-status-by-id
             insert-into-derivations
@@ -122,6 +125,19 @@
 
     derivation-output-ids))
 
+(define (select-derivation-by-file-name conn file-name)
+  (define query
+    (string-append
+     "SELECT id, file_name, builder, args, env_vars, system "
+     "FROM derivations "
+     "WHERE file_name = $1"))
+
+  (match (exec-query conn query (list file-name))
+    (()
+     #f)
+    ((result)
+     result)))
+
 (define (select-derivation-output-id conn name path)
   (match (exec-query
           conn
@@ -137,6 +153,35 @@
      (error (simple-format
              #f "cannot find derivation-output with name ~A and path ~A"
              name path)))))
+
+(define (select-derivation-outputs-by-derivation-id conn id)
+  (define query
+    (string-append
+     "SELECT derivation_outputs.name, derivation_output_details.path, "
+     "derivation_output_details.hash_algorithm, derivation_output_details.hash, "
+     "derivation_output_details.recursive "
+     "FROM derivation_outputs "
+     "INNER JOIN derivation_output_details ON "
+     "derivation_outputs.derivation_output_details_id = derivation_output_details.id "
+     "WHERE derivation_id = $1"))
+
+  (exec-query conn query (list id)))
+
+(define (select-derivation-inputs-by-derivation-id conn id)
+  (define query
+    (string-append
+     "SELECT derivations.file_name, derivation_outputs.name, "
+     "derivation_output_details.path "
+     "FROM derivation_inputs "
+     "INNER JOIN derivation_outputs"
+     " ON derivation_outputs.id = derivation_inputs.derivation_output_id "
+     "INNER JOIN derivation_output_details"
+     " ON derivation_outputs.derivation_output_details_id = derivation_output_details.id "
+     "INNER JOIN derivations"
+     " ON derivation_outputs.derivation_id = derivations.id "
+     "WHERE derivation_inputs.derivation_id = $1"))
+
+  (exec-query conn query (list id)))
 
 (define (insert-derivation-input conn derivation-id derivation-input)
   (define (insert-into-derivation-inputs output-ids)

@@ -27,6 +27,7 @@
             view-revision
             view-builds
             view-derivation
+            view-store-item
             compare
             compare/derivations
             compare/packages
@@ -253,7 +254,19 @@
                         "View build on " ,build-server-url)))))
             builds))))))))
 
-(define (view-derivation derivation-file-name)
+(define (display-store-item-short item)
+  `((span (@ (style "font-size: small; font-family: monospace; display: block;"))
+          ,(string-take item 44))
+    (span (@ (style "font-size: x-large; font-family: monospace;"))
+          ,(string-drop item 44))))
+
+(define (display-store-item item)
+  `((span (@ (style "font-size: small; font-family: monospace;"))
+          ,(string-take item 44))
+    (span (@ (style "font-size: x-large; font-family: monospace;"))
+          ,(string-drop item 44))))
+
+(define (view-store-item filename)
   (layout
    #:extra-headers
    '((cache-control . ((max-age . 60))))
@@ -263,7 +276,56 @@
       (@ (class "container"))
       (div
        (@ (class "row"))
-       (h1 "Derivation " (samp ,derivation-file-name)))))))
+       (h1 (samp ,filename)))))))
+
+(define (view-derivation derivation derivation-inputs derivation-outputs)
+  (layout
+   #:extra-headers
+   '((cache-control . ((max-age . 60))))
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      ,(match derivation
+         ((id file-name builder args env-vars system)
+          `(div
+            (@ (class "row"))
+            (h1 "Derivation " (samp ,file-name)))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-4"))
+        (h3 "Inputs")
+        (table
+         (@ (class "table"))
+         (thead
+          (tr
+           (th "File name")))
+         (tdata
+          ,@(map (match-lambda
+                   ((file-name output-name path)
+                    `(tr
+                      (td (a (@ (href ,file-name))
+                             ,(display-store-item-short path))))))
+                 derivation-inputs))))
+       (div
+        (@ (class "col-md-4"))
+        "Details")
+       (div
+        (@ (class "col-md-4"))
+        (h3 "Outputs")
+        (table
+         (@ (class "table"))
+         (thead
+          (tr
+           (th "File name")))
+         (tdata
+          ,@(map (match-lambda
+                   ((output-name path hash-algorithm hash recursive?)
+                    `(tr
+                      (td (a (@ (href ,path))
+                             ,(display-store-item-short path))))))
+                 derivation-outputs)))))))))
 
 (define (compare base-commit
                  target-commit
@@ -434,7 +496,8 @@
             (match-lambda
               ((id file-name build-status)
                `(tr
-                 (td ,file-name)
+                 (td (a (@ (href ,file-name))
+                        ,(display-store-item file-name)))
                  (td ,build-status))))
             base-derivations))))
       (div
@@ -454,7 +517,8 @@
             (match-lambda
               ((id file-name build-status)
                `(tr
-                 (td ,file-name)
+                 (td (a (@ (href ,file-name))
+                        ,(display-store-item file-name)))
                  (td ,build-status))))
             target-derivations))))))))
 

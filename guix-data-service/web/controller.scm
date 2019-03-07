@@ -29,6 +29,7 @@
   #:use-module (guix-data-service comparison)
   #:use-module (guix-data-service model guix-revision)
   #:use-module (guix-data-service model package)
+  #:use-module (guix-data-service model derivation)
   #:use-module (guix-data-service model build)
   #:use-module (guix-data-service jobs load-new-guix-revision)
   #:use-module (guix-data-service web render)
@@ -200,6 +201,27 @@
               base-packages-vhash
               target-packages-vhash))))))
 
+(define (render-derivation conn derivation-file-name)
+  (let ((derivation (select-derivation-by-file-name conn
+                                                    derivation-file-name)))
+    (if derivation
+        (let ((derivation-inputs (select-derivation-inputs-by-derivation-id
+                                  conn
+                                  (first derivation)))
+              (derivation-outputs (select-derivation-outputs-by-derivation-id
+                                   conn
+                                   (first derivation))))
+          (apply render-html
+                 (view-derivation derivation
+                                  derivation-inputs
+                                  derivation-outputs)))
+        #f ;; TODO
+        )))
+
+(define (render-store-item conn filename)
+  (apply render-html
+         (view-store-item filename)))
+
 (define (controller request body conn)
   (match-lambda
     ((GET)
@@ -215,10 +237,10 @@
             (view-revision commit-hash
                            (select-packages-in-revision conn
                                                         commit-hash))))
-    ((GET "derivation" derivation-file-name ...)
-     (apply render-html
-            (view-derivation (string-append
-                              "/" (string-join derivation-file-name "/")))))
+    ((GET "gnu" "store" filename)
+     (if (string-suffix? ".drv" filename)
+         (render-derivation conn (string-append "/gnu/store/" filename))
+         (render-store-item conn (string-append "/gnu/store/" filename))))
     ((GET "compare")
      (with-base-and-target-commits
       request conn
