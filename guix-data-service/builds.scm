@@ -99,7 +99,7 @@
 (define (fetch-latest-builds-for-derivation base-url derivation-file-name)
   (define url
     (string-append base-url
-                   "api/latestbuilds?nr=10"
+                   "api/latestbuilds?nr=1"
                    "&derivation=" derivation-file-name))
 
   (let-values (((response body) (http-request url)))
@@ -115,7 +115,7 @@
 (define (fetch-queued-builds-for-derivation base-url derivation-file-name)
   (define url
     (string-append base-url
-                   "api/queue?nr=10"
+                   "api/queue?nr=1"
                    "&derivation=" derivation-file-name))
 
   (let-values (((response body) (http-request url)))
