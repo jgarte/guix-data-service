@@ -168,6 +168,6 @@
      "WHERE derivations.id NOT IN ("
      "SELECT derivation_id FROM builds"
      ") "
-     "LIMIT 1000"))
+     "LIMIT 15000"))
 
   (exec-query conn query))
