@@ -23,7 +23,9 @@
        build-servers))))
 
 (define (query-build-server conn id url)
+  (simple-format #t "\nFetching pending builds\n")
   (process-pending-builds conn id url)
+  (simple-format #t "\nFetching unseen derivations\n")
   (process-derivations conn id url))
 
 (define (process-pending-builds conn build-server-id url)
@@ -74,6 +76,9 @@
     ((or #f #())
      (match (fetch-queued-builds-for-derivation url derivation-file-name)
        ((or #f #())
+        (simple-format #t "\nwarning: couldn't find build for ~A on ~A\n"
+                       derivation-file-name
+                       url)
         #f)
        (#(status)
         status)))
@@ -88,7 +93,7 @@
     (lambda args
       (display args)
       (newline)
-      (simple-format #t "error parsing: ~A\n" string)
+      (simple-format #t "\nerror parsing: ~A\n" string)
       #f)))
 
 (define (fetch-latest-builds-for-derivation base-url derivation-file-name)
@@ -104,7 +109,7 @@
         (json-string->scm
          (bytevector->string body "utf-8")))
        (else
-        (simple-format #t "error: response code ~A: ~A\n" url code)
+        (simple-format #t "\nerror: response code ~A: ~A\n" url code)
         #f)))))
 
 (define (fetch-queued-builds-for-derivation base-url derivation-file-name)
@@ -120,7 +125,7 @@
         (json-string->scm
          (bytevector->string body "utf-8")))
        (else
-        (simple-format #t "error: response code ~A: ~A\n" url code)
+        (simple-format #t "\nerror: response code ~A: ~A\n" url code)
         #f)))))
 
 (define (fetch-build url id)
@@ -132,7 +137,11 @@
      ((eq? (response-code response) 200)
       (json-string->scm
        (bytevector->string body "utf-8")))
-     (else #f))))
+     (else
+      (simple-format #t "\nwarning: couldn't find build ~A on ~A\n"
+                     id
+                     url)
+      #f))))
 
 (define (select-pending-builds conn build-server-id)
   (define query
