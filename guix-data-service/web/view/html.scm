@@ -246,7 +246,8 @@
                                   "bg-danger")
                                  (else ""))))
                      ,status)
-                 (td ,derivation-file-name)
+                 (td (a (@ (href ,derivation-file-name))
+                        ,(display-store-item-short derivation-file-name)))
                  (td ,starttime)
                  (td ,stoptime)
                  (td (a (@ (href ,(simple-format
