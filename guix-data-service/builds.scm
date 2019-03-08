@@ -72,18 +72,26 @@
    (select-derivations-with-no-known-build conn)))
 
 (define (fetch-build-for-derivation url derivation-file-name)
-  (match (fetch-latest-builds-for-derivation url derivation-file-name)
-    ((or #f #())
-     (match (fetch-queued-builds-for-derivation url derivation-file-name)
-       ((or #f #())
-        (simple-format #t "\nwarning: couldn't find build for ~A on ~A\n"
-                       derivation-file-name
-                       url)
-        #f)
-       (#(status)
-        status)))
-    (#(status)
-     status)))
+  (catch
+    #t
+    (lambda ()
+      (match (fetch-latest-builds-for-derivation url derivation-file-name)
+        ((or #f #())
+         (match (fetch-queued-builds-for-derivation url derivation-file-name)
+           ((or #f #())
+            (simple-format #t "\nwarning: couldn't find build for ~A on ~A\n"
+                           derivation-file-name
+                           url)
+            #f)
+           (#(status)
+            status)))
+        (#(status)
+         status)))
+    (lambda args
+      (simple-format #t "\nerror: couldn't fetch build for ~A on ~A\n"
+                     derivation-file-name url)
+      (simple-format #t "error: ~A\n" args)
+      #f)))
 
 (define (json-string->scm* string)
   (catch
