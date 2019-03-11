@@ -7,43 +7,104 @@
   #:use-module (guix channels)
   #:use-module (guix inferior)
   #:use-module (guix profiles)
+  #:use-module (guix progress)
   #:use-module (guix packages)
   #:use-module (guix derivations)
   #:use-module (guix build utils)
   #:use-module (guix-data-service model package)
   #:use-module (guix-data-service model guix-revision)
-  #:use-module (guix-data-service model guix-revision-package)
+  #:use-module (guix-data-service model package-derivation)
+  #:use-module (guix-data-service model guix-revision-package-derivation)
   #:use-module (guix-data-service model package-metadata)
   #:use-module (guix-data-service model derivation)
   #:export (process-next-load-new-guix-revision-job
             select-job-for-commit
             most-recent-n-load-new-guix-revision-jobs))
 
-(define (inferior-guix->package-ids store conn inf)
+(define (inferior-guix->package-derivation-ids store conn inf)
+  (define (inferior-package->systems-targets-and-derivations package)
+    (let ((supported-systems
+           (inferior-package-transitive-supported-systems package)))
+      (append-map
+       (lambda (system)
+         (filter-map
+          (lambda (target)
+            (catch
+              #t
+              (lambda ()
+                (list
+                 system
+                 target
+                 (inferior-package-derivation store package system
+                                              #:target
+                                              (if (string=? system target)
+                                                  #f
+                                                  target))))
+              (lambda args
+                (cond
+                 ((string-contains (simple-format #f "~A" (second args))
+                                   "&package-cross-build-system-error")
+                  #f)
+                 ((string-contains (simple-format #f "~A" (fourth args))
+                                   "(No cross-compilation for ")
+                  #f)
+                 (else
+                  (simple-format
+                   #t "guix-data-service: inferior-guix->package-ids: error processing derivation\n  ~A for system ~A and target ~A\n"
+                   package system target)
+                  (for-each (lambda (arg)
+                              (simple-format #t "arg: ~A\n" arg))
+                            args)
+                  #f)))))
+          supported-systems))
+       supported-systems)))
+
   (let* ((packages (inferior-packages inf))
          (packages-metadata-ids
           (inferior-packages->package-metadata-ids conn packages))
-         (packages-derivation-ids
+         (packages-count (length packages))
+         (progress-reporter (progress-reporter/bar
+                             packages-count
+                             (format #f "processing ~a packages"
+                                     packages-count)))
+         (systems-targets-and-derivations-by-package
+          (call-with-progress-reporter progress-reporter
+            (lambda (report)
+              (map
+               (lambda (package)
+                 (report)
+                 (inferior-package->systems-targets-and-derivations package))
+               packages))))
+         (package-ids
+          (inferior-packages->package-ids
+           conn packages packages-metadata-ids))
+         (derivation-ids
           (derivations->derivation-ids
            conn
-           (filter-map
-            (lambda (package)
-              (catch
-                #t
-                (lambda ()
-                  (inferior-package-derivation
-                   store package))
-                (lambda args
-                  (simple-format
-                   #t "guix-data-service: inferior-guix->package-ids: error processing derivation ~A\n"
-                   package)
-                  (simple-format
-                   #t "guix-data-service: inferior-guix->package-ids: error: ~A\n" args)
-                  #f)))
-            packages))))
+           (append-map
+            (lambda (system-targets-and-derivations)
+              (map third system-targets-and-derivations))
+            systems-targets-and-derivations-by-package)))
+         (flat-package-ids-systems-and-targets
+          (append-map
+           (lambda (package-id system-targets-and-derivations)
+             (map (match-lambda
+                    ((system target derivation)
+                     (list package-id
+                           system
+                           target)))
+                  system-targets-and-derivations))
+           package-ids
+           systems-targets-and-derivations-by-package)))
 
-    (inferior-packages->package-ids
-     conn packages packages-metadata-ids packages-derivation-ids)))
+    (insert-package-derivations conn
+                                flat-package-ids-systems-and-targets
+                                derivation-ids)))
+
+(define (inferior-package-transitive-supported-systems package)
+  ((@@ (guix inferior) inferior-package-field)
+   package
+   'package-transitive-supported-systems))
 
 (define (guix-store-path store)
   (let* ((guix-package (@ (gnu packages package-management)
@@ -140,17 +201,21 @@
     (inferior-eval '(use-modules (guix grafts)) inf)
     (inferior-eval '(%graft? #f) inf)
 
-    (let ((package-ids (inferior-guix->package-ids store conn inf)))
-      (exec-query conn "BEGIN")
+    (exec-query conn "BEGIN")
+    (let ((package-derivation-ids
+           (inferior-guix->package-derivation-ids store conn inf))
+          (guix-revision-id
+           (insert-guix-revision conn url commit store_path)))
 
-      (let ((guix-revision-id
-             (insert-guix-revision conn url commit store_path)))
-        (insert-guix-revision-packages conn guix-revision-id package-ids))
+      (insert-guix-revision-package-derivations conn
+                                                guix-revision-id
+                                                package-derivation-ids)
 
       (exec-query conn "COMMIT")
 
       (simple-format
-       #t "Successfully loaded ~A packages\n" (length package-ids)))
+       #t "Successfully loaded ~A package/derivation pairs\n"
+       (length package-derivation-ids)))
 
     (close-inferior inf)))
 

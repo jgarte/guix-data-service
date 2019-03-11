@@ -9,6 +9,7 @@
   #:use-module (guix inferior)
   #:use-module (guix-data-service model utils)
   #:export (select-package-metadata
+            select-package-metadata-by-revision-name-and-version
             insert-package-metadata
             inferior-packages->package-metadata-ids))
 
@@ -21,6 +22,29 @@
                                    hashes)
                               ",")
                  ");"))
+
+(define (select-package-metadata-by-revision-name-and-version
+         conn revision-commit-hash name version)
+  (define query "
+SELECT package_metadata.synopsis, package_metadata.description,
+  package_metadata.home_page
+FROM package_metadata
+INNER JOIN packages
+  ON package_metadata.id = packages.package_metadata_id
+WHERE packages.id IN (
+  SELECT package_derivations.package_id
+  FROM package_derivations
+  INNER JOIN guix_revision_package_derivations
+    ON package_derivations.id =
+    guix_revision_package_derivations.package_derivation_id
+  INNER JOIN guix_revisions
+    ON guix_revision_package_derivations.revision_id = guix_revisions.id
+  WHERE guix_revisions.commit = $1
+)
+  AND packages.name = $2
+  AND packages.version = $3")
+
+  (exec-query conn query (list revision-commit-hash name version)))
 
 (define (insert-package-metadata metadata-rows)
   (string-append "INSERT INTO package_metadata "

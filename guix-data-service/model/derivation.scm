@@ -5,16 +5,18 @@
   #:use-module (squee)
   #:use-module (guix base32)
   #:use-module (guix inferior)
+  #:use-module (guix memoization)
   #:use-module (guix derivations)
   #:use-module (guix-data-service model utils)
   #:export (select-derivation-by-file-name
             select-derivation-outputs-by-derivation-id
             select-derivation-by-output-filename
             select-derivations-using-output
+            select-derivations-by-revision-name-and-version
             select-derivation-inputs-by-derivation-id
             select-existing-derivations
             select-derivations-by-id
-            select-derivations-and-build-status-by-id
+            select-derivations-and-build-status-by-file-name
             insert-into-derivations
             derivations->derivation-ids))
 
@@ -61,6 +63,36 @@
      "LIMIT 100 "))
 
   (exec-query conn query (list output-id)))
+
+(define (select-derivations-by-revision-name-and-version
+         conn revision-commit-hash name version)
+  (define query "
+SELECT derivations.system, package_derivations.target, derivations.file_name,
+  latest_build_status.status
+FROM derivations
+INNER JOIN package_derivations
+  ON derivations.id = package_derivations.derivation_id
+INNER JOIN packages
+  ON package_derivations.package_id = packages.id
+INNER JOIN guix_revision_package_derivations
+  ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+INNER JOIN guix_revisions
+  ON guix_revision_package_derivations.revision_id = guix_revisions.id
+LEFT OUTER JOIN builds ON derivations.id = builds.derivation_id
+LEFT OUTER JOIN (
+  SELECT DISTINCT ON (internal_build_id) *
+  FROM build_status
+  ORDER BY internal_build_id, status_fetched_at DESC
+) AS latest_build_status
+  ON builds.internal_id = latest_build_status.internal_build_id
+WHERE guix_revisions.commit = $1
+  AND packages.name = $2
+  AND packages.version = $3
+ORDER BY derivations.system DESC,
+         package_derivations.target DESC,
+         derivations.file_name")
+
+  (exec-query conn query (list revision-commit-hash name version)))
 
 (define (insert-derivation-outputs conn
                                    derivation-id
@@ -166,21 +198,22 @@
     ((result)
      result)))
 
-(define (select-derivation-output-id conn name path)
-  (match (exec-query
-          conn
-          (string-append
-           "SELECT derivation_outputs.id FROM derivation_outputs "
-           "INNER JOIN derivations ON "
-           "derivation_outputs.derivation_id = derivations.id "
-           "WHERE derivations.file_name = '" path "' "
-           "AND derivation_outputs.name = '" name "';"))
-    (((id))
-     id)
-    (()
-     (error (simple-format
-             #f "cannot find derivation-output with name ~A and path ~A"
-             name path)))))
+(define select-derivation-output-id
+  (mlambda (conn name path)
+    (match (exec-query
+            conn
+            (string-append
+             "SELECT derivation_outputs.id FROM derivation_outputs "
+             "INNER JOIN derivations ON "
+             "derivation_outputs.derivation_id = derivations.id "
+             "WHERE derivations.file_name = '" path "' "
+             "AND derivation_outputs.name = '" name "';"))
+      (((id))
+       id)
+      (()
+       (error (simple-format
+               #f "cannot find derivation-output with name ~A and path ~A"
+               name path))))))
 
 (define (select-derivation-outputs-by-derivation-id conn id)
   (define query
@@ -211,7 +244,7 @@
 
   (exec-query conn query (list id)))
 
-(define (insert-derivation-input conn derivation-id derivation-input)
+(define (insert-derivation-inputs conn derivation-id derivation-inputs)
   (define (insert-into-derivation-inputs output-ids)
     (string-append "INSERT INTO derivation_inputs "
                    "(derivation_id, derivation_output_id) VALUES "
@@ -224,16 +257,19 @@
                     ",")
                    ";"))
 
-  (match derivation-input
-    (($ <derivation-input> path sub-derivations)
-     (exec-query
-      conn
-      (insert-into-derivation-inputs
-       (map (lambda (sub-derivation)
-              (select-derivation-output-id conn
-                                           sub-derivation
-                                           path))
-            sub-derivations))))))
+  (unless (null? derivation-inputs)
+    (exec-query
+     conn
+     (insert-into-derivation-inputs
+      (append-map
+       (match-lambda
+         (($ <derivation-input> path sub-derivations)
+          (map (lambda (sub-derivation)
+                 (select-derivation-output-id conn
+                                              sub-derivation
+                                              path))
+               sub-derivations)))
+       derivation-inputs)))))
 
 (define (select-from-derivation-source-files store-paths)
   (string-append
@@ -304,7 +340,34 @@
     (exec-query conn
                 (insert-into-derivation-sources sources-ids))))
 
-(define (insert-missing-derivations conn derivations)
+(define (insert-missing-derivations conn
+                                    derivation-ids-hash-table
+                                    derivations)
+  (define (ensure-input-derivations-exist input-derivation-file-names)
+    (unless (null? input-derivation-file-names)
+      (simple-format
+       #t "debug: ensure-input-derivations-exist: processing ~A derivations\n"
+       (length input-derivation-file-names))
+      (force-output)
+      (let* ((existing-derivation-entries
+              (derivation-file-names->vhash conn
+                                            derivation-ids-hash-table
+                                            input-derivation-file-names))
+
+             (missing-derivations-filenames
+              (filter (lambda (derivation-file-name)
+                        (not (vhash-assoc derivation-file-name
+                                          existing-derivation-entries)))
+                      input-derivation-file-names)))
+
+        (unless (null? missing-derivations-filenames)
+          ;; Ensure all the input derivations exist
+          (insert-missing-derivations
+           conn
+           derivation-ids-hash-table
+           (map read-derivation-from-file
+                missing-derivations-filenames))))))
+
   (define (insert-into-derivations)
     (string-append
      "INSERT INTO derivations "
@@ -331,24 +394,60 @@
      " RETURNING id"
      ";"))
 
-  (map (lambda (derivation-id derivation)
-         (insert-derivation-outputs conn
-                                    derivation-id
-                                    (derivation-outputs derivation))
+  (simple-format
+   #t "debug: insert-missing-derivations: inserting ~A derivations\n"
+   (length derivations))
+  (let ((derivation-ids
+         (map car (exec-query conn (insert-into-derivations)))))
 
-         (insert-derivation-sources conn
-                                    derivation-id
-                                    (derivation-sources derivation))
+    (simple-format
+     #t "debug: insert-missing-derivations: updating hash table\n")
+    (for-each (lambda (derivation derivation-id)
+                (hash-set! derivation-ids-hash-table
+                           (derivation-file-name derivation)
+                           derivation-id))
+              derivations
+              derivation-ids)
 
-         (for-each (lambda (derivation-input)
-                     (insert-derivation-input conn
-                                              derivation-id
-                                              derivation-input))
-                   (derivation-inputs derivation))
+    (simple-format
+     #t "debug: insert-missing-derivations: inserting outputs\n")
+    (for-each (lambda (derivation-id derivation)
+                (insert-derivation-outputs conn
+                                           derivation-id
+                                           (derivation-outputs derivation)))
+              derivation-ids
+              derivations)
 
-         derivation-id)
-       (map car (exec-query conn (insert-into-derivations)))
-       derivations))
+    (simple-format
+     #t "debug: insert-missing-derivations: inserting sources\n")
+    (for-each (lambda (derivation-id derivation)
+                (insert-derivation-sources conn
+                                           derivation-id
+                                           (derivation-sources derivation)))
+              derivation-ids
+              derivations)
+
+    (simple-format
+     #t "debug: insert-missing-derivations: ensure-input-derivations-exist\n")
+    (force-output)
+
+    (ensure-input-derivations-exist (deduplicate-strings
+                                     (map derivation-input-path
+                                          (append-map
+                                           derivation-inputs
+                                           derivations))))
+
+    (simple-format
+     #t "debug: insert-missing-derivations: inserting inputs\n")
+    (for-each (lambda (derivation-id derivation)
+                (insert-derivation-inputs conn
+                                          derivation-id
+                                          (derivation-inputs derivation)))
+
+              derivation-ids
+              derivations)
+
+    derivation-ids))
 
 (define (select-derivations-by-id conn ids)
   (define query
@@ -363,10 +462,10 @@
 
   (exec-query conn query))
 
-(define (select-derivations-and-build-status-by-id conn ids)
+(define (select-derivations-and-build-status-by-file-name conn file-names)
   (define query
     (string-append
-     "SELECT derivations.id, derivations.file_name, latest_build_status.status "
+     "SELECT derivations.file_name, latest_build_status.status "
      "FROM derivations "
      "LEFT OUTER JOIN builds ON derivations.id = builds.derivation_id "
      "LEFT OUTER JOIN "
@@ -375,60 +474,124 @@
      "ORDER BY internal_build_id, status_fetched_at DESC"
      ") AS latest_build_status "
      "ON builds.internal_id = latest_build_status.internal_build_id "
-     "WHERE derivations.id IN "
-     "(" (string-join (map (lambda (id)
-                             (simple-format #f "'~A'" id))
-                           ids)
+     "WHERE derivations.file_name IN "
+     "(" (string-join (map (lambda (file-name)
+                             (simple-format #f "'~A'" file-name))
+                           file-names)
                       ",")
      ");"))
 
   (exec-query conn query))
 
+(define (deduplicate-strings strings)
+  (pair-fold
+   (lambda (pair result)
+     (if (null? (cdr pair))
+         (cons (first pair) result)
+         (if (string=? (first pair) (second pair))
+             result
+             (cons (first pair) result))))
+   '()
+   (sort strings
+         (lambda (a b)
+           (string<? a b)))))
+
+(define (deduplicate-derivations derivations)
+  (define sorted-derivations
+    (sort derivations
+          (lambda (a b)
+            (string<? (derivation-file-name a)
+                      (derivation-file-name b)))))
+
+  (pair-fold
+   (match-lambda*
+     (((x) result)
+      (cons x result))
+     (((x y rest ...) result)
+      (if (string=? (derivation-file-name x)
+                    (derivation-file-name y))
+          result
+          (cons x result))))
+   '()
+   sorted-derivations))
+
+(define (derivation-file-names->vhash conn derivation-ids-hash-table file-names)
+  (simple-format #t "debug: derivation-file-names->vhash: ~A file-names\n"
+                 (length file-names))
+  (match (fold (match-lambda*
+                 ((file-name (result . missing-file-names))
+                  (let ((cached-id (hash-ref derivation-ids-hash-table
+                                             file-name)))
+                    (if cached-id
+                        (cons (vhash-cons file-name cached-id result)
+                              missing-file-names)
+                        (cons result
+                              (cons file-name missing-file-names))))))
+               (cons vlist-null '())
+               file-names)
+    ((result)
+     (simple-format
+      #t "debug: derivation-file-names->vhash: lookup ~A file-names, all found\n"
+      (length file-names))
+     result)
+    ((result . missing-file-names)
+     (simple-format
+      #t "debug: derivation-file-names->vhash: lookup ~A file-names, ~A not cached\n"
+      (length file-names) (length missing-file-names))
+     (let ((result-for-missing-file-names
+            (exec-query->vhash
+             conn
+             (select-existing-derivations missing-file-names)
+             second ;; file_name
+             first))) ;; id
+       (simple-format
+        #t "debug: derivation-file-names->vhash: adding ~A entries to the cache\n"
+        (vlist-length result-for-missing-file-names))
+       (vhash-fold (lambda (key value _)
+                     (hash-set! derivation-ids-hash-table key value))
+                   '()
+                   result-for-missing-file-names)
+
+       (vhash-fold
+        (lambda (key value combined)
+          (vhash-cons key value combined))
+        result
+        result-for-missing-file-names)))))
+
 (define (derivations->derivation-ids conn derivations)
-  (define (ensure-input-derivations-exist)
-    (let* ((missing-derivation-file-names (map derivation-file-name
-                                               derivations))
-
-           (input-derivation-file-names (delete-duplicates
-                                         (map derivation-input-path
-                                              (append-map
-                                               derivation-inputs
-                                               derivations)))))
-
-      ;; Ensure all the input derivations exist
-      (derivations->derivation-ids
-       conn
-       (map read-derivation-from-file
-            input-derivation-file-names))))
-
   (if (null? derivations)
       '()
-      (begin
-        (ensure-input-derivations-exist)
+      (let* ((derivations-count (length derivations))
+             (derivation-ids-hash-table (make-hash-table derivations-count)))
+        (simple-format
+         #t "debug: derivations->derivation-ids: processing ~A derivations\n"
+         derivations-count)
         (let* ((derivation-file-names (map derivation-file-name
                                            derivations))
 
-               (existing-derivation-entries (exec-query->vhash
-                                             conn
-                                             (select-existing-derivations
-                                              derivation-file-names)
-                                             second ;; file_name
-                                             first)) ;; id
+               (existing-derivation-entries
+                (derivation-file-names->vhash conn
+                                              derivation-ids-hash-table
+                                              derivation-file-names))
 
                (missing-derivations
-                (filter (lambda (derivation)
-                          (not (vhash-assoc (derivation-file-name derivation)
-                                            existing-derivation-entries)))
-                        derivations))
+                (deduplicate-derivations
+                 (filter (lambda (derivation)
+                           (not (vhash-assoc (derivation-file-name derivation)
+                                             existing-derivation-entries)))
+                         derivations)))
 
                (new-derivation-entries
                 (if (null? missing-derivations)
                     '()
-                    (insert-missing-derivations conn missing-derivations)))
+                    (insert-missing-derivations conn
+                                                derivation-ids-hash-table
+                                                missing-derivations)))
 
                (new-entries-id-lookup-vhash
                 (two-lists->vhash (map derivation-file-name missing-derivations)
                                   new-derivation-entries)))
+
           (map (lambda (derivation-file-name)
                  (cdr
                   (or (vhash-assoc derivation-file-name

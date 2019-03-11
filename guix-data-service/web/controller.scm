@@ -29,6 +29,8 @@
   #:use-module (guix-data-service comparison)
   #:use-module (guix-data-service model guix-revision)
   #:use-module (guix-data-service model package)
+  #:use-module (guix-data-service model package-derivation)
+  #:use-module (guix-data-service model package-metadata)
   #:use-module (guix-data-service model derivation)
   #:use-module (guix-data-service model build)
   #:use-module (guix-data-service jobs load-new-guix-revision)
@@ -113,16 +115,16 @@
            (version-changes
             (package-data-version-changes base-packages-vhash
                                           target-packages-vhash))
-           (other-changes
-            (package-data-other-changes base-packages-vhash
-                                        target-packages-vhash)))
+           (derivation-changes
+            (package-data-derivation-changes base-packages-vhash
+                                             target-packages-vhash)))
       (cond
        ((eq? content-type 'json)
         (render-json
          `((new-packages . ,new-packages)
            (removed-packages . ,removed-packages)
            (version-changes . ,version-changes)
-           (other-changes . ,other-changes))))
+           (derivation-changes . ,derivation-changes))))
        (else
         (apply render-html
                (compare base-commit
@@ -130,7 +132,7 @@
                         new-packages
                         removed-packages
                         version-changes
-                        other-changes)))))))
+                        derivation-changes)))))))
 
 (define (render-compare/derivations content-type
                                     conn
@@ -138,6 +140,15 @@
                                     base-revision-id
                                     target-commit
                                     target-revision-id)
+  (define (derivations->alist derivations)
+    (map (match-lambda
+           ((file-name buildstatus)
+            `((file_name . ,file-name)
+              (build_status . ,(if (string=? "")
+                                   "unknown"
+                                   buildstatus)))))
+         derivations))
+
   (let-values
       (((base-packages-vhash target-packages-vhash)
         (package-data->package-data-vhashes
@@ -156,9 +167,13 @@
        ((eq? content-type 'json)
         (render-json
          `((base . ((commit . ,base-commit)
-                    (derivations . ,base-derivations)))
+                    (derivations . ,(list->vector
+                                     (derivations->alist
+                                      base-derivations)))))
            (target . ((commit . ,target-commit)
-                      (derivations . ,target-derivations))))))
+                      (derivations . ,(list->vector
+                                       (derivations->alist
+                                        target-derivations))))))))
        (else
         (apply render-html
                (compare/derivations
@@ -174,11 +189,13 @@
                                  target-commit
                                  target-revision-id)
   (define (package-data-vhash->json vh)
-    (vhash-fold (lambda (name data result)
-                  (cons (string-append name "@" (car data))
-                        result))
-                '()
-                vh))
+    (delete-duplicates
+     (vhash-fold (lambda (name data result)
+                   (cons `((name . ,name)
+                           (version . ,(car data)))
+                         result))
+                 '()
+                 vh)))
 
   (let-values
       (((base-packages-vhash target-packages-vhash)
@@ -189,10 +206,14 @@
     (cond
      ((eq? content-type 'json)
       (render-json
-       `((base . ((commit . ,base-commit)
-                  (packages . ,(package-data-vhash->json base-packages-vhash))))
-         (target . ((commit . ,target-commit)
-                    (packages . ,(package-data-vhash->json target-packages-vhash)))))))
+       `((base
+          . ((commit . ,base-commit)
+             (packages . ,(list->vector
+                           (package-data-vhash->json base-packages-vhash)))))
+         (target
+          . ((commit . ,target-commit)
+             (packages . ,(list->vector
+                           (package-data-vhash->json target-packages-vhash))))))))
      (else
       (apply render-html
              (compare/packages
@@ -227,14 +248,16 @@
     (match derivation
       (()
        #f)
-      ((derivation)
+      (derivations
        (apply render-html
               (view-store-item filename
-                               derivation
-                               (match derivation
-                                 ((file-name output-id rest ...)
-                                  (select-derivations-using-output
-                                   conn output-id)))))))))
+                               derivations
+                               (map (lambda (derivation)
+                                      (match derivation
+                                        ((file-name output-id rest ...)
+                                         (select-derivations-using-output
+                                          conn output-id))))
+                                    derivations)))))))
 
 (define (controller request body conn)
   (match-lambda
@@ -249,13 +272,31 @@
     ((GET "revision" commit-hash)
      (apply render-html
             (view-revision commit-hash
-                           (select-packages-in-revision conn
-                                                        commit-hash))))
+                           (count-packages-in-revision conn
+                                                       commit-hash)
+                           (count-packages-derivations-in-revision conn
+                                                                   commit-hash))))
+    ((GET "revision" commit-hash "packages")
+     (apply render-html
+            (view-revision-packages commit-hash
+                                    (select-packages-in-revision
+                                     conn commit-hash))))
     ((GET "revision" commit-hash "package" name version)
      (apply render-html
-            (view-revision-package-and-version commit-hash
-                                               name
-                                               version)))
+            (view-revision-package-and-version
+             commit-hash
+             name
+             version
+             (select-package-metadata-by-revision-name-and-version
+              conn
+              commit-hash
+              name
+              version)
+             (select-derivations-by-revision-name-and-version
+              conn
+              commit-hash
+              name
+              version))))
     ((GET "gnu" "store" filename)
      (if (string-suffix? ".drv" filename)
          (render-derivation conn (string-append "/gnu/store/" filename))

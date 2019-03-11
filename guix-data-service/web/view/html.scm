@@ -23,9 +23,12 @@
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-19)
+  #:use-module (texinfo)
+  #:use-module (texinfo html)
   #:export (index
             view-revision-package-and-version
             view-revision
+            view-revision-packages
             view-builds
             view-derivation
             view-store-item
@@ -171,7 +174,9 @@
                        (td ,source))))
                   queued-guix-revisions)))))))))
 
-(define (view-revision-package-and-version revision-commit-hash name version)
+(define (view-revision-package-and-version revision-commit-hash name version
+                                           package-metadata
+                                           derivations)
   (layout
    #:extra-headers
    '((cache-control . ((max-age . 60))))
@@ -181,9 +186,48 @@
       (@ (class "container"))
       (div
        (@ (class "row"))
-       (h1 "Package " ,name " @ " ,version))))))
+       (h3 (a (@ (href ,(string-append
+                         "/revision/" revision-commit-hash)))
+              "Revision " (samp ,revision-commit-hash))))
+      (div
+       (@ (class "row"))
+       (h1 "Package " ,name " @ " ,version))
+      (div
+       (@ (class "row"))
+       ,(match package-metadata
+          (((synopsis description home-page))
+           `(dl
+             (@ (class "dl-horizontal"))
+             (dt "Synopsis")
+             (dd ,(stexi->shtml (texi-fragment->stexi synopsis)))
+             (dt "Description")
+             (dd ,(stexi->shtml (texi-fragment->stexi description)))
+             (dt "Home page")
+             (dd (a (@ (href ,home-page))
+                    ,home-page))))))
+      (div
+       (@ (class "row"))
+       (table
+        (@ (class "table"))
+        (thead
+         (tr
+          (th "System")
+          (th "Target")
+          (th "Derivation")
+          (th "Build status")))
+        (tbody
+         ,@(map
+            (match-lambda
+              ((system target file-name status)
+               `(tr
+                 (td (samp ,system))
+                 (td (samp ,target))
+                 (td (a (@ (href ,file-name))
+                        ,(display-store-item-short file-name)))
+                 (td ,(build-status-span status)))))
+            derivations))))))))
 
-(define (view-revision commit-hash packages)
+(define (view-revision commit-hash packages-count derivations-count)
   (layout
    #:extra-headers
    '((cache-control . ((max-age . 60))))
@@ -196,23 +240,78 @@
        (h1 "Revision " (samp ,commit-hash)))
       (div
        (@ (class "row"))
-       (h3 "Packages")
+       (div
+        (@ (class "col-md-6"))
+        (h3 "Packages")
+        (strong (@ (class "text-center")
+                   (style "font-size: 2em; display: block;"))
+                ,packages-count)
+        (a (@ (class "btn btn-default btn-lg")
+              (href ,(string-append "/revision/" commit-hash
+                                    "/packages")))
+           "View packages"))
+       (div
+        (@ (class "col-md-6"))
+        (h3 "Derivations")
+        (table
+         (@ (class "table"))
+         (thead
+          (tr
+           (th "System")
+           (th "Target")
+           (th "Distinct derivations")))
+         (tbody
+          ,@(map (match-lambda
+                   ((system target count)
+                    (if (string=? system target)
+                        `(tr
+                          (td (@ (class "text-center")
+                                 (colspan 2))
+                              (samp ,system))
+                          (td (samp ,count)))
+                        `(tr
+                          (td (samp ,system))
+                          (td (samp ,target))
+                          (td (samp ,count))))))
+                 derivations-count)))))))))
+
+(define (view-revision-packages revision-commit-hash packages)
+  (layout
+   #:extra-headers
+   '((cache-control . ((max-age . 60))))
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (h3 (a (@ (href ,(string-append
+                         "/revision/" revision-commit-hash)))
+              "Revision " (samp ,revision-commit-hash))))
+      (div
+       (@ (class "row"))
+       (h1 "Packages")
        (table
-        (@ (class "table"))
+        (@ (class "table table-responsive"))
         (thead
          (tr
           (th (@ (class "col-md-3")) "Name")
-          (th (@ (class "col-md-3")) "Version")))
+          (th (@ (class "col-md-3")) "Version")
+          (th (@ (class "col-md-3")) "Synopsis")
+          (th (@ (class "col-md-3")) "")))
         (tbody
          ,@(map
             (match-lambda
-              ((name version rest ...)
+              ((name version synopsis)
                `(tr
-                 (td (a (@ (href ,(string-append
-                                   "/revision/" commit-hash
+                 (td ,name)
+                 (td ,version)
+                 (td ,(stexi->shtml (texi-fragment->stexi synopsis)))
+                 (td (@ (class "text-right"))
+                     (a (@ (href ,(string-append
+                                   "/revision/" revision-commit-hash
                                    "/package/" name "/" version)))
-                        ,name))
-                 (td ,version))))
+                        "More information")))))
             packages))))))))
 
 (define (view-builds stats builds)
@@ -237,7 +336,7 @@
             (match-lambda
               ((status count)
                `(tr
-                 (td ,status)
+                 (td ,(build-status-span status))
                  (td ,count))))
             stats))))
       (div
@@ -257,13 +356,8 @@
               ((build-id build-server-url derivation-file-name
                          status-fetched-at starttime stoptime status)
                `(tr
-                 (td (@ (class ,(cond
-                                 ((string=? status "succeeded")
-                                  "bg-success")
-                                 ((string=? status "failed")
-                                  "bg-danger")
-                                 (else ""))))
-                     ,status)
+                 (td (@ (class "text-center"))
+                     ,(build-status-span status))
                  (td (a (@ (href ,derivation-file-name))
                         ,(display-store-item-short derivation-file-name)))
                  (td ,starttime)
@@ -273,6 +367,31 @@
                         "View build on " ,build-server-url)))))
             builds))))))))
 
+(define (build-status-span status)
+  `(span (@ (class ,(string-append
+                     "label label-"
+                     (assoc-ref
+                      '(("scheduled" . "info")
+                        ("started" . "primary")
+                        ("succeeded" . "success")
+                        ("failed" . "danger")
+                        ("failed-dependency" . "warning")
+                        ("failed-other" . "danger")
+                        ("canceled" . "default")
+                        ("" . "default"))
+                      status)))
+            (style "display: inline-block; font-size: 1.2em; margin-top: 0.4em;"))
+         ,(assoc-ref
+           '(("scheduled" . "Scheduled")
+             ("started" . "Started")
+             ("succeeded" . "Succeeded")
+             ("failed" . "Failed")
+             ("failed-dependency" . "Failed (dependency)")
+             ("failed-other" . "Failed (other)")
+             ("canceled" . "Canceled")
+             ("" . "Unknown"))
+           status)))
+
 (define (display-store-item-short item)
   `((span (@ (style "font-size: small; font-family: monospace; display: block;"))
           ,(string-take item 44))
@@ -280,9 +399,9 @@
           ,(string-drop item 44))))
 
 (define (display-store-item item)
-  `((span (@ (style "font-size: small; font-family: monospace;"))
+  `((span (@ (style "font-size: small; font-family: monospace; white-space: nowrap;"))
           ,(string-take item 44))
-    (span (@ (style "font-size: x-large; font-family: monospace;"))
+    (span (@ (style "font-size: x-large; font-family: monospace; white-space: nowrap;"))
           ,(string-drop item 44))))
 
 (define (display-store-item-title item)
@@ -300,7 +419,7 @@
        ,(string-append
          "/" (string-join fileparts "/"))))))
 
-(define (view-store-item filename derivation derivations-using-store-item)
+(define (view-store-item filename derivations derivations-using-store-item-list)
   (layout
    #:extra-headers
    '((cache-control . ((max-age . 60))))
@@ -311,28 +430,31 @@
       (div
        (@ (class "row"))
        ,(display-store-item-title filename))
-      (div
-       (@ (class "row"))
-       (h4 "Derivation: ")
-       ,(match derivation
-          ((file-name output-id)
-           `(a (@ (href ,file-name))
-               ,(display-store-item file-name)))))
-      (div
-       (@ (class "row"))
-       (h2 "Derivations using this store item "
-           ,(let ((count (length derivations-using-store-item)))
-              (if (eq? count 100)
-                  "(> 100)"
-                  (simple-format #f "(~A)" count))))
-       (ul
-        (@ (class "list-unstyled"))
-        ,(map
-          (match-lambda
-            ((file-name)
-             `(li (a (@ (href ,file-name))
-                     ,(display-store-item file-name)))))
-          derivations-using-store-item)))))))
+      ,@(map (lambda (derivation derivations-using-store-item)
+               `((div
+                  (@ (class "row"))
+                  (h4 "Derivation: ")
+                  ,(match derivation
+                     ((file-name output-id)
+                      `(a (@ (href ,file-name))
+                          ,(display-store-item file-name)))))
+                 (div
+                  (@ (class "row"))
+                  (h2 "Derivations using this store item "
+                      ,(let ((count (length derivations-using-store-item)))
+                         (if (eq? count 100)
+                             "(> 100)"
+                             (simple-format #f "(~A)" count))))
+                  (ul
+                   (@ (class "list-unstyled"))
+                   ,(map
+                     (match-lambda
+                       ((file-name)
+                        `(li (a (@ (href ,file-name))
+                                ,(display-store-item file-name)))))
+                     derivations-using-store-item)))))
+             derivations
+             derivations-using-store-item-list)))))
 
 (define (view-derivation derivation derivation-inputs derivation-outputs
                          builds)
@@ -381,17 +503,22 @@
                 (td "System")
                 (td (samp ,system)))))))
         (h3 "Build status")
-        ,@(map
-           (match-lambda
-             ((build-id build-server-url status-fetched-at
-                        starttime stoptime status)
-              `(div
-                (@ (class "text-center"))
-                (div ,status)
-                (a (@ (href ,(simple-format
-                              #f "~Abuild/~A" build-server-url build-id)))
-                   "View build on " ,build-server-url))))
-           builds))
+        ,@(if (null? builds)
+              `((div
+                 (@ (class "text-center"))
+                 ,(build-status-span "")))
+              (map
+               (match-lambda
+                 ((build-id build-server-url status-fetched-at
+                            starttime stoptime status)
+                  `(div
+                    (@ (class "text-center"))
+                    (div ,(build-status-span status))
+                    (a (@ (style "display: inline-block; margin-top: 0.4em;")
+                          (href ,(simple-format
+                                  #f "~Abuild/~A" build-server-url build-id)))
+                       "View build on " ,build-server-url))))
+               builds)))
        (div
         (@ (class "col-md-4"))
         (h3 "Outputs")
@@ -413,7 +540,7 @@
                  new-packages
                  removed-packages
                  version-changes
-                 other-changes)
+                 derivation-changes)
   (define query-params
     (string-append "?base_commit=" base-commit
                    "&target_commit=" target-commit))
@@ -516,24 +643,61 @@
                   version-changes)))))
       (div
        (@ (class "row"))
-       (h3 "Other changed packages")
-       ,@(if (null? other-changes)
-             '((p "No other changes"))
-             `((p "The metadata or derivation for these packages has changed.")
-               (table
-                (@ (class "table"))
-                (thead
-                 (tr
-                  (th (@ (class "col-md-3")) "Name")
-                  (th (@ (class "col-md-9")) "Version")))
-                (tbody
-                 ,@(map
-                    (match-lambda
-                      (((name . version) . (metadata-id derivation-id))
-                       `(tr
-                         (td ,name)
-                         (td ,version))))
-                    other-changes))))))))))
+       (h3 "Package derivation changes")
+       ,(if
+         (null? derivation-changes)
+         '(p "No derivation changes")
+         `(table
+           (@ (class "table")
+              (style "table-layout: fixed;"))
+           (thead
+            (tr
+             (th "Name")
+             (th "Version")
+             (th "System")
+             (th "Target")
+             (th (@ (class "col-xs-5")) "Derivations")))
+           (tbody
+            ,@(append-map
+               (match-lambda
+                 (((name . version) . (('base . base-derivations)
+                                       ('target . target-derivations)))
+                  (let* ((system-and-versions
+                          (delete-duplicates
+                           (append (map car base-derivations)
+                                   (map car target-derivations))))
+                         (data-columns
+                          (map
+                           (lambda (system-and-target)
+                             (let ((base-derivation-file-name
+                                    (assoc-ref base-derivations system-and-target))
+                                   (target-derivation-file-name
+                                    (assoc-ref target-derivations system-and-target)))
+                               `((td (samp (@ (style "white-space: nowrap;"))
+                                           ,(car system-and-target)))
+                                 (td (samp (@ (style "white-space: nowrap;"))
+                                           ,(cdr system-and-target)))
+                                 (td (a (@ (style "display: block;")
+                                           (href ,base-derivation-file-name))
+                                        (span (@ (class "text-danger glyphicon glyphicon-minus pull-left")
+                                                 (style "font-size: 1.5em; padding-right: 0.4em;")))
+                                        ,(display-store-item-short base-derivation-file-name))
+                                     (a (@ (style "display: block;")
+                                           (href ,target-derivation-file-name))
+                                        (span (@ (class "text-success glyphicon glyphicon-plus pull-left")
+                                                 (style "font-size: 1.5em; padding-right: 0.4em;")))
+                                        ,(display-store-item-short target-derivation-file-name))))))
+                           system-and-versions)))
+
+                    `((tr (td (@ (rowspan , (length system-and-versions)))
+                              ,name)
+                          (td (@ (rowspan , (length system-and-versions)))
+                              ,version)
+                          ,@(car data-columns))
+                      ,@(map (lambda (data-row)
+                               `(tr ,data-row))
+                             (cdr data-columns))))))
+               derivation-changes)))))))))
 
 (define (compare/derivations base-commit
                              target-commit
@@ -575,11 +739,11 @@
         (tbody
          ,@(map
             (match-lambda
-              ((id file-name build-status)
+              ((file-name build-status)
                `(tr
                  (td (a (@ (href ,file-name))
                         ,(display-store-item file-name)))
-                 (td ,build-status))))
+                 (td ,(build-status-span build-status)))))
             base-derivations))))
       (div
        (@ (class "row"))
@@ -596,11 +760,11 @@
         (tbody
          ,@(map
             (match-lambda
-              ((id file-name build-status)
+              ((file-name build-status)
                `(tr
                  (td (a (@ (href ,file-name))
                         ,(display-store-item file-name)))
-                 (td ,build-status))))
+                 (td ,(build-status-span build-status)))))
             target-derivations))))))))
 
 (define (compare/packages base-commit
@@ -638,16 +802,25 @@
         (@ (class "table"))
         (thead
          (tr
-          (th (@ (class "col-md-6")) "Name")
-          (th (@ (class "col-md-6")) "Version")))
+          (th (@ (class "col-md-4")) "Name")
+          (th (@ (class "col-md-4")) "Version")
+          (th (@ (class "col-md-4")) "")))
         (tbody
          ,@(map
             (match-lambda
-              ((name version rest ...)
+              ((name version)
                `(tr
                  (td ,name)
-                 (td ,version))))
-            (vlist->list base-packages-vhash)))))
+                 (td ,version)
+                 (td (@ (class "text-right"))
+                     (a (@ (href ,(string-append
+                                   "/revision/" base-commit
+                                   "/package/" name "/" version)))
+                        "More information")))))
+            (delete-duplicates
+             (map (lambda (data)
+                    (take data 2))
+                  (vlist->list base-packages-vhash)))))))
       (div
        (@ (class "row"))
        (h3 "Target ("
@@ -658,16 +831,25 @@
         (@ (class "table"))
         (thead
          (tr
-          (th (@ (class "col-md-6")) "Name")
-          (th (@ (class "col-md-6")) "Version")))
+          (th (@ (class "col-md-4")) "Name")
+          (th (@ (class "col-md-4")) "Version")
+          (th (@ (class "col-md-4")) "")))
         (tbody
          ,@(map
             (match-lambda
-              ((name version rest ...)
+              ((name version)
                `(tr
                  (td ,name)
-                 (td ,version))))
-            (vlist->list target-packages-vhash)))))))))
+                 (td ,version)
+                 (td (@ (class "text-right"))
+                     (a (@ (href ,(string-append
+                                   "/revision/" base-commit
+                                   "/package/" name "/" version)))
+                        "More information")))))
+            (delete-duplicates
+             (map (lambda (data)
+                    (take data 2))
+                  (vlist->list target-packages-vhash)))))))))))
 
 (define (compare-unknown-commit base-commit target-commit
                                 base-exists? target-exists?
