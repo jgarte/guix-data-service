@@ -1,6 +1,7 @@
 (define-module (guix-data-service jobs load-new-guix-revision)
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 match)
+  #:use-module (ice-9 hash-table)
   #:use-module (squee)
   #:use-module (guix monads)
   #:use-module (guix store)
@@ -21,85 +22,85 @@
             select-job-for-commit
             most-recent-n-load-new-guix-revision-jobs))
 
-(define (inferior-guix->package-derivation-ids store conn inf)
-  (define (inferior-package->systems-targets-and-derivations package)
-    (let ((supported-systems
-           (inferior-package-transitive-supported-systems package)))
-      (append-map
-       (lambda (system)
-         (filter-map
-          (lambda (target)
-            (catch
-              #t
-              (lambda ()
-                (list
-                 system
-                 target
-                 (inferior-package-derivation store package system
-                                              #:target
-                                              (if (string=? system target)
-                                                  #f
-                                                  target))))
-              (lambda args
-                (cond
-                 ((string-contains (simple-format #f "~A" (second args))
-                                   "&package-cross-build-system-error")
-                  #f)
-                 ((string-contains (simple-format #f "~A" (fourth args))
-                                   "(No cross-compilation for ")
-                  #f)
-                 (else
-                  (simple-format
-                   #t "guix-data-service: inferior-guix->package-ids: error processing derivation\n  ~A for system ~A and target ~A\n"
-                   package system target)
-                  (for-each (lambda (arg)
-                              (simple-format #t "arg: ~A\n" arg))
-                            args)
-                  #f)))))
-          supported-systems))
-       supported-systems)))
+(define inferior-package-id
+  (@@ (guix inferior) inferior-package-id))
 
+(define (all-inferior-package-derivations store inf packages)
+  (define proc
+    `(lambda (store)
+       (append-map
+        (lambda (inferior-package-id)
+          (let* ((package
+                   (hashv-ref %package-table inferior-package-id))
+                 (supported-systems
+                  (package-transitive-supported-systems package)))
+            (append-map
+             (lambda (system)
+               (filter-map
+                (lambda (target)
+                  (catch
+                    'misc-error
+                    (lambda ()
+                      (guard (c ((package-cross-build-system-error? c)
+                                 #f))
+                        (list inferior-package-id
+                              system
+                              target
+                              (derivation-file-name
+                               (if (string=? system target)
+                                   (package-derivation store package system)
+                                   (package-cross-derivation store package
+                                                             target
+                                                             system))))))
+                    (lambda args
+                      #f)))
+                supported-systems))
+             supported-systems)))
+        (list ,@(map inferior-package-id packages)))))
+
+  (inferior-eval-with-store inf store proc))
+
+(define (inferior-guix->package-derivation-ids store conn inf)
   (let* ((packages (inferior-packages inf))
          (packages-metadata-ids
           (inferior-packages->package-metadata-ids conn packages))
-         (packages-count (length packages))
-         (progress-reporter (progress-reporter/bar
-                             packages-count
-                             (format #f "processing ~a packages"
-                                     packages-count)))
-         (systems-targets-and-derivations-by-package
-          (call-with-progress-reporter progress-reporter
-            (lambda (report)
-              (map
-               (lambda (package)
-                 (report)
-                 (inferior-package->systems-targets-and-derivations package))
-               packages))))
          (package-ids
           (inferior-packages->package-ids
            conn packages packages-metadata-ids))
-         (derivation-ids
-          (derivations->derivation-ids
-           conn
-           (append-map
-            (lambda (system-targets-and-derivations)
-              (map third system-targets-and-derivations))
-            systems-targets-and-derivations-by-package)))
-         (flat-package-ids-systems-and-targets
-          (append-map
-           (lambda (package-id system-targets-and-derivations)
-             (map (match-lambda
-                    ((system target derivation)
-                     (list package-id
-                           system
-                           target)))
-                  system-targets-and-derivations))
-           package-ids
-           systems-targets-and-derivations-by-package)))
+         (inferior-package-id->package-id-hash-table
+          (alist->hashq-table
+           (map (lambda (package package-id)
+                  (cons (inferior-package-id package)
+                        package-id))
+                packages
+                package-ids)))
+         (inferior-data-4-tuples
+          (all-inferior-package-derivations store inf packages)))
 
-    (insert-package-derivations conn
-                                flat-package-ids-systems-and-targets
-                                derivation-ids)))
+    (simple-format
+     #t "debug: finished loading information from inferior\n")
+    (close-inferior inf)
+
+    (let ((derivation-ids
+           (derivations->derivation-ids
+            conn
+            (map (lambda (tuple)
+                   (read-derivation-from-file
+                    (fourth tuple)))
+                 inferior-data-4-tuples)))
+          (flat-package-ids-systems-and-targets
+           (map
+            (match-lambda
+              ((inferior-package-id system target derivation-file-name)
+               (list (hashq-ref inferior-package-id->package-id-hash-table
+                                inferior-package-id)
+                     system
+                     target)))
+            inferior-data-4-tuples)))
+
+      (insert-package-derivations conn
+                                  flat-package-ids-systems-and-targets
+                                  derivation-ids))))
 
 (define (inferior-package-transitive-supported-systems package)
   ((@@ (guix inferior) inferior-package-field)
@@ -154,24 +155,29 @@
                         (@@ (guix channels) channel-instance))
                      inferior)
 
-      (inferior-eval-with-store
-       inferior
-       store
-       `(lambda (store)
-          (let ((instances
-                 (list
-                  (channel-instance
-                   (channel (name ',(channel-name channel))
-                            (url    ,(channel-url channel))
-                            (branch ,(channel-branch channel))
-                            (commit ,(channel-commit channel)))
-                   ,(channel-instance-commit channel-instance)
-                   ,(channel-instance-checkout channel-instance)))))
-            (run-with-store store
-              (mlet* %store-monad ((manifest (channel-instances->manifest instances))
-                                   (derv (profile-derivation manifest)))
-                (mbegin %store-monad
-                  (return (derivation-file-name derv)))))))))))
+      (let ((file-name
+             (inferior-eval-with-store
+              inferior
+              store
+              `(lambda (store)
+                 (let ((instances
+                        (list
+                         (channel-instance
+                          (channel (name ',(channel-name channel))
+                                   (url    ,(channel-url channel))
+                                   (branch ,(channel-branch channel))
+                                   (commit ,(channel-commit channel)))
+                          ,(channel-instance-commit channel-instance)
+                          ,(channel-instance-checkout channel-instance)))))
+                   (run-with-store store
+                     (mlet* %store-monad ((manifest (channel-instances->manifest instances))
+                                          (derv (profile-derivation manifest)))
+                       (mbegin %store-monad
+                         (return (derivation-file-name derv))))))))))
+
+        (close-inferior inferior)
+
+        file-name))))
 
 (define (channel->manifest-store-item store channel)
   (let* ((manifest-store-item-derivation-file-name
@@ -194,18 +200,23 @@
       (simple-format #t "guix-data-service: load-new-guix-revision: error: ~A\n" args)
       #f)))
 
-(define (extract-information-from store conn url commit store_path)
-  (let ((inf (open-inferior/container store store_path
+(define (extract-information-from store conn url commit store-path)
+  (simple-format
+   #t "debug: extract-information-from: ~A\n" store-path)
+  (let ((inf (open-inferior/container store store-path
                                       #:extra-shared-directories
                                       '("/gnu/store"))))
-    (inferior-eval '(use-modules (guix grafts)) inf)
+    (inferior-eval '(use-modules (srfi srfi-1)
+                                 (srfi srfi-34)
+                                 (guix grafts))
+                   inf)
     (inferior-eval '(%graft? #f) inf)
 
     (exec-query conn "BEGIN")
     (let ((package-derivation-ids
            (inferior-guix->package-derivation-ids store conn inf))
           (guix-revision-id
-           (insert-guix-revision conn url commit store_path)))
+           (insert-guix-revision conn url commit store-path)))
 
       (insert-guix-revision-package-derivations conn
                                                 guix-revision-id
@@ -215,9 +226,7 @@
 
       (simple-format
        #t "Successfully loaded ~A package/derivation pairs\n"
-       (length package-derivation-ids)))
-
-    (close-inferior inf)))
+       (length package-derivation-ids)))))
 
 (define (load-new-guix-revision conn url commit)
   (if (guix-revision-exists? conn url commit)
