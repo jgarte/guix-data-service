@@ -18,7 +18,7 @@
             select-derivations-by-id
             select-derivations-and-build-status-by-file-name
             insert-into-derivations
-            derivations->derivation-ids))
+            derivation-file-names->derivation-ids))
 
 (define (select-existing-derivations file-names)
   (string-append "SELECT id, file_name "
@@ -558,28 +558,26 @@ ORDER BY derivations.system DESC,
         result
         result-for-missing-file-names)))))
 
-(define (derivations->derivation-ids conn derivations)
-  (if (null? derivations)
+(define (derivation-file-names->derivation-ids conn derivation-file-names)
+  (if (null? derivation-file-names)
       '()
-      (let* ((derivations-count (length derivations))
+      (let* ((derivations-count (length derivation-file-names))
              (derivation-ids-hash-table (make-hash-table derivations-count)))
         (simple-format
-         #t "debug: derivations->derivation-ids: processing ~A derivations\n"
+         #t "debug: derivation-file-names->derivation-ids: processing ~A derivations\n"
          derivations-count)
-        (let* ((derivation-file-names (map derivation-file-name
-                                           derivations))
-
-               (existing-derivation-entries
+        (let* ((existing-derivation-entries
                 (derivation-file-names->vhash conn
                                               derivation-ids-hash-table
                                               derivation-file-names))
 
                (missing-derivations
-                (deduplicate-derivations
-                 (filter (lambda (derivation)
-                           (not (vhash-assoc (derivation-file-name derivation)
-                                             existing-derivation-entries)))
-                         derivations)))
+                (map read-derivation-from-file
+                     (deduplicate-strings
+                      (filter (lambda (derivation-file-name)
+                                (not (vhash-assoc derivation-file-name
+                                                  existing-derivation-entries)))
+                              derivation-file-names))))
 
                (new-derivation-entries
                 (if (null? missing-derivations)

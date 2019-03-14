@@ -82,12 +82,9 @@
     (close-inferior inf)
 
     (let ((derivation-ids
-           (derivations->derivation-ids
+           (derivation-file-names->derivation-ids
             conn
-            (map (lambda (tuple)
-                   (read-derivation-from-file
-                    (fourth tuple)))
-                 inferior-data-4-tuples)))
+            (map fourth inferior-data-4-tuples)))
           (flat-package-ids-systems-and-targets
            (map
             (match-lambda
