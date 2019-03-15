@@ -30,32 +30,41 @@
     `(lambda (store)
        (append-map
         (lambda (inferior-package-id)
-          (let* ((package
-                   (hashv-ref %package-table inferior-package-id))
-                 (supported-systems
-                  (package-transitive-supported-systems package)))
-            (append-map
-             (lambda (system)
-               (filter-map
-                (lambda (target)
-                  (catch
-                    'misc-error
-                    (lambda ()
-                      (guard (c ((package-cross-build-system-error? c)
-                                 #f))
-                        (list inferior-package-id
-                              system
-                              target
-                              (derivation-file-name
-                               (if (string=? system target)
-                                   (package-derivation store package system)
-                                   (package-cross-derivation store package
-                                                             target
-                                                             system))))))
-                    (lambda args
-                      #f)))
-                supported-systems))
-             supported-systems)))
+          (let ((package (hashv-ref %package-table inferior-package-id)))
+            (catch
+              #t
+              (lambda ()
+                (let ((supported-systems
+                       (package-transitive-supported-systems package)))
+                  (append-map
+                   (lambda (system)
+                     (filter-map
+                      (lambda (target)
+                        (catch
+                          'misc-error
+                          (lambda ()
+                            (guard (c ((package-cross-build-system-error? c)
+                                       #f))
+                              (list inferior-package-id
+                                    system
+                                    target
+                                    (derivation-file-name
+                                     (if (string=? system target)
+                                         (package-derivation store package system)
+                                         (package-cross-derivation store package
+                                                                   target
+                                                                   system))))))
+                          (lambda args
+                            ;; misc-error #f ~A ~S (No cross-compilation for clojure-build-system yet:
+                            #f)))
+                      supported-systems))
+                   supported-systems)))
+              (lambda args
+                (simple-format (current-error-port)
+                               "error: while processing ~A ignoring error: ~A\n"
+                               (package-name package)
+                               args)
+                '()))))
         (list ,@(map inferior-package-id packages)))))
 
   (inferior-eval-with-store inf store proc))
