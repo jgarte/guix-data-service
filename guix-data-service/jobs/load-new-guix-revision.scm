@@ -25,6 +25,17 @@
 (define inferior-package-id
   (@@ (guix inferior) inferior-package-id))
 
+(define (log-time action f)
+  (simple-format #t "debug: Starting ~A\n" action)
+  (force-output)
+  (let* ((start-time (current-time))
+         (result (f))
+         (time-taken (- (current-time) start-time)))
+    (simple-format #t "debug: Finished ~A, took ~A seconds\n"
+                   action time-taken)
+    (force-output)
+    result))
+
 (define (all-inferior-package-derivations store inf packages)
   (define proc
     `(lambda (store)
@@ -70,12 +81,18 @@
   (inferior-eval-with-store inf store proc))
 
 (define (inferior-guix->package-derivation-ids store conn inf)
-  (let* ((packages (inferior-packages inf))
+  (let* ((packages (log-time "fetching inferior packages"
+                             (lambda ()
+                               (inferior-packages inf))))
          (packages-metadata-ids
-          (inferior-packages->package-metadata-ids conn packages))
+          (log-time "fetching inferior package metadata"
+                    (lambda ()
+                      (inferior-packages->package-metadata-ids conn packages))))
          (package-ids
-          (inferior-packages->package-ids
-           conn packages packages-metadata-ids))
+          (log-time "getting package-ids"
+                    (lambda ()
+                      (inferior-packages->package-ids
+                       conn packages packages-metadata-ids))))
          (inferior-package-id->package-id-hash-table
           (alist->hashq-table
            (map (lambda (package package-id)
@@ -84,7 +101,9 @@
                 packages
                 package-ids)))
          (inferior-data-4-tuples
-          (all-inferior-package-derivations store inf packages)))
+          (log-time "getting inferior derivations"
+                    (lambda ()
+                      (all-inferior-package-derivations store inf packages)))))
 
     (simple-format
      #t "debug: finished loading information from inferior\n")
