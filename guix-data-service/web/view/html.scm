@@ -591,7 +591,7 @@
               (tbody
                ,@(map
                   (match-lambda
-                    ((name version rest ...)
+                    (((name . version) metadata)
                      `(tr
                        (td ,name)
                        (td ,version))))
@@ -610,7 +610,7 @@
               (tbody
                ,@(map
                   (match-lambda
-                    ((name version rest ...)
+                    (((name . version) metadata)
                      `(tr
                        (td ,name)
                        (td ,version))))

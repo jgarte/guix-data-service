@@ -127,17 +127,19 @@ ORDER BY base_packages.name DESC, base_packages.version, target_packages.name, t
 
 (define (package-data-vhashes->new-packages base-packages-vhash target-packages-vhash)
   (vlist->list
-   (vlist-filter (match-lambda
-                   ((name . details)
-                    (not (vhash-assoc name base-packages-vhash))))
-                 target-packages-vhash)))
+   (package-data-vhash->package-name-and-version-vhash
+    (vlist-filter (match-lambda
+                    ((name . details)
+                     (not (vhash-assoc name base-packages-vhash))))
+                  target-packages-vhash))))
 
 (define (package-data-vhashes->removed-packages base-packages-vhash target-packages-vhash)
   (vlist->list
-   (vlist-filter (match-lambda
-                   ((name . details)
-                    (not (vhash-assoc name target-packages-vhash))))
-                 base-packages-vhash)))
+   (package-data-vhash->package-name-and-version-vhash
+    (vlist-filter (match-lambda
+                    ((name . details)
+                     (not (vhash-assoc name target-packages-vhash))))
+                  base-packages-vhash))))
 
 (define (package-data-vhash->package-versions-vhash package-data-vhash)
   (define (system-and-target<? a b)
