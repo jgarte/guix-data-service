@@ -593,7 +593,8 @@
               (tbody
                ,@(map
                   (match-lambda
-                    (((name . version) metadata)
+                    ((('name . name)
+                      ('version . version))
                      `(tr
                        (td ,name)
                        (td ,version))))
@@ -612,7 +613,8 @@
               (tbody
                ,@(map
                   (match-lambda
-                    (((name . version) metadata)
+                    ((('name . name)
+                      ('version . version))
                      `(tr
                        (td ,name)
                        (td ,version))))
@@ -636,7 +638,7 @@
                        (td ,name)
                        (td (ul
                             ,@(map (match-lambda
-                                     ((type . version)
+                                     ((type . #(version))
                                       `(li (@ (class ,(if (eq? type 'base)
                                                           "text-danger"
                                                           "text-success")))
@@ -665,33 +667,50 @@
            (tbody
             ,@(append-map
                (match-lambda
-                 (((name . version) . (('base . base-derivations)
-                                       ('target . target-derivations)))
+                 ((('name . name)
+                   ('version . version)
+                   ('base . base-derivations)
+                   ('target . target-derivations))
                   (let* ((system-and-versions
                           (delete-duplicates
-                           (append (map car base-derivations)
-                                   (map car target-derivations))))
+                           (append (map (lambda (details)
+                                          (cons (assq-ref details 'system)
+                                                (assq-ref details 'target)))
+                                        (vector->list base-derivations))
+                                   (map (lambda (details)
+                                          (cons (assq-ref details 'system)
+                                                (assq-ref details 'target)))
+                                        (vector->list target-derivations)))))
                          (data-columns
                           (map
-                           (lambda (system-and-target)
-                             (let ((base-derivation-file-name
-                                    (assoc-ref base-derivations system-and-target))
-                                   (target-derivation-file-name
-                                    (assoc-ref target-derivations system-and-target)))
-                               `((td (samp (@ (style "white-space: nowrap;"))
-                                           ,(car system-and-target)))
-                                 (td (samp (@ (style "white-space: nowrap;"))
-                                           ,(cdr system-and-target)))
-                                 (td (a (@ (style "display: block;")
-                                           (href ,base-derivation-file-name))
-                                        (span (@ (class "text-danger glyphicon glyphicon-minus pull-left")
-                                                 (style "font-size: 1.5em; padding-right: 0.4em;")))
-                                        ,(display-store-item-short base-derivation-file-name))
-                                     (a (@ (style "display: block;")
-                                           (href ,target-derivation-file-name))
-                                        (span (@ (class "text-success glyphicon glyphicon-plus pull-left")
-                                                 (style "font-size: 1.5em; padding-right: 0.4em;")))
-                                        ,(display-store-item-short target-derivation-file-name))))))
+                           (match-lambda
+                             ((system . target)
+                              (let ((base-derivation-file-name
+                                     (assq-ref (find (lambda (details)
+                                                       (and (string=? (assq-ref details 'system) system)
+                                                            (string=? (assq-ref details 'target) target)))
+                                                     (vector->list base-derivations))
+                                               'derivation-file-name))
+                                    (target-derivation-file-name
+                                     (assq-ref (find (lambda (details)
+                                                       (and (string=? (assq-ref details 'system) system)
+                                                            (string=? (assq-ref details 'target) target)))
+                                                     (vector->list target-derivations))
+                                               'derivation-file-name)))
+                                `((td (samp (@ (style "white-space: nowrap;"))
+                                            ,system))
+                                  (td (samp (@ (style "white-space: nowrap;"))
+                                            ,target))
+                                  (td (a (@ (style "display: block;")
+                                            (href ,base-derivation-file-name))
+                                         (span (@ (class "text-danger glyphicon glyphicon-minus pull-left")
+                                                  (style "font-size: 1.5em; padding-right: 0.4em;")))
+                                         ,(display-store-item-short base-derivation-file-name))
+                                      (a (@ (style "display: block;")
+                                            (href ,target-derivation-file-name))
+                                         (span (@ (class "text-success glyphicon glyphicon-plus pull-left")
+                                                  (style "font-size: 1.5em; padding-right: 0.4em;")))
+                                         ,(display-store-item-short target-derivation-file-name)))))))
                            system-and-versions)))
 
                     `((tr (td (@ (rowspan , (length system-and-versions)))
@@ -702,7 +721,7 @@
                       ,@(map (lambda (data-row)
                                `(tr ,data-row))
                              (cdr data-columns))))))
-               derivation-changes)))))))))
+               (vector->list derivation-changes))))))))))
 
 (define (compare/derivations base-commit
                              target-commit

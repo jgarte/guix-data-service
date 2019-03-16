@@ -126,20 +126,30 @@ ORDER BY base_packages.name DESC, base_packages.version, target_packages.name, t
               vhash))
 
 (define (package-data-vhashes->new-packages base-packages-vhash target-packages-vhash)
-  (vlist->list
-   (package-data-vhash->package-name-and-version-vhash
-    (vlist-filter (match-lambda
-                    ((name . details)
-                     (not (vhash-assoc name base-packages-vhash))))
-                  target-packages-vhash))))
+  (map
+   (match-lambda
+     (((name . version) metadata ...)
+      `((name . ,name)
+        (version . ,version))))
+   (vlist->list
+    (package-data-vhash->package-name-and-version-vhash
+     (vlist-filter (match-lambda
+                     ((name . details)
+                      (not (vhash-assoc name base-packages-vhash))))
+                   target-packages-vhash)))))
 
 (define (package-data-vhashes->removed-packages base-packages-vhash target-packages-vhash)
-  (vlist->list
-   (package-data-vhash->package-name-and-version-vhash
-    (vlist-filter (match-lambda
-                    ((name . details)
-                     (not (vhash-assoc name target-packages-vhash))))
-                  base-packages-vhash))))
+  (map
+   (match-lambda
+     (((name . version) metadata ...)
+      `((name . ,name)
+        (version . ,version))))
+   (vlist->list
+    (package-data-vhash->package-name-and-version-vhash
+     (vlist-filter (match-lambda
+                     ((name . details)
+                      (not (vhash-assoc name target-packages-vhash))))
+                   base-packages-vhash)))))
 
 (define (package-data-vhash->package-versions-vhash package-data-vhash)
   (define (system-and-target<? a b)
@@ -180,8 +190,10 @@ ORDER BY base_packages.name DESC, base_packages.version, target_packages.name, t
                         (begin
                           (if (equal? base-versions target-versions)
                               result
-                              `((,name . ((base . ,(map car base-versions))
-                                          (target . ,(map car target-versions))))
+                              `((,name . ((base . ,(list->vector
+                                                    (map car base-versions)))
+                                          (target . ,(list->vector
+                                                      (map car target-versions)))))
                                 ,@result)))
                         result)))
                 '()
@@ -197,25 +209,33 @@ ORDER BY base_packages.name DESC, base_packages.version, target_packages.name, t
   (define (derivation-system-and-target-list->alist lst)
     (if (null? lst)
         '()
-        `((,(cdr (first lst)) . ,(car (first lst)))
+        `(,(match (first lst)
+             ((derivation-file-name system target)
+              `((system . ,system)
+                (target . ,target)
+                (derivation-file-name . ,derivation-file-name))))
           ,@(derivation-system-and-target-list->alist (cdr lst)))))
 
-  (vhash-fold
-   (lambda (name-and-version target-packages-entry result)
-     (let ((base-packages-entry
-            (vhash-assoc name-and-version
-                         base-package-details-by-name-and-version)))
-       (if base-packages-entry
-           (let ((base-derivations (map cdr (cdr base-packages-entry)))
-                 (target-derivations (map cdr target-packages-entry)))
-             (if (equal? base-derivations target-derivations)
-                 result
-                 `((,name-and-version
-                    . ((base . ,(derivation-system-and-target-list->alist
-                                 base-derivations))
-                       (target . ,(derivation-system-and-target-list->alist
-                                   target-derivations))))
-                   ,@result)))
-           result)))
-   '()
-   target-package-details-by-name-and-version))
+  (list->vector
+   (vhash-fold
+    (lambda (name-and-version target-packages-entry result)
+      (let ((base-packages-entry
+             (vhash-assoc name-and-version
+                          base-package-details-by-name-and-version)))
+        (if base-packages-entry
+            (let ((base-derivations (map cdr (cdr base-packages-entry)))
+                  (target-derivations (map cdr target-packages-entry)))
+              (if (equal? base-derivations target-derivations)
+                  result
+                  `(((name . ,(car name-and-version))
+                     (version . ,(cdr name-and-version))
+                     (base . ,(list->vector
+                               (derivation-system-and-target-list->alist
+                                base-derivations)))
+                     (target . ,(list->vector
+                                 (derivation-system-and-target-list->alist
+                                  target-derivations))))
+                    ,@result)))
+            result)))
+    '()
+    target-package-details-by-name-and-version)))

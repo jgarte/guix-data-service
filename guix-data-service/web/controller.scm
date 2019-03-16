@@ -121,8 +121,8 @@
       (cond
        ((eq? content-type 'json)
         (render-json
-         `((new-packages . ,new-packages)
-           (removed-packages . ,removed-packages)
+         `((new-packages . ,(list->vector new-packages))
+           (removed-packages . ,(list->vector removed-packages))
            (version-changes . ,version-changes)
            (derivation-changes . ,derivation-changes))))
        (else
