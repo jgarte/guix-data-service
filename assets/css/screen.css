@@ -104,7 +104,7 @@ tr.important td:nth-child(1) {
     border-style: none none solid none;
     border-width: thin;
     width: 100%;
-    margin-bottom: 1rem;
+    margin-bottom: 0;
     padding: .5em;
     color: #fff;
     border-radius: 0;
