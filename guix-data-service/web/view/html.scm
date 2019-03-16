@@ -563,7 +563,9 @@
            " and "
            (samp ,(string-take target-commit 8) "…"))
        (div
-        (@ (class "btn-group-vertical btn-group-lg pull-right") (role "group"))
+        (@ (class "btn-group-vertical btn-group-lg pull-right")
+           (style "margin-top: 2em;")
+           (role "group"))
         (a (@ (class "btn btn-default")
               (href ,(string-append "/compare/packages" query-params)))
            "Compare packages")
