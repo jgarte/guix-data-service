@@ -237,7 +237,10 @@
       (@ (class "container"))
       (div
        (@ (class "row"))
-       (h1 "Revision " (samp ,commit-hash)))
+       (div
+        (@ (class "col-md-12"))
+        (h1 (@ (style "white-space: nowrap;"))
+            "Revision " (samp ,commit-hash))))
       (div
        (@ (class "row"))
        (div
@@ -246,20 +249,20 @@
         (strong (@ (class "text-center")
                    (style "font-size: 2em; display: block;"))
                 ,packages-count)
-        (a (@ (class "btn btn-default btn-lg")
-              (href ,(string-append "/revision/" commit-hash
+        (a (@ (href ,(string-append "/revision/" commit-hash
                                     "/packages")))
            "View packages"))
        (div
         (@ (class "col-md-6"))
         (h3 "Derivations")
         (table
-         (@ (class "table"))
+         (@ (class "table")
+            (style "white-space: nowrap;"))
          (thead
           (tr
            (th "System")
            (th "Target")
-           (th "Distinct derivations")))
+           (th "Derivations")))
          (tbody
           ,@(map (match-lambda
                    ((system target count)
