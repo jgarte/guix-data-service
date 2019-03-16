@@ -4,8 +4,8 @@
   #:export (process-jobs))
 
 (define (process-jobs conn)
-  (match (process-next-load-new-guix-revision-job conn)
-    (#f (begin (simple-format #t "Waiting for new jobs...")
-               (sleep 60)
-               (process-jobs conn)))
-    (_ (process-jobs conn))))
+  (while #t
+    (match (process-next-load-new-guix-revision-job conn)
+      (#f (begin (simple-format #t "Waiting for new jobs...")
+                 (sleep 60)))
+      (_ #f))))

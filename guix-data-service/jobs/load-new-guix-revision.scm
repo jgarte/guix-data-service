@@ -37,7 +37,23 @@
     result))
 
 (define (all-inferior-package-derivations store inf packages)
-  (define proc
+  (define inferior-%supported-systems
+    (inferior-eval '(@ (guix packages) %supported-systems) inf))
+
+  (define supported-system-pairs
+    (map (lambda (system)
+           (cons system system))
+         inferior-%supported-systems))
+
+  (define supported-system-cross-build-pairs
+    (map (lambda (system)
+           (filter-map (lambda (target)
+                         (and (not (string=? system target))
+                              (cons system target)))
+                       inferior-%supported-systems))
+         inferior-%supported-systems))
+
+  (define (proc packages system-target-pairs)
     `(lambda (store)
        (append-map
         (lambda (inferior-package-id)
@@ -66,10 +82,18 @@
                                                                    target
                                                                    system))))))
                           (lambda args
-                            ;; misc-error #f ~A ~S (No cross-compilation for clojure-build-system yet:
+                            ;; misc-error #f ~A ~S (No
+                            ;; cross-compilation for
+                            ;; clojure-build-system yet:
                             #f)))
-                      supported-systems))
-                   supported-systems)))
+                      (lset-intersection
+                       string=?
+                       supported-systems
+                       (list ,@(map cdr system-target-pairs)))))
+                   (lset-intersection
+                    string=?
+                    supported-systems
+                    (list ,@(map car system-target-pairs))))))
               (lambda args
                 (simple-format (current-error-port)
                                "error: while processing ~A ignoring error: ~A\n"
@@ -78,7 +102,20 @@
                 '()))))
         (list ,@(map inferior-package-id packages)))))
 
-  (inferior-eval-with-store inf store proc))
+  (append-map
+   (lambda (system-target-pairs)
+     (format (current-error-port)
+             "heap size: ~a MiB~%"
+             (round
+              (/ (assoc-ref (gc-stats) 'heap-size)
+                 (expt 2. 20))))
+     (log-time
+      (simple-format #f "getting derivations for ~A" system-target-pairs)
+      (lambda ()
+        (inferior-eval '(invalidate-derivation-caches!) inf)
+        (inferior-eval-with-store inf store (proc packages system-target-pairs)))))
+   (append (map list supported-system-pairs)
+           supported-system-cross-build-pairs)))
 
 (define (inferior-guix->package-derivation-ids store conn inf)
   (let* ((packages (log-time "fetching inferior packages"
@@ -157,52 +194,63 @@
           (list (string-append
                  "SSL_CERT_DIR=" (nss-certs-store-path store))))))
 
-    ;; Create /etc/pass, as %known-shorthand-profiles in (guix
-    ;; profiles) tries to read from this file. Because the environment
-    ;; is cleaned in build-self.scm, xdg-directory in (guix utils)
-    ;; falls back to accessing /etc/passwd.
-    (inferior-eval
-     '(begin
-        (mkdir "/etc")
-        (call-with-output-file "/etc/passwd"
-          (lambda (port)
-            (display "root:x:0:0::/root:/bin/bash" port))))
-     inferior)
+    (catch
+      #t
+      (lambda ()
+        ;; Create /etc/pass, as %known-shorthand-profiles in (guix
+        ;; profiles) tries to read from this file. Because the environment
+        ;; is cleaned in build-self.scm, xdg-directory in (guix utils)
+        ;; falls back to accessing /etc/passwd.
+        (inferior-eval
+         '(begin
+            (mkdir "/etc")
+            (call-with-output-file "/etc/passwd"
+              (lambda (port)
+                (display "root:x:0:0::/root:/bin/bash" port))))
+         inferior)
 
-    (let ((channel-instance
-           (first
-            (latest-channel-instances store
-                                      (list channel)))))
-      (inferior-eval '(use-modules (guix channels)
-                                   (guix profiles))
-                     inferior)
-      (inferior-eval '(define channel-instance
-                        (@@ (guix channels) channel-instance))
-                     inferior)
+        (let ((channel-instance
+               (first
+                (latest-channel-instances store
+                                          (list channel)))))
+          (inferior-eval '(use-modules (guix channels)
+                                       (guix profiles))
+                         inferior)
+          (inferior-eval '(define channel-instance
+                            (@@ (guix channels) channel-instance))
+                         inferior)
 
-      (let ((file-name
-             (inferior-eval-with-store
-              inferior
-              store
-              `(lambda (store)
-                 (let ((instances
-                        (list
-                         (channel-instance
-                          (channel (name ',(channel-name channel))
-                                   (url    ,(channel-url channel))
-                                   (branch ,(channel-branch channel))
-                                   (commit ,(channel-commit channel)))
-                          ,(channel-instance-commit channel-instance)
-                          ,(channel-instance-checkout channel-instance)))))
-                   (run-with-store store
-                     (mlet* %store-monad ((manifest (channel-instances->manifest instances))
-                                          (derv (profile-derivation manifest)))
-                       (mbegin %store-monad
-                         (return (derivation-file-name derv))))))))))
+          (let ((file-name
+                 (inferior-eval-with-store
+                  inferior
+                  store
+                  `(lambda (store)
+                     (let ((instances
+                            (list
+                             (channel-instance
+                              (channel (name ',(channel-name channel))
+                                       (url    ,(channel-url channel))
+                                       (branch ,(channel-branch channel))
+                                       (commit ,(channel-commit channel)))
+                              ,(channel-instance-commit channel-instance)
+                              ,(channel-instance-checkout channel-instance)))))
+                       (run-with-store store
+                         (mlet* %store-monad ((manifest (channel-instances->manifest instances))
+                                              (derv (profile-derivation manifest)))
+                           (mbegin %store-monad
+                             (return (derivation-file-name derv))))))))))
+
+            (close-inferior inferior)
+
+            file-name)))
+      (lambda args
+        (simple-format (current-error-port)
+                       "error: channel->derivation-file-name: ~A\n"
+                       args)
 
         (close-inferior inferior)
 
-        file-name))))
+        #f))))
 
 (define (channel->manifest-store-item store channel)
   (let* ((manifest-store-item-derivation-file-name
@@ -233,7 +281,8 @@
                                       '("/gnu/store"))))
     (inferior-eval '(use-modules (srfi srfi-1)
                                  (srfi srfi-34)
-                                 (guix grafts))
+                                 (guix grafts)
+                                 (guix derivations))
                    inf)
     (inferior-eval '(%graft? #f) inf)
 
@@ -298,4 +347,3 @@
                          id
                          "'"))))
       (_ #f))))
-
