@@ -370,6 +370,18 @@
                         "View build on " ,build-server-url)))))
             builds))))))))
 
+(define (build-status-value->display-string value)
+  (assoc-ref
+   '(("scheduled" . "Scheduled")
+     ("started" . "Started")
+     ("succeeded" . "Succeeded")
+     ("failed" . "Failed")
+     ("failed-dependency" . "Failed (dependency)")
+     ("failed-other" . "Failed (other)")
+     ("canceled" . "Canceled")
+     ("" . "Unknown"))
+   value))
+
 (define (build-status-span status)
   `(span (@ (class ,(string-append
                      "label label-"
@@ -384,16 +396,7 @@
                         ("" . "default"))
                       status)))
             (style "display: inline-block; font-size: 1.2em; margin-top: 0.4em;"))
-         ,(assoc-ref
-           '(("scheduled" . "Scheduled")
-             ("started" . "Started")
-             ("succeeded" . "Succeeded")
-             ("failed" . "Failed")
-             ("failed-dependency" . "Failed (dependency)")
-             ("failed-other" . "Failed (other)")
-             ("canceled" . "Canceled")
-             ("" . "Unknown"))
-           status)))
+         ,(build-status-value->display-string status)))
 
 (define (display-store-item-short item)
   `((span (@ (style "font-size: small; font-family: monospace; display: block;"))
