@@ -8,7 +8,8 @@
   #:use-module (guix memoization)
   #:use-module (guix derivations)
   #:use-module (guix-data-service model utils)
-  #:export (select-derivation-by-file-name
+  #:export (valid-systems
+            select-derivation-by-file-name
             select-derivation-outputs-by-derivation-id
             select-derivation-by-output-filename
             select-derivations-using-output
@@ -16,9 +17,15 @@
             select-derivation-inputs-by-derivation-id
             select-existing-derivations
             select-derivations-by-id
-            select-derivations-and-build-status-by-file-name
+            select-derivations-and-build-status
             insert-into-derivations
             derivation-file-names->derivation-ids))
+
+(define (valid-systems conn)
+  (map car
+       (exec-query
+        conn
+        "SELECT DISTINCT system FROM derivations ORDER BY 1")))
 
 (define (select-existing-derivations file-names)
   (string-append "SELECT id, file_name "
@@ -462,11 +469,45 @@ ORDER BY derivations.system DESC,
 
   (exec-query conn query))
 
-(define (select-derivations-and-build-status-by-file-name conn file-names)
+(define* (select-derivations-and-build-status conn #:key
+                                              file-names
+                                              systems
+                                              targets
+                                              build-statuses)
+  (define criteria
+    (string-join
+     (filter-map
+      (lambda (field values)
+        (if (and values (not (null? values)))
+            (string-append
+             field " IN ("
+             (string-join (map (lambda (value)
+                                 (simple-format #f "'~A'" value))
+                               values)
+                          ",")
+             ")")
+            #f))
+      '("derivations.file_name"
+        "derivations.system"
+        "target"
+        "latest_build_status.status")
+      (list file-names
+            systems
+            targets
+            build-statuses))
+     " AND "))
+
   (define query
     (string-append
-     "SELECT derivations.file_name, latest_build_status.status "
+     "SELECT derivations.file_name, derivations.system, ("
+     "  SELECT DISTINCT package_derivations.target"
+     "  FROM package_derivations"
+     "  WHERE derivations.id = package_derivations.derivation_id"
+     ") AS target, "
+     "latest_build_status.status "
      "FROM derivations "
+     "INNER JOIN package_derivations"
+     " ON derivations.id = package_derivations.derivation_id "
      "LEFT OUTER JOIN builds ON derivations.id = builds.derivation_id "
      "LEFT OUTER JOIN "
      "(SELECT DISTINCT ON (internal_build_id) * "
@@ -474,12 +515,7 @@ ORDER BY derivations.system DESC,
      "ORDER BY internal_build_id, status_fetched_at DESC"
      ") AS latest_build_status "
      "ON builds.internal_id = latest_build_status.internal_build_id "
-     "WHERE derivations.file_name IN "
-     "(" (string-join (map (lambda (file-name)
-                             (simple-format #f "'~A'" file-name))
-                           file-names)
-                      ",")
-     ");"))
+     "WHERE " criteria ";"))
 
   (exec-query conn query))
 

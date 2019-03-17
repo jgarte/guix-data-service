@@ -1,6 +1,7 @@
 (define-module (guix-data-service model build-status)
   #:use-module (squee)
   #:export (build-statuses
+            build-status-strings
             insert-build-status))
 
 (define build-statuses
@@ -11,6 +12,9 @@
     (2 . "failed-dependency")
     (3 . "failed-other")
     (4 . "canceled")))
+
+(define build-status-strings
+  (map cdr build-statuses))
 
 (define (insert-build-status conn internal-build-id
                              starttime stoptime status)

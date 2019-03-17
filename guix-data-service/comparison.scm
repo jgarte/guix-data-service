@@ -98,7 +98,9 @@ ORDER BY base_packages.name DESC, base_packages.version, target_packages.name, t
           (select-derivations-by-id conn derivation-ids)))
     derivation-data))
 
-(define (package-data-vhash->derivations-and-build-status conn packages-vhash)
+(define (package-data-vhash->derivations-and-build-status conn packages-vhash
+                                                          systems targets
+                                                          build-statuses)
   (define (vhash->derivation-file-names vhash)
     (vhash-fold (lambda (key value result)
                   (cons (third value)
@@ -109,9 +111,12 @@ ORDER BY base_packages.name DESC, base_packages.version, target_packages.name, t
   (let* ((derivation-file-names
           (vhash->derivation-file-names packages-vhash))
          (derivation-data
-          (select-derivations-and-build-status-by-file-name
+          (select-derivations-and-build-status
            conn
-           derivation-file-names)))
+           #:file-names derivation-file-names
+           #:systems systems
+           #:targets targets
+           #:build-statuses build-statuses)))
     derivation-data))
 
 (define (package-data-vhash->package-name-and-version-vhash vhash)

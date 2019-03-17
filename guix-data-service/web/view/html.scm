@@ -641,11 +641,13 @@
                        (td ,name)
                        (td (ul
                             ,@(map (match-lambda
-                                     ((type . #(version))
+                                     ((type . versions)
                                       `(li (@ (class ,(if (eq? type 'base)
                                                           "text-danger"
                                                           "text-success")))
-                                           ,version
+                                           ,(string-join
+                                             (vector->list versions)
+                                             ", ")
                                            ,(if (eq? type 'base)
                                                 " (old)"
                                                 " (new)"))))
@@ -726,10 +728,15 @@
                              (cdr data-columns))))))
                (vector->list derivation-changes))))))))))
 
-(define (compare/derivations base-commit
+(define (compare/derivations valid-systems
+                             valid-build-statuses
+                             base-commit
                              target-commit
                              base-derivations
-                             target-derivations)
+                             target-derivations
+                             systems
+                             targets
+                             build-statues)
   (define query-params
     (string-append "?base_commit=" base-commit
                    "&target_commit=" target-commit))
@@ -746,11 +753,118 @@
        (h1 "Comparing "
            (samp ,(string-take base-commit 8) "…")
            " and "
-           (samp ,(string-take target-commit 8) "…"))
-       (a (@ (class "btn btn-default btn-lg")
-             (href ,(string-append
-                     "/compare/derivations.json" query-params)))
-          "View JSON"))
+           (samp ,(string-take target-commit 8) "…")))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (div
+         (@ (class "well"))
+         (form
+          (@ (method "get")
+             (action "")
+             (class "form-horizontal"))
+          (div (@ (class "form-group form-group-lg"))
+               (label (@ (for "inputBaseCommit")
+                         (class "col-sm-2 control-label"))
+                      "Base commit")
+               (div (@ (class "col-sm-9"))
+                    (input (@ (class "form-control")
+                              (style "font-family: monospace;")
+                              (id "inputBaseCommit")
+                              (required #t)
+                              (aria-describedby "baseCommitHelp")
+                              (name "base_commit")
+                              (value ,base-commit)))
+                    (span (@ (id "baseCommitHelp")
+                             (class "help-block"))
+                          (strong "Required.")
+                          " The commit to use as the basis for the comparison.")))
+          (div (@ (class "form-group form-group-lg"))
+               (label (@ (for "inputTargetCommit")
+                         (class "col-sm-2 control-label"))
+                      "Target commit")
+               (div (@ (class "col-sm-9"))
+                    (input (@ (class "form-control")
+                              (style "font-family: monospace;")
+                              (id "inputTargetCommit")
+                              (required #t)
+                              (aria-describedby "targetCommitHelp")
+                              (name "target_commit")
+                              (value ,target-commit)))
+                    (span (@ (id "targetCommitHelp")
+                             (class "help-block"))
+                          (strong "Required.")
+                          " The commit to compare against the base commit.")))
+          (div (@ (class "form-group form-group-lg"))
+               (label (@ (for "inputSystem")
+                         (class "col-sm-2 control-label"))
+                      "System")
+               (div (@ (class "col-sm-9"))
+                    (select (@ (class "form-control")
+                               (style "font-family: monospace;")
+                               (multiple #t)
+                               (id "inputSystem")
+                               (aria-describedby "systemHelp")
+                               (name "system"))
+                      ,@(map (lambda (system)
+                               `(option (@ ,@(if (member system systems)
+                                                 '((selected ""))
+                                                 '()))
+                                        ,system))
+                             valid-systems))
+                    (span (@ (id "systemHelp")
+                             (class "help-block"))
+                          "Only include derivations for this system.")))
+          (div (@ (class "form-group form-group-lg"))
+               (label (@ (for "inputTarget")
+                         (class "col-sm-2 control-label"))
+                      "Target")
+               (div (@ (class "col-sm-9"))
+                    (select (@ (class "form-control")
+                               (style "font-family: monospace;")
+                               (multiple #t)
+                               (id "inputTarget")
+                               (aria-describedby "targetHelp")
+                               (name "target"))
+                      ,@(map (lambda (system)
+                               `(option (@ ,@(if (member system targets)
+                                                 '((selected ""))
+                                                 '()))
+                                        ,system))
+                             valid-systems))
+                    (span (@ (id "targetHelp")
+                             (class "help-block"))
+                          "Only include derivations that are build for this system.")))
+          (div (@ (class "form-group form-group-lg"))
+               (label (@ (for "inputBuildStatus")
+                         (class "col-sm-2 control-label"))
+                      "Build status")
+               (div (@ (class "col-sm-9"))
+                    (select (@ (class "form-control")
+                               (id "inputBuildStatus")
+                               (aria-describedby "buildStatusHelp")
+                               (multiple #t)
+                               (name "build_status"))
+                      ,@(map (lambda (build-status)
+                               `(option (@ ,@(if (member build-status build-statues)
+                                                 '((selected ""))
+                                                 '())
+                                           (value ,build-status))
+                                        ,(build-status-value->display-string build-status)))
+                             valid-build-statuses))
+                    (span (@ (id "buildStatusHelp")
+                             (class "help-block"))
+                          "Only include derivations which have this build status.")))
+          (div (@ (class "form-group form-group-lg"))
+               (div (@ (class "col-sm-offset-2 col-sm-10"))
+                    (button (@ (type "submit")
+                               (class "btn btn-lg btn-primary"))
+                            "Update results")))
+          (a (@ (class "btn btn-default btn-lg pull-right")
+                (href ,(string-append
+                        "/compare/derivations.json" query-params)))
+             "View JSON")))))
       (div
        (@ (class "row"))
        (h3 "Base ("
@@ -761,15 +875,19 @@
         (@ (class "table"))
         (thead
          (tr
-          (th (@ (class "col-md-8")) "File Name")
+          (th (@ (class "col-md-6")) "File Name")
+          (th (@ (class "col-md-2")) "System")
+          (th (@ (class "col-md-2")) "Target")
           (th (@ (class "col-md-4")) "Build status")))
         (tbody
          ,@(map
             (match-lambda
-              ((file-name build-status)
+              ((file-name system target build-status)
                `(tr
                  (td (a (@ (href ,file-name))
-                        ,(display-store-item file-name)))
+                        ,(display-store-item-short file-name)))
+                 (td (samp ,system))
+                 (td (samp ,target))
                  (td ,(build-status-span build-status)))))
             base-derivations))))
       (div
@@ -783,14 +901,18 @@
         (thead
          (tr
           (th (@ (class "col-md-8")) "File Name")
+          (th (@ (class "col-md-2")) "System")
+          (th (@ (class "col-md-2")) "Target")
           (th (@ (class "col-md-4")) "Build status")))
         (tbody
          ,@(map
             (match-lambda
-              ((file-name build-status)
+              ((file-name system target build-status)
                `(tr
                  (td (a (@ (href ,file-name))
-                        ,(display-store-item file-name)))
+                        ,(display-store-item-short file-name)))
+                 (td (samp ,system))
+                 (td (samp ,target))
                  (td ,(build-status-span build-status)))))
             target-derivations))))))))
 

@@ -32,6 +32,7 @@
   #:use-module (guix-data-service model package-derivation)
   #:use-module (guix-data-service model package-metadata)
   #:use-module (guix-data-service model derivation)
+  #:use-module (guix-data-service model build-status)
   #:use-module (guix-data-service model build)
   #:use-module (guix-data-service jobs load-new-guix-revision)
   #:use-module (guix-data-service web render)
@@ -57,17 +58,18 @@
   ;;     (render-html (error-page message))))
   )
 
-(define (with-base-and-target-commits request conn f)
-  (let ((base-commit (-> request
-                         request-uri
-                         uri-query
-                         parse-query-string
-                         (cut assoc-ref <> "base_commit")))
-        (target-commit (-> request
-                           request-uri
-                           uri-query
-                           parse-query-string
-                           (cut assoc-ref <> "target_commit"))))
+(define (assoc-ref-multiple alist key)
+  (filter-map
+   (match-lambda
+     ((k . value)
+      (and (string=? k key)
+           value)))
+   alist))
+
+(define (with-base-and-target-commits query-parameters conn f)
+  (let* ((base-commit (assoc-ref query-parameters "base_commit"))
+         (target-commit (assoc-ref query-parameters "target_commit")))
+
     (f base-commit
        (commit->revision-id conn base-commit)
        target-commit
@@ -139,11 +141,16 @@
                                     base-commit
                                     base-revision-id
                                     target-commit
-                                    target-revision-id)
+                                    target-revision-id
+                                    systems
+                                    targets
+                                    build-statuses)
   (define (derivations->alist derivations)
     (map (match-lambda
-           ((file-name buildstatus)
+           ((file-name system target buildstatus)
             `((file_name . ,file-name)
+              (system . ,system)
+              (target . ,target)
               (build_status . ,(if (string=? "")
                                    "unknown"
                                    buildstatus)))))
@@ -158,11 +165,17 @@
     (let ((base-derivations
            (package-data-vhash->derivations-and-build-status
             conn
-            base-packages-vhash))
+            base-packages-vhash
+            systems
+            targets
+            build-statuses))
           (target-derivations
            (package-data-vhash->derivations-and-build-status
             conn
-            target-packages-vhash)))
+            target-packages-vhash
+            systems
+            targets
+            build-statuses)))
       (cond
        ((eq? content-type 'json)
         (render-json
@@ -177,10 +190,15 @@
        (else
         (apply render-html
                (compare/derivations
+                (valid-systems conn)
+                build-status-strings
                 base-commit
                 target-commit
                 base-derivations
-                target-derivations)))))))
+                target-derivations
+                systems
+                targets
+                build-statuses)))))))
 
 (define (render-compare/packages content-type
                                  conn
@@ -260,6 +278,12 @@
                                     derivations)))))))
 
 (define (controller request body conn)
+  (define query-parameters
+    (-> request
+        request-uri
+        uri-query
+        parse-query-string))
+
   (match-lambda
     ((GET)
      (apply render-html (index
@@ -303,7 +327,7 @@
          (render-store-item conn (string-append "/gnu/store/" filename))))
     ((GET "compare")
      (with-base-and-target-commits
-      request conn
+      query-parameters conn
       (lambda (base-commit base-revision-id target-commit target-revision-id)
         (if (not (and base-revision-id target-revision-id))
             (render-compare-unknown-commit 'html
@@ -320,7 +344,7 @@
                             target-revision-id)))))
     ((GET "compare.json")
      (with-base-and-target-commits
-      request conn
+      query-parameters conn
       (lambda (base-commit base-revision-id target-commit target-revision-id)
         (if (not (and base-revision-id target-revision-id))
             (render-compare-unknown-commit 'json
@@ -337,7 +361,7 @@
                             target-revision-id)))))
     ((GET "compare" "derivations")
      (with-base-and-target-commits
-      request conn
+      query-parameters conn
       (lambda (base-commit base-revision-id target-commit target-revision-id)
         (if (not (and base-revision-id target-revision-id))
             (render-compare-unknown-commit 'html
@@ -351,10 +375,16 @@
                                         base-commit
                                         base-revision-id
                                         target-commit
-                                        target-revision-id)))))
+                                        target-revision-id
+                                        (assoc-ref-multiple query-parameters
+                                                            "system")
+                                        (assoc-ref-multiple query-parameters
+                                                            "target")
+                                        (assoc-ref-multiple query-parameters
+                                                            "build_status"))))))
     ((GET "compare" "derivations.json")
      (with-base-and-target-commits
-      request conn
+      query-parameters conn
       (lambda (base-commit base-revision-id target-commit target-revision-id)
         (if (not (and base-revision-id target-revision-id))
             (render-compare-unknown-commit 'json
@@ -368,10 +398,16 @@
                                         base-commit
                                         base-revision-id
                                         target-commit
-                                        target-revision-id)))))
+                                        target-revision-id
+                                        (assoc-ref-multiple query-parameters
+                                                            "system")
+                                        (assoc-ref-multiple query-parameters
+                                                            "target")
+                                        (assoc-ref-multiple query-parameters
+                                                            "build_status"))))))
     ((GET "compare" "packages")
      (with-base-and-target-commits
-      request conn
+      query-parameters conn
       (lambda (base-commit base-revision-id target-commit target-revision-id)
         (if (not (and base-revision-id target-revision-id))
             (render-compare-unknown-commit 'html
@@ -388,7 +424,7 @@
                                      target-revision-id)))))
     ((GET "compare" "packages.json")
      (with-base-and-target-commits
-      request conn
+      query-parameters conn
       (lambda (base-commit base-revision-id target-commit target-revision-id)
         (if (not (and base-revision-id target-revision-id))
             (render-compare-unknown-commit 'json
