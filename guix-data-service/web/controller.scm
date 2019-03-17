@@ -151,7 +151,7 @@
             `((file_name . ,file-name)
               (system . ,system)
               (target . ,target)
-              (build_status . ,(if (string=? "")
+              (build_status . ,(if (string=? buildstatus "")
                                    "unknown"
                                    buildstatus)))))
          derivations))
