@@ -736,10 +736,26 @@
                              target-derivations
                              systems
                              targets
-                             build-statues)
+                             build-statuses)
   (define query-params
-    (string-append "?base_commit=" base-commit
-                   "&target_commit=" target-commit))
+    (string-append
+     "?"
+     (string-join
+      `(,(string-append "base_commit=" base-commit)
+        ,(string-append "target_commit=" target-commit)
+        ,@(map (lambda (system)
+                 (string-append
+                  "system=" system))
+               systems)
+        ,@(map (lambda (target)
+                 (string-append
+                  "target=" target))
+               targets)
+        ,@(map (lambda (build_status)
+                 (string-append
+                  "build_status=" build_status))
+               build-statuses))
+      "&")))
 
   (layout
    #:extra-headers
@@ -847,7 +863,7 @@
                                (multiple #t)
                                (name "build_status"))
                       ,@(map (lambda (build-status)
-                               `(option (@ ,@(if (member build-status build-statues)
+                               `(option (@ ,@(if (member build-status build-statuses)
                                                  '((selected ""))
                                                  '())
                                            (value ,build-status))
