@@ -29,8 +29,10 @@
          (x-git-reftype (assq-ref headers 'x-git-reftype))
          (x-git-refname (assq-ref headers 'x-git-refname))
          (x-git-newrev  (assq-ref headers 'x-git-newrev)))
-    (when (and (string=? x-git-reftype "branch")
-               (string=? x-git-repo "guix")
+    (when (and (and (string? x-git-reftype)
+                    (string=? x-git-reftype "branch"))
+               (and (string? x-git-repo)
+                    (string=? x-git-repo "guix"))
                (string? x-git-newrev))
       (enqueue-load-new-guix-revision-job
        conn
