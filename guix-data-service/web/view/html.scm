@@ -467,17 +467,21 @@
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
-        ,(display-store-item-title filename))
-       ,@(map (lambda (derivation derivations-using-store-item)
-                `((div
-                   (@ (class "row"))
+        ,(display-store-item-title filename)))
+      ,@(map (lambda (derivation derivations-using-store-item)
+               `((div
+                  (@ (class "row"))
+                  (div
+                   (@ (class "col-sm-12"))
                    (h4 "Derivation: ")
                    ,(match derivation
                       ((file-name output-id)
                        `(a (@ (href ,file-name))
-                           ,(display-store-item file-name)))))
+                           ,(display-store-item file-name))))))
+                 (div
+                  (@ (class "row"))
                   (div
-                   (@ (class "row"))
+                   (@ (class "col-sm-12"))
                    (h2 "Derivations using this store item "
                        ,(let ((count (length derivations-using-store-item)))
                           (if (eq? count 100)
@@ -490,9 +494,9 @@
                         ((file-name)
                          `(li (a (@ (href ,file-name))
                                  ,(display-store-item file-name)))))
-                      derivations-using-store-item)))))
-              derivations
-              derivations-using-store-item-list))))))
+                      derivations-using-store-item))))))
+             derivations
+             derivations-using-store-item-list)))))
 
 (define (view-derivation derivation derivation-inputs derivation-outputs
                          builds)
@@ -507,7 +511,9 @@
          ((id file-name builder args env-vars system)
           `(div
             (@ (class "row"))
-            ,(display-store-item-title file-name))))
+            (div
+             (@ (class "col-sm-12"))
+             ,(display-store-item-title file-name)))))
       (div
        (@ (class "row"))
        (div
