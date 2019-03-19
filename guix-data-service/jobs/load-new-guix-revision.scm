@@ -339,7 +339,7 @@ RETURNING id;")
   (let ((result
          (exec-query
           conn
-          "SELECT * FROM load_new_guix_revision_jobs LIMIT $1"
+          "SELECT * FROM load_new_guix_revision_jobs ORDER BY id ASC LIMIT $1"
           (list (number->string n)))))
     result))
 
