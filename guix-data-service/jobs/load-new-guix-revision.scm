@@ -20,6 +20,7 @@
   #:use-module (guix-data-service model derivation)
   #:export (process-next-load-new-guix-revision-job
             select-job-for-commit
+            enqueue-load-new-guix-revision-job
             most-recent-n-load-new-guix-revision-jobs))
 
 (define inferior-package-id
@@ -313,6 +314,18 @@
                                     (commit commit)))))
           (and store-item
                (extract-information-from store conn url commit store-item))))))
+
+(define (enqueue-load-new-guix-revision-job conn url commit source)
+  (define query
+    "
+INSERT INTO load_new_guix_revision_jobs (url, commit, source)
+VALUES ($1, $2, $3)
+RETURNING id;")
+
+  (first
+   (exec-query conn
+               query
+               (list url commit source))))
 
 (define (select-job-for-commit conn commit)
   (let ((result

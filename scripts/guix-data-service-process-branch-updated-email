@@ -1,0 +1,34 @@
+#!/gnu/store/njwvn85rrkplkxk6gy5d7v1n0358a91i-profile/bin/guile --no-auto-compile
+-*- scheme -*-
+-*- geiser-scheme-implementation: guile -*-
+!#
+;;; Guix Data Service -- Information about Guix over time
+;;; Copyright © 2019 Christopher Baines <mail@cbaines.net>
+;;;
+;;; This file is part of guix-data-service.
+;;;
+;;; guix-data-service is free software; you can redistribute it and/or modify it
+;;; under the terms of the GNU General Public License as published by
+;;; the Free Software Foundation; either version 3 of the License, or
+;;; (at your option) any later version.
+;;;
+;;; guix-data-service is distributed in the hope that it will be useful, but
+;;; WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;;; General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU General Public License
+;;; along with the guix-data-service.  If not, see <http://www.gnu.org/licenses/>.
+
+(use-modules (srfi srfi-1)
+             (srfi srfi-37)
+             (ice-9 textual-ports)
+             (squee)
+             (email email)
+             (guix-data-service branch-updated-emails))
+
+(let ((conn (connect-to-postgres-paramstring "dbname=guix_data_service")))
+  (enqueue-job-for-email
+   conn
+   (parse-email
+    (get-string-all (current-input-port)))))

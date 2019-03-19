@@ -43,7 +43,8 @@
   (source #f)
   (build-system gnu-build-system)
   (inputs
-   `(("guile-json" ,guile-json-3)
+   `(("guile-email" ,guile-email)
+     ("guile-json" ,guile-json-3)
      ("guile-squee" ,guile-squee)
      ("guile-fibers" ,guile-fibers)
      ("guile-syntax-highlight" ,guile-syntax-highlight)

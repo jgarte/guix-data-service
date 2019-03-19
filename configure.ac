@@ -26,6 +26,11 @@ if test "x$have_fibers" != "xyes"; then
   AC_MSG_ERROR([Guile fibers is missing; please install it.])
 fi
 
+GUILE_MODULE_AVAILABLE([have_email], [(email email)])
+if test "x$have_email" != "xyes"; then
+  AC_MSG_ERROR([Guile email is missing; please install it.])
+fi
+
 guilemoduledir="${datarootdir}/guile/site/${GUILE_EFFECTIVE_VERSION}"
 AC_SUBST([guilemoduledir])
 AC_SUBST([GUILE_EFFECTIVE_VERSION])
@@ -35,6 +40,7 @@ AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([guix-data-service/config.scm])
 AC_CONFIG_FILES([scripts/guix-data-service], [chmod +x scripts/guix-data-service])
 AC_CONFIG_FILES([scripts/guix-data-service-process-jobs], [chmod +x scripts/guix-data-service-process-jobs])
+AC_CONFIG_FILES([scripts/guix-data-service-process-branch-updated-email], [chmod +x scripts/guix-data-service-process-branch-updated-email])
 AC_CONFIG_FILES([scripts/guix-data-service-query-build-servers], [chmod +x scripts/guix-data-service-query-build-servers])
 AC_CONFIG_FILES([pre-inst-env], [chmod +x pre-inst-env])
 
