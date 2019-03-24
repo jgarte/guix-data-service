@@ -499,23 +499,24 @@ ORDER BY derivations.system DESC,
 
   (define query
     (string-append
-     "SELECT derivations.file_name, derivations.system, ("
-     "  SELECT DISTINCT package_derivations.target"
-     "  FROM package_derivations"
-     "  WHERE derivations.id = package_derivations.derivation_id"
-     ") AS target, "
-     "latest_build_status.status "
-     "FROM derivations "
-     "INNER JOIN package_derivations"
-     " ON derivations.id = package_derivations.derivation_id "
-     "LEFT OUTER JOIN builds ON derivations.id = builds.derivation_id "
-     "LEFT OUTER JOIN "
-     "(SELECT DISTINCT ON (internal_build_id) * "
-     "FROM build_status "
-     "ORDER BY internal_build_id, status_fetched_at DESC"
-     ") AS latest_build_status "
-     "ON builds.internal_id = latest_build_status.internal_build_id "
-     "WHERE " criteria ";"))
+     "
+SELECT
+  derivations.file_name,
+  derivations.system,
+  package_derivations.target,
+  latest_build_status.status
+FROM derivations
+INNER JOIN package_derivations
+  ON derivations.id = package_derivations.derivation_id
+LEFT OUTER JOIN builds
+  ON derivations.id = builds.derivation_id
+LEFT OUTER JOIN (
+  SELECT DISTINCT ON (internal_build_id) *
+  FROM build_status
+  ORDER BY internal_build_id, status_fetched_at DESC
+) AS latest_build_status
+ON builds.internal_id = latest_build_status.internal_build_id
+WHERE " criteria ";"))
 
   (exec-query conn query))
 
