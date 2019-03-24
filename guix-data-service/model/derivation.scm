@@ -519,19 +519,6 @@ ORDER BY derivations.system DESC,
 
   (exec-query conn query))
 
-(define (deduplicate-strings strings)
-  (pair-fold
-   (lambda (pair result)
-     (if (null? (cdr pair))
-         (cons (first pair) result)
-         (if (string=? (first pair) (second pair))
-             result
-             (cons (first pair) result))))
-   '()
-   (sort strings
-         (lambda (a b)
-           (string<? a b)))))
-
 (define (deduplicate-derivations derivations)
   (define sorted-derivations
     (sort derivations

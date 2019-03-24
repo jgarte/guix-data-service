@@ -5,7 +5,8 @@
   #:export (quote-string
             value->quoted-string-or-null
             exec-query->vhash
-            two-lists->vhash))
+            two-lists->vhash
+            deduplicate-strings))
 
 (define (quote-string s)
   (string-append "'" s "'"))
@@ -29,3 +30,16 @@
         vlist-null
         l1
         l2))
+
+(define (deduplicate-strings strings)
+  (pair-fold
+   (lambda (pair result)
+     (if (null? (cdr pair))
+         (cons (first pair) result)
+         (if (string=? (first pair) (second pair))
+             result
+             (cons (first pair) result))))
+   '()
+   (sort strings
+         (lambda (a b)
+           (string<? a b)))))
