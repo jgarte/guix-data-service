@@ -109,15 +109,15 @@ ORDER BY base_packages.name DESC, base_packages.version, target_packages.name, t
                 vhash))
 
   (let* ((derivation-file-names
-          (vhash->derivation-file-names packages-vhash))
-         (derivation-data
-          (select-derivations-and-build-status
-           conn
-           #:file-names derivation-file-names
-           #:systems (if (null? systems) #f systems)
-           #:targets (if (null? targets) #f targets)
-           #:build-statuses (if (null? build-statuses) #f build-statuses))))
-    derivation-data))
+          (vhash->derivation-file-names packages-vhash)))
+    (if (null? derivation-file-names)
+        '()
+        (select-derivations-and-build-status
+         conn
+         #:file-names derivation-file-names
+         #:systems (if (null? systems) #f systems)
+         #:targets (if (null? targets) #f targets)
+         #:build-statuses (if (null? build-statuses) #f build-statuses)))))
 
 (define (package-data-vhash->package-name-and-version-vhash vhash)
   (vhash-fold (lambda (name details result)
