@@ -33,11 +33,13 @@
 
 (define (with-postgresql-connection paramstring f)
   (let* ((conn (connect-to-postgres-paramstring paramstring)))
-    (dynamic-wind
-      (const #t)
+    (with-throw-handler
+      #t
       (lambda ()
-        (f conn))
-      (lambda ()
+        (let ((result (f conn)))
+          (pg-conn-finish conn)
+          result))
+      (lambda (key . args)
         (pg-conn-finish conn)))))
 
 (define (run-controller controller request body)
