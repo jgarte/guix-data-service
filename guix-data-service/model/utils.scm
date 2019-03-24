@@ -40,6 +40,4 @@
              result
              (cons (first pair) result))))
    '()
-   (sort strings
-         (lambda (a b)
-           (string<? a b)))))
+   (sort strings string<?)))
