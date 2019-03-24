@@ -35,6 +35,7 @@
              (gnu packages guile-xyz)
              (gnu packages pkg-config)
              (gnu packages texinfo)
+             (gnu packages ruby)
              (srfi srfi-1))
 
 (package
@@ -52,7 +53,8 @@
   (native-inputs
    `(("autoconf" ,autoconf)
      ("automake" ,automake)
-     ("pkg-config" ,pkg-config)))
+     ("pkg-config" ,pkg-config)
+     ("ruby-rerun" ,ruby-rerun)))
   (synopsis "TODO")
   (description "TODO")
   (home-page "TODO")
