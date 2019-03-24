@@ -491,7 +491,7 @@ ORDER BY derivations.system DESC,
         "derivations.system"
         "target"
         "latest_build_status.status")
-      (list file-names
+      (list (deduplicate-strings file-names)
             systems
             targets
             build-statuses))
