@@ -114,9 +114,9 @@ ORDER BY base_packages.name DESC, base_packages.version, target_packages.name, t
           (select-derivations-and-build-status
            conn
            #:file-names derivation-file-names
-           #:systems systems
-           #:targets targets
-           #:build-statuses build-statuses)))
+           #:systems (if (null? systems) #f systems)
+           #:targets (if (null? targets) #f targets)
+           #:build-statuses (if (null? build-statuses) #f build-statuses))))
     derivation-data))
 
 (define (package-data-vhash->package-name-and-version-vhash vhash)

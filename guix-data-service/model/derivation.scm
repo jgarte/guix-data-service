@@ -478,7 +478,7 @@ ORDER BY derivations.system DESC,
     (string-join
      (filter-map
       (lambda (field values)
-        (if (and values (not (null? values)))
+        (if values
             (string-append
              field " IN ("
              (string-join (map (lambda (value)
