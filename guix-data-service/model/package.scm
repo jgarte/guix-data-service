@@ -100,7 +100,7 @@ WHERE packages.id IN (
           (filter (lambda (package-entry)
                     (not (vhash-assoc package-entry
                                       existing-package-entry-ids)))
-                  package-entries))
+                  (delete-duplicates package-entries)))
          (new-package-entry-ids
           (if (null? missing-package-entries)
               '()
