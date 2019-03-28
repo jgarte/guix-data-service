@@ -519,18 +519,20 @@
        (div
         (@ (class "col-md-4"))
         (h3 "Inputs")
-        (table
-         (@ (class "table"))
-         (thead
-          (tr
-           (th "File name")))
-         (tdata
-          ,@(map (match-lambda
-                   ((file-name output-name path)
-                    `(tr
-                      (td (a (@ (href ,file-name))
-                             ,(display-store-item-short path))))))
-                 derivation-inputs))))
+        ,(if (null? derivation-inputs)
+             "No inputs"
+             `(table
+               (@ (class "table"))
+               (thead
+                (tr
+                 (th "File name")))
+               (tdata
+                ,@(map (match-lambda
+                         ((file-name output-name path)
+                          `(tr
+                            (td (a (@ (href ,file-name))
+                                   ,(display-store-item-short path))))))
+                       derivation-inputs)))))
        (div
         (@ (class "col-md-4"))
         (h3 "Derivation details")
@@ -541,8 +543,11 @@
               (tbody
                (tr
                 (td "Builder")
-                (td (a (@ (href ,builder))
-                       ,(display-file-in-store-item builder))))
+                (td ,(if (string=? "builtin:download"
+                                   builder)
+                         "builtin:download"
+                         `(a (@ (href ,builder))
+                             ,(display-file-in-store-item builder)))))
                (tr
                 (td "System")
                 (td (samp ,system)))))))
