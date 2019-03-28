@@ -170,12 +170,23 @@
    package
    'package-transitive-supported-systems))
 
-(define (guix-store-path store)
-  (let* ((guix-package (@ (gnu packages package-management)
-                          guix))
-         (derivation (package-derivation store guix-package)))
-    (build-derivations store (list derivation))
-    (derivation->output-path derivation)))
+(define guix-store-path
+  (let ((store-path #f))
+    (lambda (store)
+      (if (and store-path
+               (file-exists? store-path))
+          store-path
+          (begin
+            (invalidate-derivation-caches!)
+            (let* ((guix-package (@ (gnu packages package-management)
+                                    guix))
+                   (derivation (package-derivation store guix-package)))
+              (build-derivations store (list derivation))
+
+              (let ((new-store-path
+                     (derivation->output-path derivation)))
+                (set! store-path new-store-path)
+                new-store-path)))))))
 
 (define (nss-certs-store-path store)
   (let* ((nss-certs-package (@ (gnu packages certs)
