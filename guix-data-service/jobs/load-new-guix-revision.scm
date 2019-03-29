@@ -118,10 +118,42 @@
    (append (map list supported-system-pairs)
            supported-system-cross-build-pairs)))
 
+(define (deduplicate-inferior-packages packages)
+  (pair-fold
+   (lambda (pair result)
+     (if (null? (cdr pair))
+         (cons (first pair) result)
+         (let* ((a (first pair))
+                (b (second pair))
+                (a-name (inferior-package-name a))
+                (b-name (inferior-package-name b))
+                (a-version (inferior-package-version a))
+                (b-version (inferior-package-version b)))
+           (if (and (string=? a-name b-name)
+                    (string=? a-version b-version))
+               (begin
+                 (simple-format (current-error-port)
+                                "warning: ignoring duplicate package: ~A (~A)\n"
+                                a-name
+                                a-version)
+                 result)
+               (cons a result)))))
+   '()
+   (sort packages
+         (lambda (a b)
+           (let ((a-name (inferior-package-name a))
+                 (b-name (inferior-package-name b)))
+             (if (string=? a-name b-name)
+                 (string<? (inferior-package-version a)
+                           (inferior-package-version b))
+                 (string<? a-name
+                           b-name)))))))
+
 (define (inferior-guix->package-derivation-ids store conn inf)
   (let* ((packages (log-time "fetching inferior packages"
                              (lambda ()
-                               (inferior-packages inf))))
+                               (deduplicate-inferior-packages
+                                (inferior-packages inf)))))
          (packages-metadata-ids
           (log-time "fetching inferior package metadata"
                     (lambda ()
