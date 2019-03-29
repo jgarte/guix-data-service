@@ -63,38 +63,52 @@
               #t
               (lambda ()
                 (let ((supported-systems
-                       (package-transitive-supported-systems package)))
-                  (append-map
-                   (lambda (system)
-                     (filter-map
-                      (lambda (target)
-                        (catch
-                          'misc-error
-                          (lambda ()
-                            (guard (c ((package-cross-build-system-error? c)
-                                       #f))
-                              (list inferior-package-id
-                                    system
-                                    target
-                                    (derivation-file-name
-                                     (if (string=? system target)
-                                         (package-derivation store package system)
-                                         (package-cross-derivation store package
-                                                                   target
-                                                                   system))))))
-                          (lambda args
-                            ;; misc-error #f ~A ~S (No
-                            ;; cross-compilation for
-                            ;; clojure-build-system yet:
-                            #f)))
-                      (lset-intersection
-                       string=?
-                       supported-systems
-                       (list ,@(map cdr system-target-pairs)))))
-                   (lset-intersection
-                    string=?
-                    supported-systems
-                    (list ,@(map car system-target-pairs))))))
+                       (catch
+                         #t
+                         (lambda ()
+                           (package-transitive-supported-systems package))
+                         (lambda (key . args)
+                           (simple-format
+                            (current-error-port)
+                            "error: while processing ~A, unable to compute transitive supported systems\n"
+                            (package-name package))
+                           (simple-format
+                            (current-error-port)
+                            "error ~A: ~A\n" key args)
+                           #f))))
+                  (if supported-systems
+                      (append-map
+                       (lambda (system)
+                         (filter-map
+                          (lambda (target)
+                            (catch
+                              'misc-error
+                              (lambda ()
+                                (guard (c ((package-cross-build-system-error? c)
+                                           #f))
+                                  (list inferior-package-id
+                                        system
+                                        target
+                                        (derivation-file-name
+                                         (if (string=? system target)
+                                             (package-derivation store package system)
+                                             (package-cross-derivation store package
+                                                                       target
+                                                                       system))))))
+                              (lambda args
+                                ;; misc-error #f ~A ~S (No
+                                ;; cross-compilation for
+                                ;; clojure-build-system yet:
+                                #f)))
+                          (lset-intersection
+                           string=?
+                           supported-systems
+                           (list ,@(map cdr system-target-pairs)))))
+                       (lset-intersection
+                        string=?
+                        supported-systems
+                        (list ,@(map car system-target-pairs))))
+                      '())))
               (lambda args
                 (simple-format (current-error-port)
                                "error: while processing ~A ignoring error: ~A\n"
