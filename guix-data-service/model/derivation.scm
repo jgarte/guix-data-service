@@ -9,6 +9,7 @@
   #:use-module (guix derivations)
   #:use-module (guix-data-service model utils)
   #:export (valid-systems
+            count-derivations
             select-derivation-by-file-name
             select-derivation-outputs-by-derivation-id
             select-derivation-by-output-filename
@@ -26,6 +27,12 @@
        (exec-query
         conn
         "SELECT DISTINCT system FROM derivations ORDER BY 1")))
+
+(define (count-derivations conn)
+  (first
+   (exec-query
+    conn
+    "SELECT COUNT(*) FROM derivations")))
 
 (define (select-existing-derivations file-names)
   (string-append "SELECT id, file_name "
