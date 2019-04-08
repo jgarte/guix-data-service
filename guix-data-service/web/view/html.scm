@@ -26,6 +26,7 @@
   #:use-module (texinfo)
   #:use-module (texinfo html)
   #:export (index
+            view-statistics
             view-revision-package-and-version
             view-revision
             view-revision-packages
@@ -187,6 +188,30 @@
                         (td (samp ,commit))
                         (td ,source))))
                    queued-guix-revisions))))))))))
+
+
+(define (view-statistics guix-revisions-count derivations-count)
+  (layout
+   #:extra-headers
+   '((cache-control . ((max-age . 60))))
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-6"))
+        (h3 "Guix revisions")
+        (strong (@ (class "text-center")
+                   (style "font-size: 2em; display: block;"))
+                ,guix-revisions-count))
+       (div
+        (@ (class "col-md-6"))
+        (h3 "Derivations")
+        (strong (@ (class "text-center")
+                   (style "font-size: 2em; display: block;"))
+                ,derivations-count)))))))
 
 (define (view-revision-package-and-version revision-commit-hash name version
                                            package-metadata

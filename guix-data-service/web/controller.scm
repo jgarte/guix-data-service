@@ -293,6 +293,10 @@
      (apply render-html
             (view-builds (select-build-stats conn)
                          (select-builds-with-context conn))))
+    ((GET "statistics")
+     (apply render-html
+            (view-statistics (count-guix-revisions conn)
+                             (count-derivations conn))))
     ((GET "revision" commit-hash)
      (apply render-html
             (view-revision commit-hash
