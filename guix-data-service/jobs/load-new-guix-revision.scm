@@ -224,6 +224,7 @@
           store-path
           (begin
             (invalidate-derivation-caches!)
+            (hash-clear! (@@ (guix packages) %derivation-cache))
             (let* ((guix-package (@ (gnu packages package-management)
                                     guix))
                    (derivation (package-derivation store guix-package)))
