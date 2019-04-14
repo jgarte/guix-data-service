@@ -35,6 +35,7 @@ SOURCES =							\
   guix-data-service/builds.scm					\
   guix-data-service/comparison.scm				\
   guix-data-service/config.scm					\
+  guix-data-service/database.scm				\
   guix-data-service/jobs.scm					\
   guix-data-service/jobs/load-new-guix-revision.scm		\
   guix-data-service/model/build-server.scm			\

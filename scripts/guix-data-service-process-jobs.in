@@ -27,6 +27,7 @@
              (squee)
              (guix-data-service jobs))
 
-(let ((conn (connect-to-postgres-paramstring "dbname=guix_data_service")))
-  (simple-format #t "Ready to process jobs...\n")
-  (process-jobs conn))
+(with-postgresql-connection
+ (lambda (conn)
+   (simple-format #t "Ready to process jobs...\n")
+   (process-jobs conn)))

@@ -25,5 +25,4 @@
              (squee)
              (guix-data-service builds))
 
-(let ((conn (connect-to-postgres-paramstring "dbname=guix_data_service")))
-  (query-build-servers conn))
+(with-postgresql-connection query-build-servers)

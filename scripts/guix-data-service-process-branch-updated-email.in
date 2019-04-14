@@ -25,10 +25,12 @@
              (ice-9 textual-ports)
              (squee)
              (email email)
+             (guix-data-service database)
              (guix-data-service branch-updated-emails))
 
-(let ((conn (connect-to-postgres-paramstring "dbname=guix_data_service")))
-  (enqueue-job-for-email
-   conn
-   (parse-email
-    (get-string-all (current-input-port)))))
+(with-postgresql-connection
+ (lambda (conn)
+   (enqueue-job-for-email
+    conn
+    (parse-email
+     (get-string-all (current-input-port))))))
