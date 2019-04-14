@@ -2,3 +2,6 @@
 %project=guix-data-service
 %uri=https://git.cbaines.net/guix/data-service/
 
+appschema 2019-04-13T11:43:59Z Christopher Baines <mail@cbaines.net> # Add schema for the Guix Data Service
+buildstatus_enum [appschema] 2019-04-13T11:56:37Z Christopher Baines <mail@cbaines.net> # Creates the buildstatus enum
+initial_import 2019-04-13T13:06:28Z Christopher Baines <mail@cbaines.net> # Import the manually managed database schema
