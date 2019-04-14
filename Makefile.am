@@ -54,3 +54,16 @@ SOURCES =							\
   guix-data-service/web/sxml.scm				\
   guix-data-service/web/util.scm				\
   guix-data-service/web/view/html.scm
+
+TEST_EXTENSIONS = .scm
+
+TESTS =				\
+  tests/model-derivation.scm
+
+AM_TESTS_ENVIRONMENT = abs_top_srcdir="$(abs_top_srcdir)"
+
+SCM_LOG_DRIVER = $(top_builddir)/test-env	\
+  $(GUILE) --no-auto-compile -e main		\
+      $(top_srcdir)/build-aux/test-driver.scm
+
+AM_SCM_LOG_DRIVER_FLAGS = --brief=yes
