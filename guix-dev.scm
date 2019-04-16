@@ -31,6 +31,7 @@
              (guix build-system gnu)
              (gnu packages)
              (gnu packages autotools)
+             (gnu packages databases)
              (gnu packages guile)
              (gnu packages guile-xyz)
              (gnu packages pkg-config)
@@ -49,7 +50,8 @@
      ("guile-squee" ,guile-squee)
      ("guile-fibers" ,guile-fibers)
      ("guile-syntax-highlight" ,guile-syntax-highlight)
-     ("guile" ,guile-2.2)))
+     ("guile" ,guile-2.2)
+     ("sqitch" ,sqitch)))
   (native-inputs
    `(("autoconf" ,autoconf)
      ("automake" ,automake)
