@@ -3,10 +3,12 @@ Makefile.in
 Makefile
 aclocal.m4
 autom4te.cache
-build-aux
 config.log
 config.status
 configure
+
+build-aux/install-sh
+build-aux/missing
 
 *.log
 tests/*.log
