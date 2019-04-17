@@ -24,7 +24,7 @@
 
 (use-modules (srfi srfi-1)
              (srfi srfi-37)
-             (squee)
+             (guix-data-service database)
              (guix-data-service jobs))
 
 (with-postgresql-connection
