@@ -1102,7 +1102,7 @@
                   (td ,version)
                   (td (@ (class "text-right"))
                       (a (@ (href ,(string-append
-                                    "/revision/" base-commit
+                                    "/revision/" target-commit
                                     "/package/" name "/" version)))
                          "More information")))))
              (delete-duplicates
