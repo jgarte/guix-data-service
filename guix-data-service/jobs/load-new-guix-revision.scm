@@ -109,12 +109,27 @@
                         supported-systems
                         (list ,@(map car system-target-pairs))))
                       '())))
-              (lambda args
-                (simple-format (current-error-port)
-                               "error: while processing ~A ignoring error: ~A\n"
-                               (package-name package)
-                               args)
-                '()))))
+              (lambda (key . args)
+                (if (and (eq? key 'system-error)
+                         (eq? (car args) 'fport_write))
+                    (begin
+                      (simple-format
+                       (current-error-port)
+                       "error: while processing ~A, exiting: ~A: ~A\n"
+                       (package-name package)
+                       key
+                       args)
+                      (force-output)
+                      (exit 1))
+                    (begin
+                      (simple-format
+                       (current-error-port)
+                       "error: while processing ~A ignoring error: ~A: ~A\n"
+                       (package-name package)
+                       key
+                       args)
+                      (force-output)
+                      '()))))))
         (list ,@(map inferior-package-id packages)))))
 
   (append-map
@@ -346,20 +361,29 @@
     (inferior-eval '(%graft? #f) inf)
 
     (exec-query conn "BEGIN")
-    (let ((package-derivation-ids
-           (inferior-guix->package-derivation-ids store conn inf))
-          (guix-revision-id
-           (insert-guix-revision conn url commit store-path)))
+    (catch
+      #t
+      (lambda ()
+        (let ((package-derivation-ids
+               (inferior-guix->package-derivation-ids store conn inf))
+              (guix-revision-id
+               (insert-guix-revision conn url commit store-path)))
 
-      (insert-guix-revision-package-derivations conn
-                                                guix-revision-id
-                                                package-derivation-ids)
+          (insert-guix-revision-package-derivations conn
+                                                    guix-revision-id
+                                                    package-derivation-ids)
 
-      (exec-query conn "COMMIT")
+          (exec-query conn "COMMIT")
 
-      (simple-format
-       #t "Successfully loaded ~A package/derivation pairs\n"
-       (length package-derivation-ids)))))
+          (simple-format
+           #t "Successfully loaded ~A package/derivation pairs\n"
+           (length package-derivation-ids))))
+      (lambda (key . args)
+        (simple-format (current-error-port)
+                       "Failed extracting information: ~A ~A\n"
+                       key args)
+        (force-output)
+        (exec-query conn "ROLLBACK")))))
 
 (define (load-new-guix-revision conn url commit)
   (if (guix-revision-exists? conn url commit)
