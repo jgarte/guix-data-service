@@ -17,7 +17,8 @@
 
 (define-module (guix-data-service database)
   #:use-module (squee)
-  #:export (with-postgresql-connection))
+  #:export (with-postgresql-connection
+            with-postgresql-transaction))
 
 ;; TODO This isn't exported for some reason
 (define pg-conn-finish
@@ -38,3 +39,16 @@
       (lambda (key . args)
         (pg-conn-finish conn)))))
 
+(define* (with-postgresql-transaction conn f
+                                      #:key always-rollback?)
+  (exec-query conn "BEGIN;")
+
+  (with-throw-handler #t
+    (lambda ()
+      (let ((result (f conn)))
+        (exec-query conn (if always-rollback?
+                             "ROLLBACK;"
+                             "COMMIT;"))
+        result))
+    (lambda (key . args)
+      (exec-query conn "ROLLBACK;"))))
