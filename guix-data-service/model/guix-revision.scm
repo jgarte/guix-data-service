@@ -25,21 +25,22 @@
      id)
     (() #f)))
 
-(define (insert-guix-revision conn url commit store_path)
+(define (insert-guix-revision conn git-repository-id commit store_path)
   (define insert
     (string-append "INSERT INTO guix_revisions "
-                   "(url, commit, store_path) VALUES "
-                   "('" url "', '"
+                   "(git_repository_id, commit, store_path) VALUES "
+                   "(" git-repository-id ", '"
                    commit "', '"
                    store_path "') "
                    "RETURNING id;"))
 
   (map car (exec-query conn insert)))
 
-(define (guix-revision-exists? conn url commit)
+(define (guix-revision-exists? conn git-repository-id commit)
   (define query
     (string-append "SELECT EXISTS("
-                   "SELECT 1 FROM guix_revisions WHERE url = '" url "' "
+                   "SELECT 1 FROM guix_revisions WHERE "
+                   "git_repository_id = '" git-repository-id "' "
                    "AND commit = '" commit "')"
                    ";"))
 

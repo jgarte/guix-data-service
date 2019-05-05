@@ -13,6 +13,7 @@
   #:use-module (guix derivations)
   #:use-module (guix build utils)
   #:use-module (guix-data-service model package)
+  #:use-module (guix-data-service model git-repository)
   #:use-module (guix-data-service model guix-revision)
   #:use-module (guix-data-service model package-derivation)
   #:use-module (guix-data-service model guix-revision-package-derivation)
@@ -347,7 +348,7 @@
       (simple-format #t "guix-data-service: load-new-guix-revision: error: ~A\n" args)
       #f)))
 
-(define (extract-information-from store conn url commit store-path)
+(define (extract-information-from store conn git-repository-id commit store-path)
   (simple-format
    #t "debug: extract-information-from: ~A\n" store-path)
   (let ((inf (open-inferior/container store store-path
@@ -364,10 +365,10 @@
     (catch
       #t
       (lambda ()
-        (let ((package-derivation-ids
-               (inferior-guix->package-derivation-ids store conn inf))
-              (guix-revision-id
-               (insert-guix-revision conn url commit store-path)))
+        (let* ((package-derivation-ids
+                (inferior-guix->package-derivation-ids store conn inf))
+               (guix-revision-id
+                (insert-guix-revision conn git-repository-id commit store-path)))
 
           (insert-guix-revision-package-derivations conn
                                                     guix-revision-id
@@ -385,35 +386,40 @@
         (force-output)
         (exec-query conn "ROLLBACK")))))
 
-(define (load-new-guix-revision conn url commit)
-  (if (guix-revision-exists? conn url commit)
+(define (load-new-guix-revision conn git-repository-id commit)
+  (if (guix-revision-exists? conn git-repository-id commit)
       #t
       (with-store store
         (let ((store-item (channel->guix-store-item
                            store
                            (channel (name 'guix)
-                                    (url url)
+                                    (url (git-repository-id->url
+                                          conn
+                                          git-repository-id))
                                     (commit commit)))))
           (and store-item
-               (extract-information-from store conn url commit store-item))))))
+               (extract-information-from store conn git-repository-id
+                                         commit store-item))))))
 
-(define (enqueue-load-new-guix-revision-job conn url commit source)
+(define (enqueue-load-new-guix-revision-job conn git-repository-id commit source)
   (define query
     "
-INSERT INTO load_new_guix_revision_jobs (url, commit, source)
+INSERT INTO load_new_guix_revision_jobs (git_repository_id, commit, source)
 VALUES ($1, $2, $3)
 RETURNING id;")
 
   (first
    (exec-query conn
                query
-               (list url commit source))))
+               (list git-repository-id commit source))))
 
 (define (select-job-for-commit conn commit)
   (let ((result
          (exec-query
           conn
-          "SELECT * FROM load_new_guix_revision_jobs WHERE commit = $1"
+          (string-append
+           "SELECT id, commit, source, git_repository_id "
+           "FROM load_new_guix_revision_jobs WHERE commit = $1")
           (list commit))))
     result))
 
@@ -421,7 +427,9 @@ RETURNING id;")
   (let ((result
          (exec-query
           conn
-          "SELECT * FROM load_new_guix_revision_jobs ORDER BY id ASC LIMIT $1"
+          (string-append
+           "SELECT id, commit, source, git_repository_id "
+           "FROM load_new_guix_revision_jobs ORDER BY id ASC LIMIT $1")
           (list (number->string n)))))
     result))
 
@@ -429,13 +437,15 @@ RETURNING id;")
   (let ((next
          (exec-query
           conn
-          "SELECT * FROM load_new_guix_revision_jobs ORDER BY id ASC LIMIT 1")))
+          (string-append
+           "SELECT id, commit, source, git_repository_id "
+           "FROM load_new_guix_revision_jobs ORDER BY id ASC LIMIT 1"))))
     (match next
-      (((id url commit source))
+      (((id commit source git-repository-id))
        (begin
-         (simple-format #t "Processing job ~A (url: ~A, commit: ~A, source: ~A)\n\n"
-                        id url commit source)
-         (load-new-guix-revision conn url commit)
+         (simple-format #t "Processing job ~A (commit: ~A, source: ~A)\n\n"
+                        id commit source)
+         (load-new-guix-revision conn git-repository-id commit)
          (exec-query
           conn
           (string-append "DELETE FROM load_new_guix_revision_jobs WHERE id = '"

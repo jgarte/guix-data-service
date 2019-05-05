@@ -42,6 +42,7 @@ SOURCES =							\
   guix-data-service/model/build-status.scm			\
   guix-data-service/model/build.scm				\
   guix-data-service/model/derivation.scm			\
+  guix-data-service/model/git-repository.scm			\
   guix-data-service/model/guix-revision-package-derivation.scm	\
   guix-data-service/model/guix-revision.scm			\
   guix-data-service/model/package-derivation.scm		\
@@ -58,7 +59,8 @@ SOURCES =							\
 TEST_EXTENSIONS = .scm
 
 TESTS =				\
-  tests/model-derivation.scm
+  tests/model-derivation.scm		\
+  tests/model-git-repository.scm
 
 AM_TESTS_ENVIRONMENT = abs_top_srcdir="$(abs_top_srcdir)"
 

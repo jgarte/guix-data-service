@@ -17,6 +17,7 @@
 
 (define-module (guix-data-service branch-updated-emails)
   #:use-module (email email)
+  #:use-module (guix-data-service model git-repository)
   #:use-module (guix-data-service jobs load-new-guix-revision)
   #:export (enqueue-job-for-email))
 
@@ -36,7 +37,9 @@
                (string? x-git-newrev))
       (enqueue-load-new-guix-revision-job
        conn
-       (assoc-ref %repository-url-for-repo
-                  x-git-repo)
+       (git-repository-url->git-repository-id
+        conn
+        (assoc-ref %repository-url-for-repo
+                   x-git-repo))
        x-git-newrev
        (string-append x-git-repo " " x-git-refname " updated")))))

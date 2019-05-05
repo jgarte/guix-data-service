@@ -90,7 +90,7 @@
                           "source code here") ".")))))
     #:extra-headers ,extra-headers))
 
-(define (index guix-revisions queued-guix-revisions)
+(define (index git-repositories-and-revisions)
   (layout
    #:extra-headers
    '((cache-control . ((max-age . 60))))
@@ -142,53 +142,33 @@
            (@ (type "submit")
               (class "btn btn-lg btn-primary"))
            "Compare")))))
-      (div
-       (@ (class "row"))
-       (div
-        (@ (class "col-sm-12"))
-        (h3 "Recent fetched revisions")
-        ,(if (null? guix-revisions)
-             '(p "No revisions")
-             `(table
-               (@ (class "table"))
-               (thead
-                (tr
-                 (th (@ (class "col-md-6")) "Source Repository URL")
-                 (th (@ (class "col-md-6")) "Commit")))
-               (tbody
-                ,@(map
-                   (match-lambda
-                     ((id url commit store_path)
-                      `(tr
-                        (td ,url)
-                        (td (a (@ (href ,(string-append
-                                          "/revision/" commit)))
-                               (samp ,commit))))))
-                   guix-revisions))))))
-      (div
-       (@ (class "row"))
-       (div
-        (@ (class "col-sm-12"))
-        (h3 "Queued revisions")
-        ,(if (null? queued-guix-revisions)
-             '(p "No queued revisions")
-             `(table
-               (@ (class "table"))
-               (thead
-                (tr
-                 (th (@ (class "col-md-4")) "Source Repository URL")
-                 (th (@ (class "col-md-4")) "Commit")
-                 (th (@ (class "col-md-4")) "Source")))
-               (tbody
-                ,@(map
-                   (match-lambda
-                     ((id url commit source)
-                      `(tr
-                        (td ,url)
-                        (td (samp ,commit))
-                        (td ,source))))
-                   queued-guix-revisions))))))))))
-
+      ,@(map
+         (match-lambda
+           (((id label url) . revisions)
+            `(div
+              (@ (class "row"))
+              (div
+               (@ (class "col-sm-12"))
+               (h3 ,url)
+               ,(if (null? revisions)
+                    '(p "No revisions")
+                    `(table
+                      (@ (class "table"))
+                      (thead
+                       (tr
+                        (th (@ (class "col-md-6")) "Commit")))
+                      (tbody
+                       ,@(map
+                          (match-lambda
+                            ((id job-id commit source)
+                             `(tr
+                               (td ,(if (string-null? id)
+                                        `(samp ,commit)
+                                        `(a (@ (href ,(string-append
+                                                       "/revision/" commit)))
+                                            (samp ,commit)))))))
+                          revisions))))))))
+         git-repositories-and-revisions)))))
 
 (define (view-statistics guix-revisions-count derivations-count)
   (layout

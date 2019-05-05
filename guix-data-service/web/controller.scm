@@ -27,6 +27,7 @@
   #:use-module (web uri)
   #:use-module (squee)
   #:use-module (guix-data-service comparison)
+  #:use-module (guix-data-service model git-repository)
   #:use-module (guix-data-service model guix-revision)
   #:use-module (guix-data-service model package)
   #:use-module (guix-data-service model package-derivation)
@@ -287,8 +288,13 @@
   (match-lambda
     ((GET)
      (apply render-html (index
-                         (most-recent-n-guix-revisions conn 10)
-                         (most-recent-n-load-new-guix-revision-jobs conn 1000))))
+                         (map
+                          (lambda (git-repository-details)
+                            (cons git-repository-details
+                                  (guix-revisions-and-jobs-for-git-repository
+                                   conn
+                                   (car git-repository-details))))
+                          (all-git-repositories conn)))))
     ((GET "builds")
      (apply render-html
             (view-builds (select-build-stats conn)
