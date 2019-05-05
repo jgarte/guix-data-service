@@ -55,8 +55,10 @@
                                  git-repository-id
                                  (date->string date "~4"))
 
-        (enqueue-load-new-guix-revision-job
-         conn
-         git-repository-id
-         x-git-newrev
-         (string-append x-git-repo " " x-git-refname " updated"))))))
+        (unless (string=? "0000000000000000000000000000000000000000"
+                          x-git-newrev)
+          (enqueue-load-new-guix-revision-job
+           conn
+           git-repository-id
+           x-git-newrev
+           (string-append x-git-repo " " x-git-refname " updated")))))))
