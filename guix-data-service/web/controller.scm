@@ -27,6 +27,7 @@
   #:use-module (web uri)
   #:use-module (squee)
   #:use-module (guix-data-service comparison)
+  #:use-module (guix-data-service model git-branch)
   #:use-module (guix-data-service model git-repository)
   #:use-module (guix-data-service model guix-revision)
   #:use-module (guix-data-service model package)
@@ -287,14 +288,24 @@
 
   (match-lambda
     ((GET)
-     (apply render-html (index
-                         (map
-                          (lambda (git-repository-details)
-                            (cons git-repository-details
-                                  (guix-revisions-and-jobs-for-git-repository
-                                   conn
-                                   (car git-repository-details))))
-                          (all-git-repositories conn)))))
+     (apply render-html
+            (index
+             (map
+              (lambda (git-repository-details)
+                (cons
+                 git-repository-details
+                 (map
+                  (match-lambda
+                    ((id job-id commit source)
+                     (list id
+                           job-id
+                           commit
+                           source
+                           (git-branches-for-commit conn commit))))
+                  (guix-revisions-and-jobs-for-git-repository
+                   conn
+                   (car git-repository-details)))))
+              (all-git-repositories conn)))))
     ((GET "builds")
      (apply render-html
             (view-builds (select-build-stats conn)
@@ -331,6 +342,17 @@
               commit-hash
               name
               version))))
+    ((GET "branches")
+     (apply render-html
+            (view-branches
+             (all-branches-with-most-recent-commit conn))))
+    ((GET "branch" branch-name)
+     (apply render-html
+            (view-branch
+             branch-name
+             (most-recent-100-commits-for-branch
+              conn
+              branch-name))))
     ((GET "gnu" "store" filename)
      (if (string-suffix? ".drv" filename)
          (render-derivation conn (string-append "/gnu/store/" filename))

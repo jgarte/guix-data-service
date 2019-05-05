@@ -16,8 +16,10 @@
 ;;; <http://www.gnu.org/licenses/>.
 
 (define-module (guix-data-service branch-updated-emails)
+  #:use-module (srfi srfi-19)
   #:use-module (email email)
   #:use-module (guix-data-service model git-repository)
+  #:use-module (guix-data-service model git-branch)
   #:use-module (guix-data-service jobs load-new-guix-revision)
   #:export (enqueue-job-for-email))
 
@@ -26,6 +28,7 @@
 
 (define (enqueue-job-for-email conn email)
   (let* ((headers       (email-headers email))
+         (date          (assq-ref headers 'date))
          (x-git-repo    (assq-ref headers 'x-git-repo))
          (x-git-reftype (assq-ref headers 'x-git-reftype))
          (x-git-refname (assq-ref headers 'x-git-refname))
@@ -35,11 +38,25 @@
                (and (string? x-git-repo)
                     (string=? x-git-repo "guix"))
                (string? x-git-newrev))
-      (enqueue-load-new-guix-revision-job
-       conn
-       (git-repository-url->git-repository-id
-        conn
-        (assoc-ref %repository-url-for-repo
-                   x-git-repo))
-       x-git-newrev
-       (string-append x-git-repo " " x-git-refname " updated")))))
+
+      (let ((branch-name
+             (string-drop x-git-refname 11))
+            (git-repository-id
+             (git-repository-url->git-repository-id
+              conn
+              (assoc-ref %repository-url-for-repo x-git-repo))))
+
+        (insert-git-branch-entry conn
+                                 branch-name
+                                 (if (string=? "0000000000000000000000000000000000000000"
+                                               x-git-newrev)
+                                     "NULL"
+                                     x-git-newrev)
+                                 git-repository-id
+                                 (date->string date "~4"))
+
+        (enqueue-load-new-guix-revision-job
+         conn
+         git-repository-id
+         x-git-newrev
+         (string-append x-git-repo " " x-git-refname " updated"))))))

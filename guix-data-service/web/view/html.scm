@@ -30,6 +30,8 @@
             view-revision-package-and-version
             view-revision
             view-revision-packages
+            view-branches
+            view-branch
             view-builds
             view-derivation
             view-store-item
@@ -160,13 +162,21 @@
                       (tbody
                        ,@(map
                           (match-lambda
-                            ((id job-id commit source)
+                            ((id job-id commit source branches)
                              `(tr
                                (td ,(if (string-null? id)
                                         `(samp ,commit)
                                         `(a (@ (href ,(string-append
                                                        "/revision/" commit)))
-                                            (samp ,commit)))))))
+                                            (samp ,commit))))
+                               (td
+                                ,@(map
+                                   (match-lambda
+                                     ((name date)
+                                      `(a (@ (href ,(string-append
+                                                     "/branch/" name)))
+                                          ,name)))
+                                   branches)))))
                           revisions))))))))
          git-repositories-and-revisions)))))
 
@@ -347,6 +357,87 @@
                                     "/package/" name "/" version)))
                          "More information")))))
              packages)))))))))
+
+(define (view-branches branches-with-most-recent-commits)
+  (layout
+   #:extra-headers
+   '((cache-control . ((max-age . 60))))
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (h1 "Branches")))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (table
+         (@ (class "table table-responsive"))
+         (thead
+          (tr
+           (th (@ (class "col-md-3")) "Name")
+           (th (@ (class "col-md-3")) "Commit")
+           (th (@ (class "col-md-3")) "Date")))
+         (tbody
+          ,@(map
+             (match-lambda
+               ((name commit date revision-exists)
+                `(tr
+                  (td
+                   (a (@ (href ,(string-append "/branch/" name)))
+                      ,name))
+                  (td ,date)
+                  (td ,(if (string=? revision-exists "t")
+                           `(a (@ (href ,(string-append
+                                          "/revision/" commit)))
+                               (samp ,commit))
+                           `(samp ,(if (string=? commit "NULL")
+                                       "branch deleted"
+                                       commit)))))))
+             branches-with-most-recent-commits)))))))))
+
+(define (view-branch branch-name branch-commits)
+  (layout
+   #:extra-headers
+   '((cache-control . ((max-age . 60))))
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (h1 (@ (style "white-space: nowrap;"))
+            (samp ,branch-name) " branch")))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (table
+         (@ (class "table table-responsive"))
+         (thead
+          (tr
+           (th (@ (class "col-md-3")) "Date")
+           (th (@ (class "col-md-3")) "Commit")))
+         (tbody
+          ,@(map
+             (match-lambda
+               ((commit date revision-exists)
+                `(tr
+                  (td ,date)
+                  (td ,(if (string=? revision-exists "t")
+                           `(a (@ (href ,(string-append
+                                          "/revision/" commit)))
+                               (samp ,commit))
+                           `(samp ,(if (string=? commit "NULL")
+                                       "branch deleted"
+                                       commit)))))))
+             branch-commits)))))))))
 
 (define (view-builds stats builds)
   (layout
