@@ -1005,35 +1005,11 @@
                               (cdr data-columns))))))
                 (vector->list derivation-changes)))))))))))
 
-(define (compare/derivations valid-systems
+(define (compare/derivations query-parameters
+                             valid-systems
                              valid-build-statuses
-                             base-commit
-                             target-commit
                              base-derivations
-                             target-derivations
-                             systems
-                             targets
-                             build-statuses)
-  (define query-params
-    (string-append
-     "?"
-     (string-join
-      `(,(string-append "base_commit=" base-commit)
-        ,(string-append "target_commit=" target-commit)
-        ,@(map (lambda (system)
-                 (string-append
-                  "system=" system))
-               systems)
-        ,@(map (lambda (target)
-                 (string-append
-                  "target=" target))
-               targets)
-        ,@(map (lambda (build_status)
-                 (string-append
-                  "build_status=" build_status))
-               build-statuses))
-      "&")))
-
+                             target-derivations)
   (layout
    #:extra-headers
    '((cache-control . ((max-age . 60))))
@@ -1043,10 +1019,14 @@
       (@ (class "container"))
       (div
        (@ (class "row"))
-       (h1 "Comparing "
-           (samp ,(string-take base-commit 8) "…")
-           " and "
-           (samp ,(string-take target-commit 8) "…")))
+       (h1 ,@(let ((base-commit (assq-ref query-parameters 'base_commit))
+                   (target-commit (assq-ref query-parameters 'target_commit)))
+               (if (every string? (list base-commit target-commit))
+                   `("Comparing "
+                     (samp ,(string-take base-commit 8) "…")
+                     " and "
+                     (samp ,(string-take target-commit 8) "…"))
+                   '("Comparing derivations")))))
       (div
        (@ (class "row"))
        (div
@@ -1057,114 +1037,49 @@
           (@ (method "get")
              (action "")
              (class "form-horizontal"))
-          (div (@ (class "form-group form-group-lg"))
-               (label (@ (for "inputBaseCommit")
-                         (class "col-sm-2 control-label"))
-                      "Base commit")
-               (div (@ (class "col-sm-9"))
-                    (input (@ (class "form-control")
-                              (style "font-family: monospace;")
-                              (id "inputBaseCommit")
-                              (required #t)
-                              (aria-describedby "baseCommitHelp")
-                              (name "base_commit")
-                              (value ,base-commit)))
-                    (span (@ (id "baseCommitHelp")
-                             (class "help-block"))
-                          (strong "Required.")
-                          " The commit to use as the basis for the comparison.")))
-          (div (@ (class "form-group form-group-lg"))
-               (label (@ (for "inputTargetCommit")
-                         (class "col-sm-2 control-label"))
-                      "Target commit")
-               (div (@ (class "col-sm-9"))
-                    (input (@ (class "form-control")
-                              (style "font-family: monospace;")
-                              (id "inputTargetCommit")
-                              (required #t)
-                              (aria-describedby "targetCommitHelp")
-                              (name "target_commit")
-                              (value ,target-commit)))
-                    (span (@ (id "targetCommitHelp")
-                             (class "help-block"))
-                          (strong "Required.")
-                          " The commit to compare against the base commit.")))
-          (div (@ (class "form-group form-group-lg"))
-               (label (@ (for "inputSystem")
-                         (class "col-sm-2 control-label"))
-                      "System")
-               (div (@ (class "col-sm-9"))
-                    (select (@ (class "form-control")
-                               (style "font-family: monospace;")
-                               (multiple #t)
-                               (id "inputSystem")
-                               (aria-describedby "systemHelp")
-                               (name "system"))
-                      ,@(map (lambda (system)
-                               `(option (@ ,@(if (member system systems)
-                                                 '((selected ""))
-                                                 '()))
-                                        ,system))
-                             valid-systems))
-                    (span (@ (id "systemHelp")
-                             (class "help-block"))
-                          "Only include derivations for this system.")))
-          (div (@ (class "form-group form-group-lg"))
-               (label (@ (for "inputTarget")
-                         (class "col-sm-2 control-label"))
-                      "Target")
-               (div (@ (class "col-sm-9"))
-                    (select (@ (class "form-control")
-                               (style "font-family: monospace;")
-                               (multiple #t)
-                               (id "inputTarget")
-                               (aria-describedby "targetHelp")
-                               (name "target"))
-                      ,@(map (lambda (system)
-                               `(option (@ ,@(if (member system targets)
-                                                 '((selected ""))
-                                                 '()))
-                                        ,system))
-                             valid-systems))
-                    (span (@ (id "targetHelp")
-                             (class "help-block"))
-                          "Only include derivations that are build for this system.")))
-          (div (@ (class "form-group form-group-lg"))
-               (label (@ (for "inputBuildStatus")
-                         (class "col-sm-2 control-label"))
-                      "Build status")
-               (div (@ (class "col-sm-9"))
-                    (select (@ (class "form-control")
-                               (id "inputBuildStatus")
-                               (aria-describedby "buildStatusHelp")
-                               (multiple #t)
-                               (name "build_status"))
-                      ,@(map (lambda (build-status)
-                               `(option (@ ,@(if (member build-status build-statuses)
-                                                 '((selected ""))
-                                                 '())
-                                           (value ,build-status))
-                                        ,(build-status-value->display-string build-status)))
-                             valid-build-statuses))
-                    (span (@ (id "buildStatusHelp")
-                             (class "help-block"))
-                          "Only include derivations which have this build status.")))
+          ,(form-horizontal-control
+            "Base commit" query-parameters
+            #:required? #t
+            #:help-text "The commit to use as the basis for the comparison.")
+          ,(form-horizontal-control
+            "Target commit" query-parameters
+            #:required? #t
+            #:help-text "The commit to compare against the base commit.")
+          ,(form-horizontal-control
+            "System" query-parameters
+            #:options valid-systems
+            #:help-text "Only include derivations for this system.")
+          ,(form-horizontal-control
+            "Target" query-parameters
+            #:options valid-systems
+            #:help-text "Only include derivations that are build for this system.")
+          ,(form-horizontal-control
+            "Build status" query-parameters
+            #:options valid-build-statuses
+            #:help-text "Only include derivations which have this build status.")
           (div (@ (class "form-group form-group-lg"))
                (div (@ (class "col-sm-offset-2 col-sm-10"))
                     (button (@ (type "submit")
                                (class "btn btn-lg btn-primary"))
                             "Update results")))
           (a (@ (class "btn btn-default btn-lg pull-right")
-                (href ,(string-append
-                        "/compare/derivations.json" query-params)))
+                (href ,(let ((query-parameter-string
+                              (query-parameters->string query-parameters)))
+                         (string-append
+                          "/compare/derivations.json"
+                          (if (string-null? query-parameter-string)
+                              ""
+                              (string-append "?" query-parameter-string))))))
              "View JSON")))))
       (div
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
-        (h3 "Base ("
-            (samp ,base-commit)
-            ")")
+        (h3 "Base"
+            ,@(let ((base-commit (assq-ref query-parameters 'base_commit)))
+                (if (string? base-commit)
+                    `(" (" (samp ,base-commit) ")")
+                    '())))
         (p "Derivations found only in the base revision.")
         (table
          (@ (class "table"))
@@ -1189,9 +1104,11 @@
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
-        (h3 "Target ("
-            (samp ,target-commit)
-            ")")
+        (h3 "Target"
+            ,@(let ((target-commit (assq-ref query-parameters 'target_commit)))
+                (if (string? target-commit)
+                    `(" (" (samp ,target-commit) ")")
+                    '())))
         (p "Derivations found only in the target revision.")
         (table
          (@ (class "table"))

@@ -141,13 +141,7 @@
 
 (define (render-compare/derivations content-type
                                     conn
-                                    base-commit
-                                    base-revision-id
-                                    target-commit
-                                    target-revision-id
-                                    systems
-                                    targets
-                                    build-statuses)
+                                    query-parameters)
   (define (derivations->alist derivations)
     (map (match-lambda
            ((file-name system target buildstatus)
@@ -159,49 +153,64 @@
                                    buildstatus)))))
          derivations))
 
-  (let-values
-      (((base-packages-vhash target-packages-vhash)
-        (package-data->package-data-vhashes
-         (package-differences-data conn
-                                   base-revision-id
-                                   target-revision-id))))
-    (let ((base-derivations
-           (package-data-vhash->derivations-and-build-status
-            conn
-            base-packages-vhash
-            systems
-            targets
-            build-statuses))
-          (target-derivations
-           (package-data-vhash->derivations-and-build-status
-            conn
-            target-packages-vhash
-            systems
-            targets
-            build-statuses)))
+  (if (any-invalid-query-parameters? query-parameters)
       (cond
        ((eq? content-type 'json)
         (render-json
-         `((base . ((commit . ,base-commit)
-                    (derivations . ,(list->vector
-                                     (derivations->alist
-                                      base-derivations)))))
-           (target . ((commit . ,target-commit)
-                      (derivations . ,(list->vector
-                                       (derivations->alist
-                                        target-derivations))))))))
+         '((error . "invalid query"))))
        (else
         (apply render-html
                (compare/derivations
+                query-parameters
                 (valid-systems conn)
                 build-status-strings
-                base-commit
-                target-commit
-                base-derivations
-                target-derivations
-                systems
-                targets
-                build-statuses)))))))
+                '()
+                '()))))
+
+      (let ((base-commit    (assq-ref query-parameters 'base_commit))
+            (target-commit  (assq-ref query-parameters 'target_commit))
+            (systems        (assq-ref query-parameters 'system))
+            (targets        (assq-ref query-parameters 'target))
+            (build-statuses (assq-ref query-parameters 'build_status)))
+        (let-values
+            (((base-packages-vhash target-packages-vhash)
+              (package-data->package-data-vhashes
+               (package-differences-data conn
+                                         (commit->revision-id conn base-commit)
+                                         (commit->revision-id conn target-commit)))))
+          (let ((base-derivations
+                 (package-data-vhash->derivations-and-build-status
+                  conn
+                  base-packages-vhash
+                  systems
+                  targets
+                  build-statuses))
+                (target-derivations
+                 (package-data-vhash->derivations-and-build-status
+                  conn
+                  target-packages-vhash
+                  systems
+                  targets
+                  build-statuses)))
+            (cond
+             ((eq? content-type 'json)
+              (render-json
+               `((base . ((commit . ,base-commit)
+                          (derivations . ,(list->vector
+                                           (derivations->alist
+                                            base-derivations)))))
+                 (target . ((commit . ,target-commit)
+                            (derivations . ,(list->vector
+                                             (derivations->alist
+                                              target-derivations))))))))
+             (else
+              (apply render-html
+                     (compare/derivations
+                      query-parameters
+                      (valid-systems conn)
+                      build-status-strings
+                      base-derivations
+                      target-derivations)))))))))
 
 (define (render-compare/packages content-type
                                  conn
@@ -279,6 +288,19 @@
                                          (select-derivations-using-output
                                           conn output-id))))
                                     derivations)))))))
+
+(define (parse-commit conn)
+  (lambda (s)
+    (if (guix-commit-exists? conn s)
+        s
+        (make-invalid-query-parameter
+         s "unknown commit"))))
+
+(define (parse-system s)
+  s)
+
+(define (parse-build-status s)
+  s)
 
 (define (controller request body conn)
   (define query-parameters
@@ -408,51 +430,29 @@
                             target-commit
                             target-revision-id)))))
     ((GET "compare" "derivations")
-     (with-base-and-target-commits
-      query-parameters conn
-      (lambda (base-commit base-revision-id target-commit target-revision-id)
-        (if (not (and base-revision-id target-revision-id))
-            (render-compare-unknown-commit 'html
-                                           conn
-                                           base-commit
-                                           base-revision-id
-                                           target-commit
-                                           target-revision-id)
-            (render-compare/derivations 'html
-                                        conn
-                                        base-commit
-                                        base-revision-id
-                                        target-commit
-                                        target-revision-id
-                                        (assoc-ref-multiple query-parameters
-                                                            "system")
-                                        (assoc-ref-multiple query-parameters
-                                                            "target")
-                                        (assoc-ref-multiple query-parameters
-                                                            "build_status"))))))
+     (let* ((parsed-query-parameters
+             (parse-query-parameters
+              request
+              `((base_commit   ,(parse-commit conn) #:required)
+                (target_commit ,(parse-commit conn) #:required)
+                (system        ,parse-system #:multi-value)
+                (target        ,parse-system #:multi-value)
+                (build_status  ,parse-build-status #:multi-value)))))
+       (render-compare/derivations 'html
+                                   conn
+                                   parsed-query-parameters)))
     ((GET "compare" "derivations.json")
-     (with-base-and-target-commits
-      query-parameters conn
-      (lambda (base-commit base-revision-id target-commit target-revision-id)
-        (if (not (and base-revision-id target-revision-id))
-            (render-compare-unknown-commit 'json
-                                           conn
-                                           base-commit
-                                           base-revision-id
-                                           target-commit
-                                           target-revision-id)
-            (render-compare/derivations 'json
-                                        conn
-                                        base-commit
-                                        base-revision-id
-                                        target-commit
-                                        target-revision-id
-                                        (assoc-ref-multiple query-parameters
-                                                            "system")
-                                        (assoc-ref-multiple query-parameters
-                                                            "target")
-                                        (assoc-ref-multiple query-parameters
-                                                            "build_status"))))))
+     (let* ((parsed-query-parameters
+             (parse-query-parameters
+              request
+              `((base_commit   ,(parse-commit conn) #:required)
+                (target_commit ,(parse-commit conn) #:required)
+                (system        ,parse-system #:multi-value)
+                (target        ,parse-system #:multi-value)
+                (build_status  ,parse-build-status #:multi-value)))))
+       (render-compare/derivations 'json
+                                   conn
+                                   parsed-query-parameters)))
     ((GET "compare" "packages")
      (with-base-and-target-commits
       query-parameters conn
