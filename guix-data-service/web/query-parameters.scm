@@ -59,7 +59,8 @@
                                 accepted-query-parameters)
   (define request-query-parameters
     (let ((query (uri-query (request-uri request))))
-      (if query
+      (if (and query
+               (not (string-null? query)))
           (map (match-lambda
                  ((name . value)
                   (cons (string->symbol name)
@@ -75,6 +76,32 @@
         ((_ . "") #f)
         ((_ . value) (cons name
                            (processor value)))))
+
+     ((name processor #:required)
+      (match (assq name request-query-parameters)
+        (#f (cons name
+                  (make-invalid-query-parameter
+                   #f "this value is required.")))
+        ((_ . "") (cons name
+                        (make-invalid-query-parameter
+                         #f "this value is required.")))
+        ((_ . value) (cons name
+                           (processor value)))))
+
+     ((name processor #:multi-value)
+      (match (filter-map
+              (match-lambda
+                ((k . value)
+                 (and
+                  (eq? k name)
+                  (match value
+                    (#f #f)
+                    ("" #f)
+                    (value (processor value))))))
+              request-query-parameters)
+        (() #f)
+        (x (cons name x))))
+
      ((name processor #:default default)
       (match (assq name request-query-parameters)
         (#f (cons name default))
