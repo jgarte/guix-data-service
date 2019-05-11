@@ -46,6 +46,7 @@
     (match lst
       ((key value . rest)
        (cons (cons key value) (lp rest)))
+      (("") '())
       (() '()))))
 
 (define-immutable-record-type <invalid-query-parameter>
