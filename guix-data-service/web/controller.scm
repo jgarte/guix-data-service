@@ -78,28 +78,30 @@
        target-commit
        (commit->revision-id conn target-commit))))
 
-(define (render-compare-unknown-commit content-type
+(define (render-compare-unknown-commit mime-types
                                        conn
                                        base-commit
                                        base-revision-id
                                        target-commit
                                        target-revision-id)
-  (cond
-   ((eq? content-type 'json)
-    (render-json
-     '((unknown_commit . #t))))
-   (else
-    (apply render-html
-           (compare-unknown-commit base-commit
-                                   target-commit
-                                   (if base-revision-id #t #f)
-                                   (if target-revision-id #t #f)
-                                   (select-job-for-commit conn
-                                                          base-commit)
-                                   (select-job-for-commit conn
-                                                          target-commit))))))
+  (case (most-appropriate-mime-type
+         '(application/json text/html)
+         mime-types)
+    ((application/json)
+     (render-json
+      '((unknown_commit . #t))))
+    (else
+     (apply render-html
+            (compare-unknown-commit base-commit
+                                    target-commit
+                                    (if base-revision-id #t #f)
+                                    (if target-revision-id #t #f)
+                                    (select-job-for-commit conn
+                                                           base-commit)
+                                    (select-job-for-commit conn
+                                                           target-commit))))))
 
-(define (render-compare content-type
+(define (render-compare mime-types
                         conn
                         base-commit
                         base-revision-id
@@ -123,23 +125,25 @@
            (derivation-changes
             (package-data-derivation-changes base-packages-vhash
                                              target-packages-vhash)))
-      (cond
-       ((eq? content-type 'json)
-        (render-json
-         `((new-packages . ,(list->vector new-packages))
-           (removed-packages . ,(list->vector removed-packages))
-           (version-changes . ,version-changes)
-           (derivation-changes . ,derivation-changes))))
-       (else
-        (apply render-html
-               (compare base-commit
-                        target-commit
-                        new-packages
-                        removed-packages
-                        version-changes
-                        derivation-changes)))))))
+      (case (most-appropriate-mime-type
+             '(application/json text/html)
+             mime-types)
+        ((application/json)
+         (render-json
+          `((new-packages . ,(list->vector new-packages))
+            (removed-packages . ,(list->vector removed-packages))
+            (version-changes . ,version-changes)
+            (derivation-changes . ,derivation-changes))))
+        (else
+         (apply render-html
+                (compare base-commit
+                         target-commit
+                         new-packages
+                         removed-packages
+                         version-changes
+                         derivation-changes)))))))
 
-(define (render-compare/derivations content-type
+(define (render-compare/derivations mime-types
                                     conn
                                     query-parameters)
   (define (derivations->alist derivations)
@@ -154,18 +158,20 @@
          derivations))
 
   (if (any-invalid-query-parameters? query-parameters)
-      (cond
-       ((eq? content-type 'json)
-        (render-json
-         '((error . "invalid query"))))
-       (else
-        (apply render-html
-               (compare/derivations
-                query-parameters
-                (valid-systems conn)
-                build-status-strings
-                '()
-                '()))))
+      (case (most-appropriate-mime-type
+             '(application/json text/html)
+             mime-types)
+        ((application/json)
+         (render-json
+          '((error . "invalid query"))))
+        (else
+         (apply render-html
+                (compare/derivations
+                 query-parameters
+                 (valid-systems conn)
+                 build-status-strings
+                 '()
+                 '()))))
 
       (let ((base-commit    (assq-ref query-parameters 'base_commit))
             (target-commit  (assq-ref query-parameters 'target_commit))
@@ -192,27 +198,29 @@
                   systems
                   targets
                   build-statuses)))
-            (cond
-             ((eq? content-type 'json)
-              (render-json
-               `((base . ((commit . ,base-commit)
-                          (derivations . ,(list->vector
-                                           (derivations->alist
-                                            base-derivations)))))
-                 (target . ((commit . ,target-commit)
-                            (derivations . ,(list->vector
-                                             (derivations->alist
-                                              target-derivations))))))))
-             (else
-              (apply render-html
-                     (compare/derivations
-                      query-parameters
-                      (valid-systems conn)
-                      build-status-strings
-                      base-derivations
-                      target-derivations)))))))))
+            (case (most-appropriate-mime-type
+                   '(application/json text/html)
+                   mime-types)
+              ((application/json)
+               (render-json
+                `((base . ((commit . ,base-commit)
+                           (derivations . ,(list->vector
+                                            (derivations->alist
+                                             base-derivations)))))
+                  (target . ((commit . ,target-commit)
+                             (derivations . ,(list->vector
+                                              (derivations->alist
+                                               target-derivations))))))))
+              (else
+               (apply render-html
+                      (compare/derivations
+                       query-parameters
+                       (valid-systems conn)
+                       build-status-strings
+                       base-derivations
+                       target-derivations)))))))))
 
-(define (render-compare/packages content-type
+(define (render-compare/packages mime-types
                                  conn
                                  base-commit
                                  base-revision-id
@@ -233,24 +241,26 @@
          (package-differences-data conn
                                    base-revision-id
                                    target-revision-id))))
-    (cond
-     ((eq? content-type 'json)
-      (render-json
-       `((base
-          . ((commit . ,base-commit)
-             (packages . ,(list->vector
-                           (package-data-vhash->json base-packages-vhash)))))
-         (target
-          . ((commit . ,target-commit)
-             (packages . ,(list->vector
-                           (package-data-vhash->json target-packages-vhash))))))))
-     (else
-      (apply render-html
-             (compare/packages
-              base-commit
-              target-commit
-              base-packages-vhash
-              target-packages-vhash))))))
+    (case (most-appropriate-mime-type
+           '(application/json text/html)
+           mime-types)
+      ((application/json)
+       (render-json
+        `((base
+           . ((commit . ,base-commit)
+              (packages . ,(list->vector
+                            (package-data-vhash->json base-packages-vhash)))))
+          (target
+           . ((commit . ,target-commit)
+              (packages . ,(list->vector
+                            (package-data-vhash->json target-packages-vhash))))))))
+      (else
+       (apply render-html
+              (compare/packages
+               base-commit
+               target-commit
+               base-packages-vhash
+               target-packages-vhash))))))
 
 (define (render-derivation conn derivation-file-name)
   (let ((derivation (select-derivation-by-file-name conn
@@ -302,14 +312,14 @@
 (define (parse-build-status s)
   s)
 
-(define (controller request body conn)
+(define (controller request method-and-path-components mime-types body conn)
   (define query-parameters
     (-> request
         request-uri
         uri-query
         parse-query-string))
 
-  (match-lambda
+  (match method-and-path-components
     ((GET)
      (apply render-html
             (index
@@ -392,38 +402,24 @@
               #:before-date (assq-ref parsed-query-parameters
                                       'before_date)))))))
     ((GET "gnu" "store" filename)
-     (if (string-suffix? ".drv" filename)
-         (render-derivation conn (string-append "/gnu/store/" filename))
-         (render-store-item conn (string-append "/gnu/store/" filename))))
+     ;; These routes are a little special, as the extensions aren't used for
+     ;; content negotiation, so just use the path from the request
+     (let ((path (uri-path (request-uri request))))
+       (if (string-suffix? ".drv" path)
+           (render-derivation conn path)
+           (render-store-item conn path))))
     ((GET "compare")
      (with-base-and-target-commits
       query-parameters conn
       (lambda (base-commit base-revision-id target-commit target-revision-id)
         (if (not (and base-revision-id target-revision-id))
-            (render-compare-unknown-commit 'html
+            (render-compare-unknown-commit mime-types
                                            conn
                                            base-commit
                                            base-revision-id
                                            target-commit
                                            target-revision-id)
-            (render-compare 'html
-                            conn
-                            base-commit
-                            base-revision-id
-                            target-commit
-                            target-revision-id)))))
-    ((GET "compare.json")
-     (with-base-and-target-commits
-      query-parameters conn
-      (lambda (base-commit base-revision-id target-commit target-revision-id)
-        (if (not (and base-revision-id target-revision-id))
-            (render-compare-unknown-commit 'json
-                                           conn
-                                           base-commit
-                                           base-revision-id
-                                           target-commit
-                                           target-revision-id)
-            (render-compare 'json
+            (render-compare mime-types
                             conn
                             base-commit
                             base-revision-id
@@ -438,19 +434,7 @@
                 (system        ,parse-system #:multi-value)
                 (target        ,parse-system #:multi-value)
                 (build_status  ,parse-build-status #:multi-value)))))
-       (render-compare/derivations 'html
-                                   conn
-                                   parsed-query-parameters)))
-    ((GET "compare" "derivations.json")
-     (let* ((parsed-query-parameters
-             (parse-query-parameters
-              request
-              `((base_commit   ,(parse-commit conn) #:required)
-                (target_commit ,(parse-commit conn) #:required)
-                (system        ,parse-system #:multi-value)
-                (target        ,parse-system #:multi-value)
-                (build_status  ,parse-build-status #:multi-value)))))
-       (render-compare/derivations 'json
+       (render-compare/derivations mime-types
                                    conn
                                    parsed-query-parameters)))
     ((GET "compare" "packages")
@@ -458,30 +442,13 @@
       query-parameters conn
       (lambda (base-commit base-revision-id target-commit target-revision-id)
         (if (not (and base-revision-id target-revision-id))
-            (render-compare-unknown-commit 'html
+            (render-compare-unknown-commit mime-types
                                            conn
                                            base-commit
                                            base-revision-id
                                            target-commit
                                            target-revision-id)
-            (render-compare/packages 'html
-                                     conn
-                                     base-commit
-                                     base-revision-id
-                                     target-commit
-                                     target-revision-id)))))
-    ((GET "compare" "packages.json")
-     (with-base-and-target-commits
-      query-parameters conn
-      (lambda (base-commit base-revision-id target-commit target-revision-id)
-        (if (not (and base-revision-id target-revision-id))
-            (render-compare-unknown-commit 'json
-                                           conn
-                                           base-commit
-                                           base-revision-id
-                                           target-commit
-                                           target-revision-id)
-            (render-compare/packages 'json
+            (render-compare/packages mime-types
                                      conn
                                      base-commit
                                      base-revision-id

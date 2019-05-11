@@ -22,15 +22,61 @@
   #:use-module (srfi srfi-1)
   #:use-module (web request)
   #:use-module (web uri)
-  #:export (request-path-components
+  #:export (most-appropriate-mime-type
+            request->path-components-and-mime-type
             file-extension
             directory?
 
             hyphenate-words
             underscore-join-words))
 
-(define (request-path-components request)
-  (split-and-decode-uri-path (uri-path (request-uri request))))
+(define (most-appropriate-mime-type accepted-mime-types
+                                    supported-mime-types)
+  (or
+   ;; Pick the first supported mime-type
+   (find (lambda (accepted-mime-type)
+           (memq accepted-mime-type
+                 supported-mime-types))
+         accepted-mime-types)
+   ;; Default to the first supported mime-type if none are accepted
+   (first supported-mime-types)))
+
+(define (request->path-components-and-mime-type request)
+  (define extensions-to-mime-types
+    '(("json" . application/json)
+      ("html" . text/html)))
+
+  (match (split-and-decode-uri-path (uri-path (request-uri request)))
+    (()
+     (values '()
+             (or (request-accept request)
+                 (list 'text/html))))
+    ((single-component)
+     (match (string-split single-component #\.)
+       ((part)
+        (values (list single-component)
+                (or (request-accept request)
+                    (list 'text/html))))
+       ((first-parts ... extension)
+        (values (string-join first-parts ".")
+                (or (cons
+                     (or (assoc-ref extensions-to-mime-types extension)
+                         'text/html)
+                     (request-accept request)))))))
+    ((first-components ... last-component)
+     (match (string-split last-component #\.)
+       ((part)
+        (values (append first-components
+                        (list part))
+                (or (request-accept request)
+                    (list 'text/html))))
+       ((first-parts ... extension)
+        (values (append first-components
+                        (list (string-join first-parts ".")))
+                (or (cons
+                     (or (assoc-ref extensions-to-mime-types extension)
+                         'text/html)
+                     (request-accept request)))))))))
 
 (define (file-extension file-name)
   (last (string-split file-name #\.)))

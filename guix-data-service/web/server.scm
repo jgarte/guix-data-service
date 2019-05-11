@@ -18,6 +18,7 @@
 
 (define-module (guix-data-service web server)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-11)
   #:use-module (web http)
   #:use-module (web request)
   #:use-module (web uri)
@@ -30,9 +31,14 @@
 (define (run-controller controller request body)
   (with-postgresql-connection
    (lambda (conn)
-     ((controller request body conn)
-      (cons (request-method request)
-            (request-path-components request))))))
+     (let-values (((request-components mime-types)
+                   (request->path-components-and-mime-type request)))
+       (controller request
+                   (cons (request-method request)
+                         request-components)
+                   mime-types
+                   body
+                   conn)))))
 
 (define (handler request body controller)
   (format #t "~a ~a\n"
