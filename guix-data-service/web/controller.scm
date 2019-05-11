@@ -38,6 +38,7 @@
   #:use-module (guix-data-service model build)
   #:use-module (guix-data-service jobs load-new-guix-revision)
   #:use-module (guix-data-service web render)
+  #:use-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service web util)
   #:use-module (guix-data-service web view html)
   #:export (controller))

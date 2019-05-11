@@ -54,6 +54,7 @@ SOURCES =							\
   guix-data-service/web/render.scm				\
   guix-data-service/web/server.scm				\
   guix-data-service/web/sxml.scm				\
+  guix-data-service/web/query-parameters.scm			\
   guix-data-service/web/util.scm				\
   guix-data-service/web/view/html.scm
 

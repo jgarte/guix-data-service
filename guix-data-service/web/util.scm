@@ -22,18 +22,9 @@
   #:use-module (srfi srfi-1)
   #:use-module (web request)
   #:use-module (web uri)
-  #:export (parse-query-string
-            request-path-components
+  #:export (request-path-components
             file-extension
             directory?))
-
-(define (parse-query-string query)
-  "Parse and decode the URI query string QUERY and return an alist."
-  (let lp ((lst (map uri-decode (string-split query (char-set #\& #\=)))))
-    (match lst
-      ((key value . rest)
-       (cons (cons key value) (lp rest)))
-      (() '()))))
 
 (define (request-path-components request)
   (split-and-decode-uri-path (uri-path (request-uri request))))
