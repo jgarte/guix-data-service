@@ -24,7 +24,10 @@
   #:use-module (web uri)
   #:export (request-path-components
             file-extension
-            directory?))
+            directory?
+
+            hyphenate-words
+            underscore-join-words))
 
 (define (request-path-components request)
   (split-and-decode-uri-path (uri-path (request-uri request))))
@@ -34,3 +37,13 @@
 
 (define (directory? filename)
   (string=? filename (dirname filename)))
+
+(define (hyphenate-words words)
+  (string-join
+   (string-split words #\space)
+   "-"))
+
+(define (underscore-join-words words)
+  (string-join
+   (string-split words #\space)
+   "_"))
