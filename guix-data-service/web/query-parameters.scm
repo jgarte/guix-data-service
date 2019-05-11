@@ -36,6 +36,7 @@
             any-invalid-query-parameters?
 
             parse-query-parameters
+            query-parameters->string
 
             parse-datetime
             parse-result-limit))
@@ -109,6 +110,31 @@
         ((_ . value) (cons name
                            (processor value))))))
    accepted-query-parameters))
+
+(define (query-parameters->string query-parameters)
+  (define (value->text value)
+    (match value
+      (#f "")
+      ((? date? date)
+       (date->string date "~1 ~3"))
+      (other other)))
+
+  (string-join
+   (concatenate
+    (map
+     (match-lambda
+       ((key . ($ <invalid-query-parameter>))
+        '())
+       ((key . value)
+        (list (simple-format #f "~A=~A"
+                             key (value->text value))))
+       ((key values ...)
+        (map (lambda (value)
+               (simple-format #f "~A=~A"
+                              key (value->text value)))
+             values)))
+     query-parameters))
+   "&"))
 
 (define (parse-datetime s)
   (catch
