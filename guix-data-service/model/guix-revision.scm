@@ -6,6 +6,7 @@
             most-recent-n-guix-revisions
             commit->revision-id
             insert-guix-revision
+            guix-commit-exists?
             guix-revision-exists?))
 
 (define (count-guix-revisions conn)
@@ -35,6 +36,14 @@
                    "RETURNING id;"))
 
   (map car (exec-query conn insert)))
+
+(define (guix-commit-exists? conn commit)
+  (define query
+    "SELECT EXISTS(SELECT 1 FROM guix_revisions WHERE commit = $1)")
+
+  (let ((result (caar
+                 (exec-query conn query (list commit)))))
+    (string=? result "t")))
 
 (define (guix-revision-exists? conn git-repository-id commit)
   (define query
