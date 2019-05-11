@@ -58,7 +58,7 @@
                 (or (request-accept request)
                     (list 'text/html))))
        ((first-parts ... extension)
-        (values (string-join first-parts ".")
+        (values (list (string-join first-parts "."))
                 (or (cons
                      (or (assoc-ref extensions-to-mime-types extension)
                          'text/html)
