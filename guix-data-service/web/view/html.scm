@@ -19,6 +19,8 @@
 
 (define-module (guix-data-service web view html)
   #:use-module (guix-data-service config)
+  #:use-module (guix-data-service web query-parameters)
+  #:use-module (guix-data-service web util)
   #:use-module (ice-9 vlist)
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-1)
@@ -91,6 +93,69 @@
                        (a (@ (href "https://git.cbaines.net/guix/data-service/"))
                           "source code here") ".")))))
     #:extra-headers ,extra-headers))
+
+
+(define* (form-horizontal-control label query-parameters
+                                  #:key help-text (required? #f))
+  (define (value->text value)
+    (match value
+      ((? date? date)
+       (date->string date "~1 ~3"))
+      (other other)))
+
+  (let* ((input-id    (hyphenate-words
+                       (string-downcase label)))
+         (help-span-id (string-append
+                        input-id "-help-text"))
+         (input-name (underscore-join-words
+                      (string-downcase label)))
+         (has-error? (invalid-query-parameter?
+                      (assq-ref query-parameters
+                                (string->symbol input-name)))))
+    `(div (@ (class ,(string-append
+                      "form-group form-group-lg"
+                      (if has-error? " has-error" ""))))
+          (label (@ (for ,input-id)
+                    (class "col-sm-2 control-label"))
+                 ,label)
+          (div (@ (class "col-sm-9"))
+               (input (@ (class "form-control")
+                         (style "font-family: monospace;")
+                         (id ,input-id)
+                         ,@(if required?
+                               '((required #t))
+                               '())
+                         ,@(if help-text
+                               `((aria-describedby ,help-span-id))
+                               '())
+                         (name ,input-name)
+                         ,@(match (assq (string->symbol input-name)
+                                        query-parameters)
+                             (#f '())
+                             ((_key . ($ <invalid-query-parameter> value))
+                              `((value ,(value->text value))))
+                             ((_key . value)
+                              `((value ,(value->text value)))))))
+               ,@(if (or help-text has-error? required?)
+                     `((span (@ (id ,help-span-id)
+                                (class "help-block"))
+                             ,@(if required? '((strong "Required.")) '())
+                             ,@(if has-error?
+                                   (let ((message
+                                          (invalid-query-parameter-message
+                                           (assq-ref query-parameters
+                                                     (string->symbol input-name)))))
+                                     `((p (strong
+                                           ,(string-append
+                                             "Error: "
+                                             (if message
+                                                 message
+                                                 "invalid value."))))))
+                                     '())
+                             ,@(if help-text
+                                   (list help-text)
+                                   '())))
+                     '())))))
 
 (define (index git-repositories-and-revisions)
   (layout
