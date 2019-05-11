@@ -1,8 +1,9 @@
 (define-module (guix-data-service model git-branch)
   #:use-module (squee)
+  #:use-module (srfi srfi-19)
   #:export (insert-git-branch-entry
             git-branches-for-commit
-            most-recent-100-commits-for-branch
+            most-recent-commits-for-branch
             all-branches-with-most-recent-commit))
 
 (define (insert-git-branch-entry conn
@@ -27,14 +28,30 @@ ORDER BY datetime DESC")
 
   (exec-query conn query (list commit)))
 
-(define (most-recent-100-commits-for-branch conn branch-name)
+(define* (most-recent-commits-for-branch conn branch-name
+                                         #:key
+                                         (limit 100)
+                                         after-date
+                                         before-date)
   (define query
     (string-append
      "SELECT git_branches.commit, datetime, "
      "(guix_revisions.id IS NOT NULL) as guix_revision_exists "
      "FROM git_branches "
      "LEFT OUTER JOIN guix_revisions ON git_branches.commit = guix_revisions.commit "
-     "WHERE name = $1 ORDER BY datetime DESC LIMIT 100;"))
+     "WHERE name = $1 "
+     (if after-date
+         (simple-format #f " AND datetime > '~A'"
+                        (date->string after-date "~1 ~3"))
+         "")
+     (if before-date
+         (simple-format #f " AND datetime < '~A'"
+                        (date->string before-date "~1 ~3"))
+         "")
+     "ORDER BY datetime DESC"
+     (if limit
+         (simple-format #f " LIMIT ~A;" limit)
+         "")))
 
   (exec-query
    conn

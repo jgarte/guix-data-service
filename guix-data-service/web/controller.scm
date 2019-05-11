@@ -348,12 +348,27 @@
             (view-branches
              (all-branches-with-most-recent-commit conn))))
     ((GET "branch" branch-name)
-     (apply render-html
+     (let ((parsed-query-parameters
+            (parse-query-parameters
+             request
+             `((after_date     ,parse-datetime)
+               (before_date    ,parse-datetime)
+               (limit_results  ,parse-result-limit #:default 100)))))
+       (apply
+        render-html
+        (if (any-invalid-query-parameters? parsed-query-parameters)
+            (view-branch branch-name parsed-query-parameters '())
             (view-branch
              branch-name
-             (most-recent-100-commits-for-branch
+             parsed-query-parameters
+             (most-recent-commits-for-branch
               conn
-              branch-name))))
+              branch-name
+              #:limit (assq-ref parsed-query-parameters 'limit_results)
+              #:after-date (assq-ref parsed-query-parameters
+                                     'after_date)
+              #:before-date (assq-ref parsed-query-parameters
+                                      'before_date)))))))
     ((GET "gnu" "store" filename)
      (if (string-suffix? ".drv" filename)
          (render-derivation conn (string-append "/gnu/store/" filename))

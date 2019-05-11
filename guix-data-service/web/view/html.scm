@@ -465,7 +465,8 @@
                                        commit)))))))
              branches-with-most-recent-commits)))))))))
 
-(define (view-branch branch-name branch-commits)
+(define (view-branch branch-name query-parameters
+                     branch-commits)
   (layout
    #:extra-headers
    '((cache-control . ((max-age . 60))))
@@ -479,6 +480,30 @@
         (@ (class "col-md-12"))
         (h1 (@ (style "white-space: nowrap;"))
             (samp ,branch-name) " branch")))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (div
+         (@ (class "well"))
+         (form
+          (@ (method "get")
+             (action "")
+             (class "form-horizontal"))
+          ,(form-horizontal-control
+            "After date" query-parameters
+            #:help-text "Only show the branch history after this date.")
+          ,(form-horizontal-control
+            "Before date" query-parameters
+            #:help-text "Only show the branch history before this date.")
+          ,(form-horizontal-control
+            "Limit results" query-parameters
+            #:help-text "The maximum number of results to return.")
+          (div (@ (class "form-group form-group-lg"))
+               (div (@ (class "col-sm-offset-2 col-sm-10"))
+                    (button (@ (type "submit")
+                               (class "btn btn-lg btn-primary"))
+                            "Update results")))))))
       (div
        (@ (class "row"))
        (div
