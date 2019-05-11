@@ -96,9 +96,13 @@
 
 
 (define* (form-horizontal-control label query-parameters
-                                  #:key help-text (required? #f))
+                                  #:key
+                                  help-text
+                                  required?
+                                  options)
   (define (value->text value)
     (match value
+      (#f "")
       ((? date? date)
        (date->string date "~1 ~3"))
       (other other)))
@@ -111,51 +115,79 @@
                       (string-downcase label)))
          (has-error? (invalid-query-parameter?
                       (assq-ref query-parameters
-                                (string->symbol input-name)))))
-    `(div (@ (class ,(string-append
-                      "form-group form-group-lg"
-                      (if has-error? " has-error" ""))))
-          (label (@ (for ,input-id)
-                    (class "col-sm-2 control-label"))
-                 ,label)
-          (div (@ (class "col-sm-9"))
-               (input (@ (class "form-control")
-                         (style "font-family: monospace;")
-                         (id ,input-id)
-                         ,@(if required?
-                               '((required #t))
-                               '())
-                         ,@(if help-text
-                               `((aria-describedby ,help-span-id))
-                               '())
-                         (name ,input-name)
-                         ,@(match (assq (string->symbol input-name)
-                                        query-parameters)
-                             (#f '())
-                             ((_key . ($ <invalid-query-parameter> value))
-                              `((value ,(value->text value))))
-                             ((_key . value)
-                              `((value ,(value->text value)))))))
-               ,@(if (or help-text has-error? required?)
-                     `((span (@ (id ,help-span-id)
-                                (class "help-block"))
-                             ,@(if required? '((strong "Required.")) '())
-                             ,@(if has-error?
-                                   (let ((message
-                                          (invalid-query-parameter-message
-                                           (assq-ref query-parameters
-                                                     (string->symbol input-name)))))
-                                     `((p (strong
-                                           ,(string-append
-                                             "Error: "
-                                             (if message
-                                                 message
-                                                 "invalid value."))))))
-                                     '())
-                             ,@(if help-text
-                                   (list help-text)
-                                   '())))
-                     '())))))
+                                (string->symbol input-name))))
+         (show-help-span?
+          (or help-text has-error? required?)))
+    `(div
+      (@ (class ,(string-append
+                  "form-group form-group-lg"
+                  (if has-error? " has-error" ""))))
+      (label (@ (for ,input-id)
+                (class "col-sm-2 control-label"))
+             ,label)
+      (div
+       (@ (class "col-sm-9"))
+       ,(if options
+            `(select (@ (class "form-control")
+                        (style "font-family: monospace;")
+                        (multiple #t)
+                        (id ,input-id)
+                        ,@(if show-help-span?
+                              `((aria-describedby ,help-span-id))
+                              '())
+
+                        (name ,input-name))
+               ,@(let ((selected-options
+                        (match (assq (string->symbol input-name)
+                                     query-parameters)
+                          ((_key . value)
+                           value)
+                          (_ '()))))
+
+                   (map (lambda (option-value)
+                          `(option
+                            (@ ,@(if (member option-value selected-options)
+                                     '((selected ""))
+                                     '()))
+                            ,(value->text option-value)))
+                        options)))
+            `(input (@ (class "form-control")
+                       (style "font-family: monospace;")
+                       (id ,input-id)
+                       ,@(if required?
+                             '((required #t))
+                             '())
+                       ,@(if show-help-span?
+                             `((aria-describedby ,help-span-id))
+                             '())
+                       (name ,input-name)
+                       ,@(match (assq (string->symbol input-name)
+                                      query-parameters)
+                           (#f '())
+                           ((_key . ($ <invalid-query-parameter> value))
+                            `((value ,(value->text value))))
+                           ((_key . value)
+                            `((value ,(value->text value))))))))
+       ,@(if show-help-span?
+             `((span (@ (id ,help-span-id)
+                        (class "help-block"))
+                     ,@(if has-error?
+                           (let ((message
+                                  (invalid-query-parameter-message
+                                   (assq-ref query-parameters
+                                             (string->symbol input-name)))))
+                             `((p (strong
+                                   ,(string-append
+                                     "Error: "
+                                     (if message
+                                         message
+                                         "invalid value."))))))
+                           '())
+                     ,@(if required? '((strong "Required. ")) '())
+                     ,@(if help-text
+                           (list help-text)
+                           '())))
+             '())))))
 
 (define (index git-repositories-and-revisions)
   (layout
