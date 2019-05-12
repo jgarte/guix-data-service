@@ -107,8 +107,15 @@
 
 (define (render-revision-packages mime-types
                                   conn
-                                  commit-hash)
-  (let ((packages (select-packages-in-revision conn commit-hash)))
+                                  commit-hash
+                                  query-parameters)
+  (let ((packages (select-packages-in-revision
+                   conn
+                   commit-hash
+                   #:limit-results (assq-ref query-parameters
+                                             'limit_results)
+                   #:after-name (assq-ref query-parameters
+                                          'after_name))))
     (case (most-appropriate-mime-type
            '(application/json text/html)
            mime-types)
@@ -123,7 +130,9 @@
                              packages))))))
       (else
        (apply render-html
-              (view-revision-packages commit-hash packages))))))
+              (view-revision-packages commit-hash
+                                      query-parameters
+                                      packages))))))
 
 (define (render-revision-package mime-types
                                  conn
@@ -441,10 +450,17 @@
     ((GET "revision" commit-hash) (render-view-revision mime-types
                                                         conn
                                                         commit-hash))
-    ((GET "revision" commit-hash "packages") (render-revision-packages
-                                              mime-types
-                                              conn
-                                              commit-hash))
+    ((GET "revision" commit-hash "packages")
+     (let ((parsed-query-parameters
+            (parse-query-parameters
+             request
+             `((after_name     ,identity)
+               (limit_results  ,parse-result-limit #:default 100)))))
+
+       (render-revision-packages mime-types
+                                 conn
+                                 commit-hash
+                                 parsed-query-parameters)))
     ((GET "revision" commit-hash "package" name version) (render-revision-package
                                                           mime-types
                                                           conn

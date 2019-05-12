@@ -412,7 +412,9 @@
                           (td (samp ,count))))))
                  derivations-count)))))))))
 
-(define (view-revision-packages revision-commit-hash packages)
+(define (view-revision-packages revision-commit-hash
+                                query-parameters
+                                packages)
   (layout
    #:extra-headers
    '((cache-control . ((max-age . 60))))
@@ -427,6 +429,28 @@
         (h3 (a (@ (href ,(string-append
                           "/revision/" revision-commit-hash)))
                "Revision " (samp ,revision-commit-hash)))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (div
+         (@ (class "well"))
+         (form
+          (@ (method "get")
+             (action "")
+             (class "form-horizontal"))
+          ,(form-horizontal-control
+            "After name" query-parameters
+            #:help-text
+            "List packages that are alphabetically after the given name.")
+          ,(form-horizontal-control
+            "Limit results" query-parameters
+            #:help-text "The maximum number of packages by name to return.")
+          (div (@ (class "form-group form-group-lg"))
+               (div (@ (class "col-sm-offset-2 col-sm-10"))
+                    (button (@ (type "submit")
+                               (class "btn btn-lg btn-primary"))
+                            "Update results")))))))
       (div
        (@ (class "row"))
        (div
@@ -453,7 +477,13 @@
                                     "/revision/" revision-commit-hash
                                     "/package/" name "/" version)))
                          "More information")))))
-             packages)))))))))
+             packages)))))
+      (div
+       (@ (class "row"))
+       (a (@ (href ,(string-append "/revision/" revision-commit-hash
+                                   "/packages?after_name="
+                                   (car (last packages)))))
+          "Next page"))))))
 
 (define (view-branches branches-with-most-recent-commits)
   (layout

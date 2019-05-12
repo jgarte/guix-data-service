@@ -28,25 +28,46 @@
                  "packages.version = vals.version AND "
                  "packages.package_metadata_id = vals.package_metadata_id"))
 
-(define (select-packages-in-revision conn commit-hash)
+(define* (select-packages-in-revision conn commit-hash
+                                      #:key limit-results
+                                      after-name)
   (define query
-    "
-SELECT packages.name, packages.version, package_metadata.synopsis
-FROM packages
-INNER JOIN package_metadata
-  ON packages.package_metadata_id = package_metadata.id
-WHERE packages.id IN (
- SELECT package_derivations.package_id
- FROM package_derivations
- INNER JOIN guix_revision_package_derivations
-   ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
- INNER JOIN guix_revisions
-   ON guix_revision_package_derivations.revision_id = guix_revisions.id
- WHERE guix_revisions.commit = $1
-)
-ORDER BY packages.name, packages.version")
+    (string-append "
+WITH data AS (
+  SELECT packages.name, packages.version, package_metadata.synopsis
+  FROM packages
+  INNER JOIN package_metadata
+    ON packages.package_metadata_id = package_metadata.id
+  WHERE packages.id IN (
+   SELECT package_derivations.package_id
+   FROM package_derivations
+   INNER JOIN guix_revision_package_derivations
+     ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+   INNER JOIN guix_revisions
+     ON guix_revision_package_derivations.revision_id = guix_revisions.id
+   WHERE guix_revisions.commit = $1
+  )
+  ORDER BY packages.name, packages.version
+), package_names AS (
+  SELECT DISTINCT name
+  FROM data"
+    (if after-name
+        "\nWHERE name > $2\n"
+        "")
+    "  ORDER BY name"
+    (if limit-results
+        (string-append " LIMIT " (number->string limit-results))
+        "")
+")
+SELECT data.*
+FROM data
+WHERE data.name IN (SELECT name FROM package_names);"))
 
-  (exec-query conn query (list commit-hash)))
+  (exec-query conn query
+              `(,commit-hash
+                ,@(if after-name
+                      (list after-name)
+                      '()))))
 
 (define (count-packages-in-revision conn commit-hash)
   (define query
