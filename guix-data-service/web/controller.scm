@@ -125,6 +125,50 @@
        (apply render-html
               (view-revision-packages commit-hash packages))))))
 
+(define (render-revision-package mime-types
+                                 conn
+                                 commit-hash
+                                 name
+                                 version)
+  (let ((metadata
+         (select-package-metadata-by-revision-name-and-version
+          conn
+          commit-hash
+          name
+          version))
+        (derivations
+         (select-derivations-by-revision-name-and-version
+          conn
+          commit-hash
+          name
+          version)))
+    (case (most-appropriate-mime-type
+           '(application/json text/html)
+           mime-types)
+      ((application/json)
+       (render-json
+        `((name . ,name)
+          (version . ,version)
+          ,@(match metadata
+              (((synopsis description home-page))
+               `((synopsis . ,synopsis)
+                 (description . ,description)
+                 (home-page . ,home-page))))
+          (derivations . ,(list->vector
+                           (map (match-lambda
+                                  ((system target file-name status)
+                                   `((system . ,system)
+                                     (target . ,target)
+                                     (derivation . ,file-name))))
+                                derivations))))))
+      (else
+       (apply render-html
+              (view-revision-package-and-version commit-hash
+                                                 name
+                                                 version
+                                                 metadata
+                                                 derivations))))))
+
 (define (render-compare-unknown-commit mime-types
                                        conn
                                        base-commit
@@ -401,22 +445,12 @@
                                               mime-types
                                               conn
                                               commit-hash))
-    ((GET "revision" commit-hash "package" name version)
-     (apply render-html
-            (view-revision-package-and-version
-             commit-hash
-             name
-             version
-             (select-package-metadata-by-revision-name-and-version
-              conn
-              commit-hash
-              name
-              version)
-             (select-derivations-by-revision-name-and-version
-              conn
-              commit-hash
-              name
-              version))))
+    ((GET "revision" commit-hash "package" name version) (render-revision-package
+                                                          mime-types
+                                                          conn
+                                                          commit-hash
+                                                          name
+                                                          version))
     ((GET "branches")
      (apply render-html
             (view-branches
