@@ -78,6 +78,33 @@
        target-commit
        (commit->revision-id conn target-commit))))
 
+(define (render-view-revision mime-types
+                              conn
+                              commit-hash)
+  (let ((packages-count
+         (count-packages-in-revision conn commit-hash))
+        (derivations-counts
+         (count-packages-derivations-in-revision conn commit-hash)))
+    (case (most-appropriate-mime-type
+           '(application/json text/html)
+           mime-types)
+      ((application/json)
+       (render-json
+        `((packages_count  . ,(caar packages-count))
+          (derivations_counts . ,(list->vector
+                                  (map (match-lambda
+                                         ((system target derivation_count)
+                                          `((system . ,system)
+                                            (target . ,target)
+                                            (derivation_count . ,derivation_count))))
+                                       derivations-counts))))))
+      (else
+       (apply render-html
+              (view-revision
+               commit-hash
+               packages-count
+               derivations-counts))))))
+
 (define (render-compare-unknown-commit mime-types
                                        conn
                                        base-commit
@@ -347,13 +374,9 @@
      (apply render-html
             (view-statistics (count-guix-revisions conn)
                              (count-derivations conn))))
-    ((GET "revision" commit-hash)
-     (apply render-html
-            (view-revision commit-hash
-                           (count-packages-in-revision conn
-                                                       commit-hash)
-                           (count-packages-derivations-in-revision conn
-                                                                   commit-hash))))
+    ((GET "revision" commit-hash) (render-view-revision mime-types
+                                                        conn
+                                                        commit-hash))
     ((GET "revision" commit-hash "packages")
      (apply render-html
             (view-revision-packages commit-hash
