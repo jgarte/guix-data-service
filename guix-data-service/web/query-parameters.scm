@@ -36,6 +36,7 @@
             any-invalid-query-parameters?
 
             parse-query-parameters
+            guard-against-mutually-exclusive-query-parameters
             query-parameters->string
 
             parse-datetime
@@ -55,6 +56,37 @@
   invalid-query-parameter?
   (value   invalid-query-parameter-value)
   (message invalid-query-parameter-message))
+
+(define (guard-against-mutually-exclusive-query-parameters
+         parsed-query-parameters
+         mutually-exclusive-groups)
+  (map (match-lambda
+         ((name . value)
+          (if (invalid-query-parameter? value)
+              (cons name value)
+              (or
+               (any (lambda (group)
+                       (if (memq name group)
+                           (let ((other-names
+                                  (filter (lambda (other-name)
+                                            (and (not (eq? name other-name))
+                                                 (memq other-name group)))
+                                          (map car parsed-query-parameters))))
+                             (if (not (null? other-names))
+                                 (cons
+                                  name
+                                  (make-invalid-query-parameter
+                                   value
+                                   (string-append
+                                    "cannot be specified along with "
+                                    (string-join (map symbol->string
+                                                      other-names)
+                                                 ", "))))
+                                 #f))
+                           #f))
+                     mutually-exclusive-groups)
+               (cons name value)))))
+       parsed-query-parameters))
 
 (define (parse-query-parameters request
                                 accepted-query-parameters)
