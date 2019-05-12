@@ -7,3 +7,4 @@ buildstatus_enum [appschema] 2019-04-13T11:56:37Z Christopher Baines <mail@cbain
 initial_import 2019-04-13T13:06:28Z Christopher Baines <mail@cbaines.net> # Import the manually managed database schema
 git_repositories 2019-05-04T19:03:38Z Christopher Baines <mail@cbaines.net> # Add a git_repositories table
 git_branches 2019-05-05T14:53:12Z Christopher Baines <mail@cbaines.net> # Add a git_branches table
+remove_package_metadata_sha1_hash 2019-05-12T10:37:40Z Christopher Baines <mail@cbaines.net> # Remove the sha1_hash field from package_metadata

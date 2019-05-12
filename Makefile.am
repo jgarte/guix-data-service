@@ -66,6 +66,7 @@ TESTS =				\
   tests/model-derivation.scm		\
   tests/model-git-branch.scm		\
   tests/model-git-repository.scm	\
+  tests/model-package-metadata.scm	\
   tests/branch-updated-emails.scm
 
 AM_TESTS_ENVIRONMENT = abs_top_srcdir="$(abs_top_srcdir)"
