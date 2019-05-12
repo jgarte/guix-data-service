@@ -109,30 +109,56 @@
                                   conn
                                   commit-hash
                                   query-parameters)
-  (let ((packages (select-packages-in-revision
+  (if (any-invalid-query-parameters? query-parameters)
+      (case (most-appropriate-mime-type
+             '(application/json text/html)
+             mime-types)
+        ((application/json)
+         (render-json
+          `((error . "invalid query"))))
+        (else
+         (apply render-html
+                (view-revision-packages commit-hash
+                                        query-parameters
+                                        '()
+                                        #f))))
+
+      (let* ((search-query (assq-ref query-parameters 'search_query))
+             (limit-results (assq-ref query-parameters 'limit_results))
+             (packages
+              (if search-query
+                  (search-packages-in-revision
                    conn
                    commit-hash
-                   #:limit-results (assq-ref query-parameters
-                                             'limit_results)
-                   #:after-name (assq-ref query-parameters
-                                          'after_name))))
-    (case (most-appropriate-mime-type
-           '(application/json text/html)
-           mime-types)
-      ((application/json)
-       (render-json
-        `((packages . ,(list->vector
-                        (map (match-lambda
-                               ((name version synopsis)
-                                `((name . ,name)
-                                  (version . ,version)
-                                  (synopsis . ,synopsis))))
-                             packages))))))
-      (else
-       (apply render-html
-              (view-revision-packages commit-hash
-                                      query-parameters
-                                      packages))))))
+                   search-query
+                   #:limit-results limit-results)
+                  (select-packages-in-revision
+                   conn
+                   commit-hash
+                   #:limit-results limit-results
+                   #:after-name (assq-ref query-parameters 'after_name))))
+             (show-next-page?
+              (and (not search-query)
+                   (>= (length packages)
+                       limit-results))))
+        (case (most-appropriate-mime-type
+               '(application/json text/html)
+               mime-types)
+          ((application/json)
+           (render-json
+            `((packages . ,(list->vector
+                            (map (match-lambda
+                                   ((name version synopsis)
+                                    `((name . ,name)
+                                      (version . ,version)
+                                      (synopsis . ,synopsis))))
+                                 packages))))))
+          (else
+           (apply render-html
+                  (view-revision-packages commit-hash
+                                          query-parameters
+                                          packages
+                                          show-next-page?)))))))
 
 (define (render-revision-package mime-types
                                  conn
@@ -452,10 +478,15 @@
                                                         commit-hash))
     ((GET "revision" commit-hash "packages")
      (let ((parsed-query-parameters
-            (parse-query-parameters
-             request
-             `((after_name     ,identity)
-               (limit_results  ,parse-result-limit #:default 100)))))
+            (guard-against-mutually-exclusive-query-parameters
+             (parse-query-parameters
+              request
+              `((after_name     ,identity)
+                (search_query   ,identity)
+                (limit_results  ,parse-result-limit #:default 100)))
+             ;; You can't specify a search query, but then also limit the
+             ;; results by filtering for after a particular package name
+             '((after_name search_query)))))
 
        (render-revision-packages mime-types
                                  conn

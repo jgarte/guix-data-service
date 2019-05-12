@@ -414,7 +414,8 @@
 
 (define (view-revision-packages revision-commit-hash
                                 query-parameters
-                                packages)
+                                packages
+                                show-next-page?)
   (layout
    #:extra-headers
    '((cache-control . ((max-age . 60))))
@@ -439,6 +440,10 @@
           (@ (method "get")
              (action "")
              (class "form-horizontal"))
+          ,(form-horizontal-control
+            "Search query" query-parameters
+            #:help-text
+            "List packages where the name or synopsis match the query.")
           ,(form-horizontal-control
             "After name" query-parameters
             #:help-text
@@ -478,12 +483,14 @@
                                     "/package/" name "/" version)))
                          "More information")))))
              packages)))))
-      (div
-       (@ (class "row"))
-       (a (@ (href ,(string-append "/revision/" revision-commit-hash
-                                   "/packages?after_name="
-                                   (car (last packages)))))
-          "Next page"))))))
+      ,@(if show-next-page?
+            `((div
+               (@ (class "row"))
+               (a (@ (href ,(string-append "/revision/" revision-commit-hash
+                                           "/packages?after_name="
+                                           (car (last packages)))))
+                  "Next page")))
+            '())))))
 
 (define (view-branches branches-with-most-recent-commits)
   (layout
