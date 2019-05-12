@@ -105,6 +105,26 @@
                packages-count
                derivations-counts))))))
 
+(define (render-revision-packages mime-types
+                                  conn
+                                  commit-hash)
+  (let ((packages (select-packages-in-revision conn commit-hash)))
+    (case (most-appropriate-mime-type
+           '(application/json text/html)
+           mime-types)
+      ((application/json)
+       (render-json
+        `((packages . ,(list->vector
+                        (map (match-lambda
+                               ((name version synopsis)
+                                `((name . ,name)
+                                  (version . ,version)
+                                  (synopsis . ,synopsis))))
+                             packages))))))
+      (else
+       (apply render-html
+              (view-revision-packages commit-hash packages))))))
+
 (define (render-compare-unknown-commit mime-types
                                        conn
                                        base-commit
@@ -377,11 +397,10 @@
     ((GET "revision" commit-hash) (render-view-revision mime-types
                                                         conn
                                                         commit-hash))
-    ((GET "revision" commit-hash "packages")
-     (apply render-html
-            (view-revision-packages commit-hash
-                                    (select-packages-in-revision
-                                     conn commit-hash))))
+    ((GET "revision" commit-hash "packages") (render-revision-packages
+                                              mime-types
+                                              conn
+                                              commit-hash))
     ((GET "revision" commit-hash "package" name version)
      (apply render-html
             (view-revision-package-and-version
