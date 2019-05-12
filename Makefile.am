@@ -56,7 +56,8 @@ SOURCES =							\
   guix-data-service/web/sxml.scm				\
   guix-data-service/web/query-parameters.scm			\
   guix-data-service/web/util.scm				\
-  guix-data-service/web/view/html.scm
+  guix-data-service/web/view/html.scm				\
+  tests/driver.scm
 
 TEST_EXTENSIONS = .scm
 
