@@ -7,6 +7,7 @@
   #:use-module (guix-data-service model utils)
   #:export (select-existing-package-entries
             select-packages-in-revision
+            search-packages-in-revision
             count-packages-in-revision
             insert-into-package-entries
             inferior-packages->package-ids))
@@ -68,6 +69,36 @@ WHERE data.name IN (SELECT name FROM package_names);"))
                 ,@(if after-name
                       (list after-name)
                       '()))))
+
+(define* (search-packages-in-revision conn commit-hash
+                                      search-query
+                                      #:key limit-results)
+  (define query
+    (string-append
+     "
+SELECT packages.name,
+       packages.version,
+       package_metadata.synopsis
+FROM packages
+INNER JOIN package_metadata
+  ON packages.package_metadata_id = package_metadata.id
+WHERE packages.id IN (
+ SELECT package_derivations.package_id
+ FROM package_derivations
+ INNER JOIN guix_revision_package_derivations
+   ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+ INNER JOIN guix_revisions
+   ON guix_revision_package_derivations.revision_id = guix_revisions.id
+ WHERE guix_revisions.commit = $1
+)
+AND to_tsvector(name || ' ' || synopsis) @@ plainto_tsquery($2)
+ORDER BY ts_rank_cd(to_tsvector(name || ' ' || synopsis), plainto_tsquery($2)) DESC"
+     (if limit-results
+         (string-append "\nLIMIT " (number->string limit-results))
+         "")))
+
+  (exec-query conn query
+              (list commit-hash search-query)))
 
 (define (count-packages-in-revision conn commit-hash)
   (define query
