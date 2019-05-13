@@ -4,6 +4,7 @@
   #:export (all-git-repositories
             git-repository-id->url
             git-repository-url->git-repository-id
+            git-repositories-containing-commit
 
             guix-revisions-and-jobs-for-git-repository))
 
@@ -56,3 +57,15 @@ ORDER BY 1 DESC NULLS FIRST, 2 DESC LIMIT 10;")
    conn
    query
    (list git-repository-id)))
+
+(define (git-repositories-containing-commit conn commit)
+  (define query
+    "
+SELECT id, label, url, cgit_url_base
+FROM git_repositories WHERE id IN (
+  SELECT git_repository_id
+  FROM git_branches
+  WHERE commit = $1
+)")
+
+  (exec-query conn query (list commit)))

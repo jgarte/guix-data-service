@@ -302,7 +302,7 @@
 
 (define (view-revision-package-and-version revision-commit-hash name version
                                            package-metadata
-                                           derivations)
+                                           derivations git-repositories)
   (layout
    #:extra-headers
    '((cache-control . ((max-age . 60))))
@@ -327,7 +327,7 @@
        (div
         (@ (class "col-sm-12"))
         ,(match package-metadata
-           (((synopsis description home-page))
+           (((synopsis description home-page file line column-number))
             `(dl
               (@ (class "dl-horizontal"))
               (dt "Synopsis")
@@ -335,8 +335,27 @@
               (dt "Description")
               (dd ,(stexi->shtml (texi-fragment->stexi description)))
               (dt "Home page")
-              (dd (a (@ (href ,home-page))
-                     ,home-page)))))))
+              (dd (a (@ (href ,home-page)) ,home-page))
+              ,@(if (and file (not (string-null? file))
+                         (not (null? git-repositories)))
+                    `((dt "Location")
+                      (dd ,@(map
+                             (match-lambda
+                               ((id label url cgit-url-base)
+                                (if
+                                 (and cgit-url-base
+                                      (not (string-null? cgit-url-base)))
+                                 `(a (@ (href
+                                         ,(string-append
+                                           cgit-url-base "tree/"
+                                           file "?id=" revision-commit-hash
+                                           "#n" line)))
+                                     ,file
+                                     " (line: " ,line
+                                     ", column: " ,column-number ")")
+                                 '())))
+                             git-repositories)))
+                    '()))))))
       (div
        (@ (class "row"))
        (div

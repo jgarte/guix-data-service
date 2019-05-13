@@ -176,7 +176,10 @@
           conn
           commit-hash
           name
-          version)))
+          version))
+        (git-repositories
+         (git-repositories-containing-commit conn
+                                             commit-hash)))
     (case (most-appropriate-mime-type
            '(application/json text/html)
            mime-types)
@@ -202,7 +205,8 @@
                                                  name
                                                  version
                                                  metadata
-                                                 derivations))))))
+                                                 derivations
+                                                 git-repositories))))))
 
 (define (render-compare-unknown-commit mime-types
                                        conn

@@ -46,6 +46,7 @@ SOURCES =							\
   guix-data-service/model/git-repository.scm			\
   guix-data-service/model/guix-revision-package-derivation.scm	\
   guix-data-service/model/guix-revision.scm			\
+  guix-data-service/model/location.scm				\
   guix-data-service/model/package-derivation.scm		\
   guix-data-service/model/package-metadata.scm			\
   guix-data-service/model/package.scm				\

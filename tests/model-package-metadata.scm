@@ -1,6 +1,7 @@
 (define-module (test-model-package-metadata)
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-64)
+  #:use-module (guix utils)
   #:use-module (tests mock-inferior)
   #:use-module (guix-data-service database))
 
@@ -12,7 +13,8 @@
    (version "2")
    (synopsis "Foo")
    (description "Foo description")
-   (home-page "https://example.com")))
+   (home-page "https://example.com")
+   (location (location "file.scm" 5 0))))
 
 (with-mock-inferior-packages
  (lambda ()

@@ -8,3 +8,5 @@ initial_import 2019-04-13T13:06:28Z Christopher Baines <mail@cbaines.net> # Impo
 git_repositories 2019-05-04T19:03:38Z Christopher Baines <mail@cbaines.net> # Add a git_repositories table
 git_branches 2019-05-05T14:53:12Z Christopher Baines <mail@cbaines.net> # Add a git_branches table
 remove_package_metadata_sha1_hash 2019-05-12T10:37:40Z Christopher Baines <mail@cbaines.net> # Remove the sha1_hash field from package_metadata
+add_location_information 2019-05-12T20:27:48Z Christopher Baines <mail@cbaines.net> # Add locations table and location to package_metadata
+add_git_repositories_cgit_url_base 2019-05-13T18:45:14Z Christopher Baines <mail@cbaines.net> # Add cgit_url_base to git_repositories

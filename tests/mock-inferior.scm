@@ -9,6 +9,7 @@
             mock-inferior-package-synopsis
             mock-inferior-package-description
             mock-inferior-package-home-page
+            mock-inferior-package-location
 
             with-mock-inferior-packages))
 
@@ -19,7 +20,8 @@
   (version     mock-inferior-package-version)
   (synopsis    mock-inferior-package-synopsis)
   (description mock-inferior-package-description)
-  (home-page   mock-inferior-package-home-page))
+  (home-page   mock-inferior-package-home-page)
+  (location    mock-inferior-package-location))
 
 (define (with-mock-inferior-packages f)
   (mock
@@ -42,4 +44,8 @@
        ((guix inferior)
         inferior-package-home-page
         mock-inferior-package-home-page)
-       (f)))))))
+       (mock
+        ((guix inferior)
+         inferior-package-location
+         mock-inferior-package-location)
+        (f))))))))
