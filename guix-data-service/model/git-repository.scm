@@ -12,7 +12,7 @@
   (exec-query
    conn
    (string-append
-    "SELECT id, label, url FROM git_repositories")))
+    "SELECT id, label, url FROM git_repositories ORDER BY id ASC")))
 
 (define (git-repository-id->url conn id)
   (match
