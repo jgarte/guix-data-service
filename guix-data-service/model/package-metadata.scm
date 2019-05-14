@@ -92,7 +92,7 @@ WHERE packages.id IN (
                            (value->quoted-string-or-null synopsis) ","
                            (value->quoted-string-or-null description) ","
                            (value->quoted-string-or-null home_page) ","
-                           (number->string location_id)
+                           location_id
                            ")")))
                        metadata-rows)
                   ",")

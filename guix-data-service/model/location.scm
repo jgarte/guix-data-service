@@ -42,13 +42,11 @@
                         (list file
                               (number->string line)
                               (number->string column)))
-       (((id))
-        (string->number id))
+       (((id)) id)
        (()
-        (string->number
-         (caar
-          (exec-query conn
-                      insert-location
-                      (list file
-                            (number->string line)
-                            (number->string column))))))))))
+        (caar
+         (exec-query conn
+                     insert-location
+                     (list file
+                           (number->string line)
+                           (number->string column)))))))))

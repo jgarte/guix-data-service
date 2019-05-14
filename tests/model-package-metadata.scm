@@ -34,6 +34,18 @@
                 conn
                 (list mock-inferior-package-foo))
              ((x) (string? x))))
+         #:always-rollback? #t))
+
+      (with-postgresql-transaction
+       conn
+       (lambda (conn)
+         (test-equal "inferior-packages->package-metadata-ids"
+           (inferior-packages->package-metadata-ids
+            conn
+            (list mock-inferior-package-foo))
+           (inferior-packages->package-metadata-ids
+            conn
+            (list mock-inferior-package-foo)))
          #:always-rollback? #t))))))
 
 (test-end)
