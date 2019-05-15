@@ -53,7 +53,7 @@
                                      "NULL"
                                      x-git-newrev)
                                  git-repository-id
-                                 (date->string date "~4"))
+                                 date)
 
         (unless (string=? "0000000000000000000000000000000000000000"
                           x-git-newrev)

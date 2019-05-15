@@ -1,4 +1,5 @@
 (define-module (test-model-git-branch)
+  #:use-module (srfi srfi-19)
   #:use-module (srfi srfi-64)
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service model git-repository)
@@ -18,7 +19,7 @@
                                    "master"
                                    "test-commit"
                                    id
-                                   (strftime "%c" (gmtime (current-time)))))
+                                   (current-date)))
         #t)
       #:always-rollback? #t))))
 

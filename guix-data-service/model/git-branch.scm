@@ -13,12 +13,12 @@
    conn
    (string-append
     "INSERT INTO git_branches (name, commit, git_repository_id, datetime) "
-    "VALUES ($1, $2, $3, $4) "
+    "VALUES ($1, $2, $3, to_timestamp($4)) "
     "ON CONFLICT DO NOTHING")
    (list name
          commit
          git-repository-id
-         datetime)))
+         (date->string datetime "~s"))))
 
 (define (git-branches-for-commit conn commit)
   (define query
