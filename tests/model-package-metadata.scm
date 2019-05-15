@@ -2,7 +2,9 @@
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-64)
   #:use-module (guix utils)
+  #:use-module (guix tests)
   #:use-module (tests mock-inferior)
+  #:use-module (guix-data-service model license-set)
   #:use-module (guix-data-service database))
 
 (test-begin "test-model-package-metadata")
@@ -15,6 +17,17 @@
    (description "Foo description")
    (home-page "https://example.com")
    (location (location "file.scm" 5 0))))
+
+(define (test-license-set-ids conn)
+  (mock
+   ((guix-data-service model license)
+    inferior-packages->license-data
+    (lambda (inf packages)
+      '((("License 1"
+          "https://gnu.org/licenses/test-1.html"
+          "https://example.com/why-license-1")))))
+
+   (inferior-packages->license-set-ids conn #f #f)))
 
 (with-mock-inferior-packages
  (lambda ()
@@ -32,7 +45,8 @@
            (match
                (inferior-packages->package-metadata-ids
                 conn
-                (list mock-inferior-package-foo))
+                (list mock-inferior-package-foo)
+                (test-license-set-ids conn))
              ((x) (string? x))))
          #:always-rollback? #t))
 
@@ -42,10 +56,12 @@
          (test-equal "inferior-packages->package-metadata-ids"
            (inferior-packages->package-metadata-ids
             conn
-            (list mock-inferior-package-foo))
+            (list mock-inferior-package-foo)
+            (test-license-set-ids conn))
            (inferior-packages->package-metadata-ids
             conn
-            (list mock-inferior-package-foo)))
+            (list mock-inferior-package-foo)
+            (test-license-set-ids conn)))
          #:always-rollback? #t))))))
 
 (test-end)
