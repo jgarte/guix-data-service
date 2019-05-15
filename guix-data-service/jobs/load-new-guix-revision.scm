@@ -17,6 +17,7 @@
   #:use-module (guix-data-service model guix-revision)
   #:use-module (guix-data-service model package-derivation)
   #:use-module (guix-data-service model guix-revision-package-derivation)
+  #:use-module (guix-data-service model license-set)
   #:use-module (guix-data-service model package-metadata)
   #:use-module (guix-data-service model derivation)
   #:export (process-next-load-new-guix-revision-job
@@ -184,10 +185,16 @@
                              (lambda ()
                                (deduplicate-inferior-packages
                                 (inferior-packages inf)))))
+         (package-license-set-ids
+          (log-time "fetching inferior package license metadata"
+                    (lambda ()
+                      (inferior-packages->license-set-ids conn inf
+                                                          packages))))
          (packages-metadata-ids
           (log-time "fetching inferior package metadata"
                     (lambda ()
-                      (inferior-packages->package-metadata-ids conn packages))))
+                      (inferior-packages->package-metadata-ids
+                       conn packages package-license-set-ids))))
          (package-ids
           (log-time "getting package-ids"
                     (lambda ()

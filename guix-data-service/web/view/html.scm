@@ -327,7 +327,8 @@
        (div
         (@ (class "col-sm-12"))
         ,(match package-metadata
-           (((synopsis description home-page file line column-number))
+           (((synopsis description home-page file line column-number
+                       licenses))
             `(dl
               (@ (class "dl-horizontal"))
               (dt "Synopsis")
@@ -355,6 +356,16 @@
                                      ", column: " ,column-number ")")
                                  '())))
                              git-repositories)))
+                    '())
+              ,@(if (> (vector-length licenses) 0)
+                    `((dt ,(if (eq? (vector-length licenses) 1)
+                               "License"
+                               "Licenses"))
+                      (dd (ul
+                           ,@(map (lambda (license)
+                                    `(li (a (@ (href ,(assoc-ref license "uri")))
+                                            ,(assoc-ref license "name"))))
+                                  (vector->list licenses)))))
                     '()))))))
       (div
        (@ (class "row"))

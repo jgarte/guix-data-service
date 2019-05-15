@@ -10,3 +10,4 @@ git_branches 2019-05-05T14:53:12Z Christopher Baines <mail@cbaines.net> # Add a 
 remove_package_metadata_sha1_hash 2019-05-12T10:37:40Z Christopher Baines <mail@cbaines.net> # Remove the sha1_hash field from package_metadata
 add_location_information 2019-05-12T20:27:48Z Christopher Baines <mail@cbaines.net> # Add locations table and location to package_metadata
 add_git_repositories_cgit_url_base 2019-05-13T18:45:14Z Christopher Baines <mail@cbaines.net> # Add cgit_url_base to git_repositories
+license_support 2019-05-13T20:37:40Z Christopher Baines <mail@cbaines.net> # Add support for storing license information

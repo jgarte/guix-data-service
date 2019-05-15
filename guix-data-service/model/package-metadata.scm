@@ -3,6 +3,7 @@
   #:use-module (ice-9 vlist)
   #:use-module (ice-9 match)
   #:use-module (squee)
+  #:use-module (json)
   #:use-module (gcrypt hash)
   #:use-module (rnrs bytevectors)
   #:use-module (guix base16)
@@ -14,7 +15,7 @@
 
 (define (select-package-metadata package-metadata-values)
   (define fields
-    '("synopsis" "description" "home_page" "location_id"))
+    '("synopsis" "description" "home_page" "location_id" "license_set_id"))
 
   (string-append "SELECT id, " (string-join (map
                                              (lambda (name)
@@ -26,7 +27,8 @@
                  "JOIN (VALUES "
                  (string-join (map
                                (match-lambda
-                                 ((synopsis description home-page location-id)
+                                 ((synopsis description home-page location-id
+                                            license-set-id)
                                   (apply
                                    simple-format
                                    #f
@@ -42,7 +44,8 @@
                                     (value->quoted-string-or-null synopsis)
                                     (value->quoted-string-or-null description)
                                     (value->quoted-string-or-null home-page)
-                                    location-id))))
+                                    location-id
+                                    license-set-id))))
                                package-metadata-values)
                               ",")
                  ") AS vals (" (string-join fields ", ") ") "
@@ -59,7 +62,16 @@
   (define query "
 SELECT package_metadata.synopsis, package_metadata.description,
   package_metadata.home_page,
-  locations.file, locations.line, locations.column_number
+  locations.file, locations.line, locations.column_number,
+  (SELECT JSON_AGG((license_data.*))
+   FROM (
+     SELECT licenses.name, licenses.uri, licenses.comment
+     FROM licenses
+     INNER JOIN license_sets ON licenses.id = ANY(license_sets.license_ids)
+     WHERE license_sets.id = package_metadata.license_set_id
+     ORDER BY licenses.name
+   ) AS license_data
+  ) AS licenses
 FROM package_metadata
 INNER JOIN packages
   ON package_metadata.id = packages.package_metadata_id
@@ -78,21 +90,31 @@ WHERE packages.id IN (
   AND packages.name = $2
   AND packages.version = $3")
 
-  (exec-query conn query (list revision-commit-hash name version)))
+  (map
+   (match-lambda
+     ((synopsis description home-page file line column-number
+                license-json)
+      (list synopsis description home-page file line column-number
+            (if (string-null? license-json)
+                #()
+                (json-string->scm license-json)))))
+   (exec-query conn query (list revision-commit-hash name version))))
 
 (define (insert-package-metadata metadata-rows)
   (string-append "INSERT INTO package_metadata "
-                 "(synopsis, description, home_page, location_id) "
+                 "(synopsis, description, home_page, location_id, license_set_id) "
                  "VALUES "
                  (string-join
                   (map (match-lambda
-                         ((synopsis description home_page location_id)
+                         ((synopsis description home_page
+                                    location-id license-set-id)
                           (string-append
                            "("
                            (value->quoted-string-or-null synopsis) ","
                            (value->quoted-string-or-null description) ","
                            (value->quoted-string-or-null home_page) ","
-                           location_id
+                           location-id ","
+                           license-set-id
                            ")")))
                        metadata-rows)
                   ",")
@@ -100,22 +122,25 @@ WHERE packages.id IN (
                  ";"))
 
 
-(define (inferior-packages->package-metadata-ids conn packages)
+(define (inferior-packages->package-metadata-ids conn
+                                                 packages
+                                                 license-set-ids)
   (define package-metadata
-    (map (lambda (package)
+    (map (lambda (package license-set-id)
            (list (inferior-package-synopsis package)
                  (inferior-package-description package)
                  (inferior-package-home-page package)
                  (location->location-id
                   conn
-                  (inferior-package-location package))))
-         packages))
+                  (inferior-package-location package))
+                 license-set-id))
+         packages
+         license-set-ids))
 
   (let* ((existing-package-metadata-entries
           (exec-query->vhash conn
                              (select-package-metadata package-metadata)
-                             (lambda (results)
-                               (cdr (take results 5)))
+                             cdr
                              first)) ;; id))
          (missing-package-metadata-entries
           (delete-duplicates
