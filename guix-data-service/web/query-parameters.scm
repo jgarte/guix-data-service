@@ -135,6 +135,20 @@
         (() #f)
         (x (cons name x))))
 
+     ((name processor #:multi-value #:default default)
+      (match (filter-map
+              (match-lambda
+                ((k . value)
+                 (and
+                  (eq? k name)
+                  (match value
+                    (#f #f)
+                    ("" #f)
+                    (value (processor value))))))
+              request-query-parameters)
+        (() (cons name default))
+        (x (cons name x))))
+
      ((name processor #:default default)
       (match (assq name request-query-parameters)
         (#f (cons name default))
