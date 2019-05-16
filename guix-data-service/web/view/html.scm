@@ -490,6 +490,7 @@
          (form
           (@ (method "get")
              (action "")
+             (style "padding-bottom: 0")
              (class "form-horizontal"))
           ,(form-horizontal-control
             "Search query" query-parameters
@@ -512,6 +513,19 @@
                     (button (@ (type "submit")
                                (class "btn btn-lg btn-primary"))
                             "Update results")))))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (a (@ (class "btn btn-default btn-lg pull-right")
+              (href ,(let ((query-parameter-string
+                            (query-parameters->string query-parameters)))
+                       (string-append
+                        "/revision/" revision-commit-hash "/packages.json"
+                        (if (string-null? query-parameter-string)
+                            ""
+                            (string-append "?" query-parameter-string))))))
+           "View JSON")))
       (div
        (@ (class "row"))
        (div
