@@ -35,10 +35,23 @@
   (define query
     (string-append "
 WITH data AS (
-  SELECT packages.name, packages.version, package_metadata.synopsis
+  SELECT packages.name, packages.version, package_metadata.synopsis,
+    package_metadata.description, package_metadata.home_page,
+    locations.file, locations.line, locations.column_number,
+    (SELECT JSON_AGG((license_data.*))
+     FROM (
+       SELECT licenses.name, licenses.uri, licenses.comment
+       FROM licenses
+       INNER JOIN license_sets ON licenses.id = ANY(license_sets.license_ids)
+       WHERE license_sets.id = package_metadata.license_set_id
+       ORDER BY licenses.name
+     ) AS license_data
+    ) AS licenses
   FROM packages
   INNER JOIN package_metadata
     ON packages.package_metadata_id = package_metadata.id
+  LEFT OUTER JOIN locations
+    ON package_metadata.location_id = locations.id
   WHERE packages.id IN (
    SELECT package_derivations.package_id
    FROM package_derivations
@@ -78,10 +91,24 @@ WHERE data.name IN (SELECT name FROM package_names);"))
      "
 SELECT packages.name,
        packages.version,
-       package_metadata.synopsis
+       package_metadata.synopsis,
+       package_metadata.description,
+       package_metadata.home_page,
+       locations.file, locations.line, locations.column_number,
+       (SELECT JSON_AGG((license_data.*))
+        FROM (
+          SELECT licenses.name, licenses.uri, licenses.comment
+          FROM licenses
+          INNER JOIN license_sets ON licenses.id = ANY(license_sets.license_ids)
+          WHERE license_sets.id = package_metadata.license_set_id
+          ORDER BY licenses.name
+        ) AS license_data
+       ) AS licenses
 FROM packages
 INNER JOIN package_metadata
   ON packages.package_metadata_id = package_metadata.id
+LEFT OUTER JOIN locations
+  ON package_metadata.location_id = locations.id
 WHERE packages.id IN (
  SELECT package_derivations.package_id
  FROM package_derivations

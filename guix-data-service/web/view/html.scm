@@ -27,6 +27,7 @@
   #:use-module (srfi srfi-19)
   #:use-module (texinfo)
   #:use-module (texinfo html)
+  #:use-module (json)
   #:export (index
             view-statistics
             view-revision-package-and-version
@@ -97,6 +98,7 @@
 
 (define* (form-horizontal-control label query-parameters
                                   #:key
+                                  name
                                   help-text
                                   required?
                                   options)
@@ -111,8 +113,9 @@
                        (string-downcase label)))
          (help-span-id (string-append
                         input-id "-help-text"))
-         (input-name (underscore-join-words
-                      (string-downcase label)))
+         (input-name (or name
+                         (underscore-join-words
+                          (string-downcase label))))
          (has-error? (invalid-query-parameter?
                       (assq-ref query-parameters
                                 (string->symbol input-name))))
@@ -144,12 +147,20 @@
                            value)
                           (_ '()))))
 
-                   (map (lambda (option-value)
-                          `(option
-                            (@ ,@(if (member option-value selected-options)
-                                     '((selected ""))
-                                     '()))
-                            ,(value->text option-value)))
+                   (map (match-lambda
+                          ((option-value)
+                           `(option
+                             (@ ,@(if (member option-value selected-options)
+                                      '((selected ""))
+                                      '()))
+                             ,(value->text option-value)))
+                          ((option-label . option-value)
+                           `(option
+                             (@ ,@(if (member option-value selected-options)
+                                      '((selected ""))
+                                      '())
+                                (value ,option-value))
+                             ,(value->text option-label))))
                         options)))
             `(input (@ (class "form-control")
                        (style "font-family: monospace;")
@@ -445,7 +456,17 @@
 (define (view-revision-packages revision-commit-hash
                                 query-parameters
                                 packages
+                                git-repositories
                                 show-next-page?)
+  (define field-options
+    (map
+     (lambda (field)
+       (cons field
+             (hyphenate-words
+              (string-downcase field))))
+     '("Version" "Synopsis" "Description"
+       "Home page" "Location" "Licenses")))
+
   (layout
    #:extra-headers
    '((cache-control . ((max-age . 60))))
@@ -475,6 +496,11 @@
             #:help-text
             "List packages where the name or synopsis match the query.")
           ,(form-horizontal-control
+            "Fields" query-parameters
+            #:name "field"
+            #:options field-options
+            #:help-text "Fields to return in the response.")
+          ,(form-horizontal-control
             "After name" query-parameters
             #:help-text
             "List packages that are alphabetically after the given name.")
@@ -496,23 +522,77 @@
          (thead
           (tr
            (th (@ (class "col-md-3")) "Name")
-           (th (@ (class "col-md-3")) "Version")
-           (th (@ (class "col-md-3")) "Synopsis")
+           ,@(filter-map
+              (match-lambda
+                ((label . value)
+                 (if (member value (assq-ref query-parameters 'field))
+                     `(th (@ (class "col-md-3")) ,label)
+                     #f)))
+              field-options)
            (th (@ (class "col-md-3")) "")))
          (tbody
-          ,@(map
-             (match-lambda
-               ((name version synopsis)
-                `(tr
-                  (td ,name)
-                  (td ,version)
-                  (td ,(stexi->shtml (texi-fragment->stexi synopsis)))
-                  (td (@ (class "text-right"))
-                      (a (@ (href ,(string-append
-                                    "/revision/" revision-commit-hash
-                                    "/package/" name "/" version)))
-                         "More information")))))
-             packages)))))
+          ,@(let ((fields (assq-ref query-parameters 'field)))
+              (map
+               (match-lambda
+                 ((name version synopsis description home-page
+                        location-file location-line
+                        location-column-number licenses)
+                  `(tr
+                    (td ,name)
+                    ,@(if (member "version" fields)
+                          `((td ,version))
+                          '())
+                    ,(if (member "synopsis" fields)
+                         `((td ,(stexi->shtml (texi-fragment->stexi synopsis))))
+                         '())
+                    ,(if (member "description" fields)
+                         `((td ,(stexi->shtml (texi-fragment->stexi description))))
+                         '())
+                    ,(if (member "home-page" fields)
+                         `((td ,home-page))
+                         '())
+                    ,(if (member "location" fields)
+                         `((td
+                            ,@(if (and location-file
+                                       (not (string-null? location-file)))
+                                  `((ul
+                                     ,@(map
+                                        (match-lambda
+                                          ((id label url cgit-url-base)
+                                           (if
+                                            (and cgit-url-base
+                                                 (not (string-null? cgit-url-base)))
+                                            `(li
+                                              (a (@ (href
+                                                     ,(string-append
+                                                       cgit-url-base "tree/"
+                                                       location-file "?id=" revision-commit-hash
+                                                       "#n" location-line)))
+                                                 ,location-file
+                                                 " (line: " ,location-line
+                                                 ", column: " ,location-column-number ")"))
+                                            `(li ,location-file
+                                                 " (line: " ,location-line
+                                                 ", column: " ,location-column-number ")"))))
+                                        git-repositories)))
+                                  '())))
+                         '())
+                    ,(if (member "licenses" fields)
+                         `((td
+                            (ul
+                             (@ (class "list-inline"))
+                             ,@(map (lambda (license)
+                                      `(li (a (@ (href ,(assoc-ref license "uri")))
+                                              ,(assoc-ref license "name"))))
+                                    (vector->list
+                                     (json-string->scm licenses))))))
+                         '())
+                    (td (@ (class "text-right"))
+                        (a (@ (href ,(string-append
+                                      "/revision/" revision-commit-hash
+                                      "/package/" name "/" version)))
+                           "More information")))))
+               packages))))))
       ,@(if show-next-page?
             `((div
                (@ (class "row"))

@@ -25,7 +25,11 @@
   #:use-module (srfi srfi-26)
   #:use-module (web request)
   #:use-module (web uri)
+  #:use-module (texinfo)
+  #:use-module (texinfo html)
+  #:use-module (texinfo plain-text)
   #:use-module (squee)
+  #:use-module (json)
   #:use-module (guix-data-service comparison)
   #:use-module (guix-data-service model git-branch)
   #:use-module (guix-data-service model git-repository)
@@ -38,6 +42,7 @@
   #:use-module (guix-data-service model build)
   #:use-module (guix-data-service jobs load-new-guix-revision)
   #:use-module (guix-data-service web render)
+  #:use-module (guix-data-service web sxml)
   #:use-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service web util)
   #:use-module (guix-data-service web view html)
@@ -105,6 +110,14 @@
                packages-count
                derivations-counts))))))
 
+(define (texinfo->variants-alist s)
+  (let ((stexi (texi-fragment->stexi s)))
+    `((source . ,s)
+      (html   . ,(with-output-to-string
+                   (lambda ()
+                     (sxml->html (stexi->shtml stexi)))))
+      (plain . ,(stexi->plain-text stexi)))))
+
 (define (render-revision-packages mime-types
                                   conn
                                   commit-hash
@@ -121,10 +134,12 @@
                 (view-revision-packages commit-hash
                                         query-parameters
                                         '()
+                                        '()
                                         #f))))
 
       (let* ((search-query (assq-ref query-parameters 'search_query))
              (limit-results (assq-ref query-parameters 'limit_results))
+             (fields (assq-ref query-parameters 'field))
              (packages
               (if search-query
                   (search-packages-in-revision
@@ -137,6 +152,9 @@
                    commit-hash
                    #:limit-results limit-results
                    #:after-name (assq-ref query-parameters 'after_name))))
+             (git-repositories
+              (git-repositories-containing-commit conn
+                                                  commit-hash))
              (show-next-page?
               (and (not search-query)
                    (>= (length packages)
@@ -146,18 +164,48 @@
                mime-types)
           ((application/json)
            (render-json
-            `((packages . ,(list->vector
-                            (map (match-lambda
-                                   ((name version synopsis)
-                                    `((name . ,name)
-                                      (version . ,version)
-                                      (synopsis . ,synopsis))))
-                                 packages))))))
+            `((revision
+               . ((commit . ,commit-hash)))
+              (packages
+               . ,(list->vector
+                   (map (match-lambda
+                          ((name version synopsis description home-page
+                                 location-file location-line
+                                 location-column-number licenses)
+                           `((name . ,name)
+                             ,@(if (member "version" fields)
+                                   `((version . ,version))
+                                   '())
+                             ,@(if (member "synopsis" fields)
+                                   `((synopsis
+                                      . ,(texinfo->variants-alist synopsis)))
+                                   '())
+                             ,@(if (member "description" fields)
+                                   `((description
+                                      . ,(texinfo->variants-alist description)))
+                                   '())
+                             ,@(if (member "home-page" fields)
+                                   `((home-page . ,home-page))
+                                   '())
+                             ,@(if (member "location" fields)
+                                   `((location
+                                      . ((file   . ,location-file)
+                                         (line   . ,location-line)
+                                         (column . ,location-column-number))))
+                                   '())
+                             ,@(if (member "licenses" fields)
+                                   `((licenses
+                                      . ,(if (string-null? licenses)
+                                             #()
+                                             (json-string->scm licenses))))
+                                   '()))))
+                        packages))))))
           (else
            (apply render-html
                   (view-revision-packages commit-hash
                                           query-parameters
                                           packages
+                                          git-repositories
                                           show-next-page?)))))))
 
 (define (render-revision-package mime-types
@@ -486,6 +534,8 @@
              (parse-query-parameters
               request
               `((after_name     ,identity)
+                (field          ,identity #:multi-value
+                                #:default ("version" "synopsis"))
                 (search_query   ,identity)
                 (limit_results  ,parse-result-limit #:default 100)))
              ;; You can't specify a search query, but then also limit the
