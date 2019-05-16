@@ -172,13 +172,14 @@
        ((key . ($ <invalid-query-parameter>))
         '())
        ((key . value)
-        (list (simple-format #f "~A=~A"
-                             key (value->text value))))
-       ((key values ...)
-        (map (lambda (value)
-               (simple-format #f "~A=~A"
-                              key (value->text value)))
-             values)))
+        (if (list? value)
+            (map (lambda (value)
+                   (simple-format #f "~A=~A"
+                                  key (value->text value)))
+                 value)
+            (list (simple-format
+                   #f "~A=~A"
+                   key (value->text value))))))
      query-parameters))
    "&"))
 
