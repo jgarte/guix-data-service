@@ -106,12 +106,12 @@
                                             (derivation_count . ,derivation_count))))
                                        derivations-counts))))))
       (else
-       (apply render-html
-              (view-revision
-               commit-hash
-               packages-count
-               git-repositories-and-branches
-               derivations-counts))))))
+       (render-html
+        #:sxml (view-revision
+                commit-hash
+                packages-count
+                git-repositories-and-branches
+                derivations-counts))))))
 
 (define (texinfo->variants-alist s)
   (let ((stexi (texi-fragment->stexi s)))
@@ -133,12 +133,12 @@
          (render-json
           `((error . "invalid query"))))
         (else
-         (apply render-html
-                (view-revision-packages commit-hash
-                                        query-parameters
-                                        '()
-                                        '()
-                                        #f))))
+         (render-html
+          #:sxml (view-revision-packages commit-hash
+                                         query-parameters
+                                         '()
+                                         '()
+                                         #f))))
 
       (let* ((search-query (assq-ref query-parameters 'search_query))
              (limit-results (assq-ref query-parameters 'limit_results))
@@ -204,12 +204,12 @@
                                    '()))))
                         packages))))))
           (else
-           (apply render-html
-                  (view-revision-packages commit-hash
-                                          query-parameters
-                                          packages
-                                          git-repositories
-                                          show-next-page?)))))))
+           (render-html
+            #:sxml (view-revision-packages commit-hash
+                                           query-parameters
+                                           packages
+                                           git-repositories
+                                           show-next-page?)))))))
 
 (define (render-revision-package mime-types
                                  conn
@@ -251,13 +251,13 @@
                                      (derivation . ,file-name))))
                                 derivations))))))
       (else
-       (apply render-html
-              (view-revision-package-and-version commit-hash
-                                                 name
-                                                 version
-                                                 metadata
-                                                 derivations
-                                                 git-repositories))))))
+       (render-html
+        #:sxml (view-revision-package-and-version commit-hash
+                                                  name
+                                                  version
+                                                  metadata
+                                                  derivations
+                                                  git-repositories))))))
 
 (define (render-compare-unknown-commit mime-types
                                        conn
@@ -272,15 +272,15 @@
      (render-json
       '((unknown_commit . #t))))
     (else
-     (apply render-html
-            (compare-unknown-commit base-commit
-                                    target-commit
-                                    (if base-revision-id #t #f)
-                                    (if target-revision-id #t #f)
-                                    (select-job-for-commit conn
-                                                           base-commit)
-                                    (select-job-for-commit conn
-                                                           target-commit))))))
+     (render-html
+      #:sxml (compare-unknown-commit base-commit
+                                     target-commit
+                                     (if base-revision-id #t #f)
+                                     (if target-revision-id #t #f)
+                                     (select-job-for-commit conn
+                                                            base-commit)
+                                     (select-job-for-commit conn
+                                                            target-commit))))))
 
 (define (render-compare mime-types
                         conn
@@ -316,13 +316,13 @@
             (version-changes . ,version-changes)
             (derivation-changes . ,derivation-changes))))
         (else
-         (apply render-html
-                (compare base-commit
-                         target-commit
-                         new-packages
-                         removed-packages
-                         version-changes
-                         derivation-changes)))))))
+         (render-html
+          #:sxml (compare base-commit
+                          target-commit
+                          new-packages
+                          removed-packages
+                          version-changes
+                          derivation-changes)))))))
 
 (define (render-compare/derivations mime-types
                                     conn
@@ -346,13 +346,13 @@
          (render-json
           '((error . "invalid query"))))
         (else
-         (apply render-html
-                (compare/derivations
-                 query-parameters
-                 (valid-systems conn)
-                 build-status-strings
-                 '()
-                 '()))))
+         (render-html
+          #:sxml (compare/derivations
+                  query-parameters
+                  (valid-systems conn)
+                  build-status-strings
+                  '()
+                  '()))))
 
       (let ((base-commit    (assq-ref query-parameters 'base_commit))
             (target-commit  (assq-ref query-parameters 'target_commit))
@@ -393,13 +393,13 @@
                                               (derivations->alist
                                                target-derivations))))))))
               (else
-               (apply render-html
-                      (compare/derivations
-                       query-parameters
-                       (valid-systems conn)
-                       build-status-strings
-                       base-derivations
-                       target-derivations)))))))))
+               (render-html
+                #:sxml (compare/derivations
+                        query-parameters
+                        (valid-systems conn)
+                        build-status-strings
+                        base-derivations
+                        target-derivations)))))))))
 
 (define (render-compare/packages mime-types
                                  conn
@@ -436,12 +436,12 @@
               (packages . ,(list->vector
                             (package-data-vhash->json target-packages-vhash))))))))
       (else
-       (apply render-html
-              (compare/packages
-               base-commit
-               target-commit
-               base-packages-vhash
-               target-packages-vhash))))))
+       (render-html
+        #:sxml (compare/packages
+                base-commit
+                target-commit
+                base-packages-vhash
+                target-packages-vhash))))))
 
 (define (render-derivation conn derivation-file-name)
   (let ((derivation (select-derivation-by-file-name conn
@@ -456,11 +456,11 @@
               (builds (select-builds-with-context-by-derivation-id
                        conn
                        (first derivation))))
-          (apply render-html
-                 (view-derivation derivation
-                                  derivation-inputs
-                                  derivation-outputs
-                                  builds)))
+          (render-html
+           #:sxml (view-derivation derivation
+                                   derivation-inputs
+                                   derivation-outputs
+                                   builds)))
         #f ;; TODO
         )))
 
@@ -470,15 +470,15 @@
       (()
        #f)
       (derivations
-       (apply render-html
-              (view-store-item filename
-                               derivations
-                               (map (lambda (derivation)
-                                      (match derivation
-                                        ((file-name output-id rest ...)
-                                         (select-derivations-using-output
-                                          conn output-id))))
-                                    derivations)))))))
+       (render-html
+        #:sxml (view-store-item filename
+                                derivations
+                                (map (lambda (derivation)
+                                       (match derivation
+                                         ((file-name output-id rest ...)
+                                          (select-derivations-using-output
+                                           conn output-id))))
+                                     derivations)))))))
 
 (define (parse-commit conn)
   (lambda (s)
@@ -502,32 +502,32 @@
 
   (match method-and-path-components
     ((GET)
-     (apply render-html
-            (index
-             (map
-              (lambda (git-repository-details)
-                (cons
-                 git-repository-details
-                 (map
-                  (match-lambda
-                    ((id job-id commit source)
-                     (list id
-                           job-id
-                           commit
-                           source
-                           (git-branches-for-commit conn commit))))
-                  (guix-revisions-and-jobs-for-git-repository
-                   conn
-                   (car git-repository-details)))))
-              (all-git-repositories conn)))))
+     (render-html
+      #:sxml (index
+              (map
+               (lambda (git-repository-details)
+                 (cons
+                  git-repository-details
+                  (map
+                   (match-lambda
+                     ((id job-id commit source)
+                      (list id
+                            job-id
+                            commit
+                            source
+                            (git-branches-for-commit conn commit))))
+                   (guix-revisions-and-jobs-for-git-repository
+                    conn
+                    (car git-repository-details)))))
+               (all-git-repositories conn)))))
     ((GET "builds")
-     (apply render-html
-            (view-builds (select-build-stats conn)
-                         (select-builds-with-context conn))))
+     (render-html
+      #:sxml (view-builds (select-build-stats conn)
+                          (select-builds-with-context conn))))
     ((GET "statistics")
-     (apply render-html
-            (view-statistics (count-guix-revisions conn)
-                             (count-derivations conn))))
+     (render-html
+      #:sxml (view-statistics (count-guix-revisions conn)
+                              (count-derivations conn))))
     ((GET "revision" commit-hash) (render-view-revision mime-types
                                                         conn
                                                         commit-hash))
@@ -556,9 +556,9 @@
                                                           name
                                                           version))
     ((GET "branches")
-     (apply render-html
-            (view-branches
-             (all-branches-with-most-recent-commit conn))))
+     (render-html
+      #:sxml (view-branches
+              (all-branches-with-most-recent-commit conn))))
     ((GET "branch" branch-name)
      (let ((parsed-query-parameters
             (parse-query-parameters
@@ -566,21 +566,20 @@
              `((after_date     ,parse-datetime)
                (before_date    ,parse-datetime)
                (limit_results  ,parse-result-limit #:default 100)))))
-       (apply
-        render-html
-        (if (any-invalid-query-parameters? parsed-query-parameters)
-            (view-branch branch-name parsed-query-parameters '())
-            (view-branch
-             branch-name
-             parsed-query-parameters
-             (most-recent-commits-for-branch
-              conn
-              branch-name
-              #:limit (assq-ref parsed-query-parameters 'limit_results)
-              #:after-date (assq-ref parsed-query-parameters
-                                     'after_date)
-              #:before-date (assq-ref parsed-query-parameters
-                                      'before_date)))))))
+       (render-html
+        #:sxml (if (any-invalid-query-parameters? parsed-query-parameters)
+                   (view-branch branch-name parsed-query-parameters '())
+                   (view-branch
+                    branch-name
+                    parsed-query-parameters
+                    (most-recent-commits-for-branch
+                     conn
+                     branch-name
+                     #:limit (assq-ref parsed-query-parameters 'limit_results)
+                     #:after-date (assq-ref parsed-query-parameters
+                                            'after_date)
+                     #:before-date (assq-ref parsed-query-parameters
+                                             'before_date)))))))
     ((GET "gnu" "store" filename)
      ;; These routes are a little special, as the extensions aren't used for
      ;; content negotiation, so just use the path from the request

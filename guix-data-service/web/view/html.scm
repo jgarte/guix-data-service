@@ -57,44 +57,41 @@
 (define* (layout #:key
                  (head '())
                  (body '())
-                 (title "Guix Data Service")
-                 (extra-headers '()))
-  `(#:sxml ((doctype "html")
-            (html
-             (head
-              (title ,title)
-              (meta (@ (http-equiv "Content-Type")
-                       (content "text/html; charset=UTF-8")))
-              (meta (@ (http-equiv "Content-Language") (content "en")))
-              (meta (@ (name "author") (content "Christopher Baines")))
-              (meta (@ (name "viewport")
-                       (content "width=device-width, initial-scale=1")))
-              (link
-               (@ (rel "stylesheet")
-                  (media "screen")
-                  (type "text/css")
-                  (href "/css/reset.css")))
-              (link
-               (@ (rel "stylesheet")
-                  (media "screen")
-                  (type "text/css")
-                  (href "/css/bootstrap.css")))
-              ,@head
-              (link
-               (@ (rel "stylesheet")
-                  (media "screen")
-                  (type "text/css")
-                  (href "/css/screen.css"))))
-             (body ,@body
-                   (footer
-                    (p "Copyright © 2016—2019 by the GNU Guix community."
-                       (br)
-                       "Now with even more " (span (@ (class "lambda")) "λ") "! ")
-                    (p "This is free software.  Download the "
-                       (a (@ (href "https://git.cbaines.net/guix/data-service/"))
-                          "source code here") ".")))))
-    #:extra-headers ,extra-headers))
-
+                 (title "Guix Data Service"))
+  `((doctype "html")
+    (html
+     (head
+      (title ,title)
+      (meta (@ (http-equiv "Content-Type")
+               (content "text/html; charset=UTF-8")))
+      (meta (@ (http-equiv "Content-Language") (content "en")))
+      (meta (@ (name "author") (content "Christopher Baines")))
+      (meta (@ (name "viewport")
+               (content "width=device-width, initial-scale=1")))
+      (link
+       (@ (rel "stylesheet")
+          (media "screen")
+          (type "text/css")
+          (href "/css/reset.css")))
+      (link
+       (@ (rel "stylesheet")
+          (media "screen")
+          (type "text/css")
+          (href "/css/bootstrap.css")))
+      ,@head
+      (link
+       (@ (rel "stylesheet")
+          (media "screen")
+          (type "text/css")
+          (href "/css/screen.css"))))
+     (body ,@body
+           (footer
+            (p "Copyright © 2016—2019 by the GNU Guix community."
+               (br)
+               "Now with even more " (span (@ (class "lambda")) "λ") "! ")
+            (p "This is free software.  Download the "
+               (a (@ (href "https://git.cbaines.net/guix/data-service/"))
+                  "source code here") "."))))))
 
 (define* (form-horizontal-control label query-parameters
                                   #:key
@@ -202,8 +199,6 @@
 
 (define (index git-repositories-and-revisions)
   (layout
-   #:extra-headers
-   '((cache-control . ((max-age . 60))))
    #:body
    `(,(header)
      (div
@@ -290,8 +285,6 @@
 
 (define (view-statistics guix-revisions-count derivations-count)
   (layout
-   #:extra-headers
-   '((cache-control . ((max-age . 60))))
    #:body
    `(,(header)
      (div
@@ -315,8 +308,6 @@
                                            package-metadata
                                            derivations git-repositories)
   (layout
-   #:extra-headers
-   '((cache-control . ((max-age . 60))))
    #:body
    `(,(header)
      (div
@@ -405,8 +396,6 @@
 (define (view-revision commit-hash packages-count
                        git-repositories-and-branches derivations-count)
   (layout
-   #:extra-headers
-   '((cache-control . ((max-age . 60))))
    #:body
    `(,(header)
      (div
@@ -490,8 +479,6 @@
        "Home page" "Location" "Licenses")))
 
   (layout
-   #:extra-headers
-   '((cache-control . ((max-age . 60))))
    #:body
    `(,(header)
      (div
@@ -640,8 +627,6 @@
 
 (define (view-branches branches-with-most-recent-commits)
   (layout
-   #:extra-headers
-   '((cache-control . ((max-age . 60))))
    #:body
    `(,(header)
      (div
@@ -683,8 +668,6 @@
 (define (view-branch branch-name query-parameters
                      branch-commits)
   (layout
-   #:extra-headers
-   '((cache-control . ((max-age . 60))))
    #:body
    `(,(header)
      (div
@@ -746,8 +729,6 @@
 
 (define (view-builds stats builds)
   (layout
-   #:extra-headers
-   '((cache-control . ((max-age . 60))))
    #:body
    `(,(header)
      (div
@@ -858,8 +839,6 @@
 
 (define (view-store-item filename derivations derivations-using-store-item-list)
   (layout
-   #:extra-headers
-   '((cache-control . ((max-age . 60))))
    #:body
    `(,(header)
      (div
@@ -902,8 +881,6 @@
 (define (view-derivation derivation derivation-inputs derivation-outputs
                          builds)
   (layout
-   #:extra-headers
-   '((cache-control . ((max-age . 60))))
    #:body
    `(,(header)
      (div
@@ -996,8 +973,6 @@
                    "&target_commit=" target-commit))
 
   (layout
-   #:extra-headers
-   '((cache-control . ((max-age . 60))))
    #:body
    `(,(header)
      (div
@@ -1194,8 +1169,6 @@
                              base-derivations
                              target-derivations)
   (layout
-   #:extra-headers
-   '((cache-control . ((max-age . 60))))
    #:body
    `(,(header)
      (div
@@ -1322,8 +1295,6 @@
                    "&target_commit=" target-commit))
 
   (layout
-   #:extra-headers
-   '((cache-control . ((max-age . 60))))
    #:body
    `(,(header)
      (div
