@@ -1,12 +1,14 @@
 (define-module (guix-data-service model utils)
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 vlist)
+  #:use-module (ice-9 receive)
   #:use-module (squee)
   #:export (quote-string
             value->quoted-string-or-null
             exec-query->vhash
             two-lists->vhash
-            deduplicate-strings))
+            deduplicate-strings
+            group-list-by-first-n-fields))
 
 (define (quote-string s)
   (string-append "'" s "'"))
@@ -41,3 +43,16 @@
              (cons (first pair) result))))
    '()
    (sort strings string<?)))
+
+(define (group-list-by-first-n-fields n lists)
+  (fold (lambda (lst groups)
+          (receive (key vals)
+              (split-at lst n)
+            (append
+             (alist-delete key groups)
+             `((,key . ,(append
+                         (or (assoc-ref groups key)
+                             '())
+                         (list vals)))))))
+        '()
+        lists))
