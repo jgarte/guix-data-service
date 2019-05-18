@@ -638,8 +638,8 @@
          (thead
           (tr
            (th (@ (class "col-md-3")) "Name")
-           (th (@ (class "col-md-3")) "Commit")
-           (th (@ (class "col-md-3")) "Date")))
+           (th (@ (class "col-md-3")) "Date")
+           (th (@ (class "col-md-3")) "Commit")))
          (tbody
           ,@(map
              (match-lambda
