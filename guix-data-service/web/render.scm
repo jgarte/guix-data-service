@@ -97,8 +97,9 @@
         (lambda (port)
           (sxml->html sxml port))))
 
-(define (render-json json)
-  (list '((content-type . (application/json)))
+(define* (render-json json #:key (extra-headers '()))
+  (list (append extra-headers
+                '((content-type . (application/json))))
         (lambda (port)
           (scm->json json port))))
 
