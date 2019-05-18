@@ -88,6 +88,8 @@
                               commit-hash)
   (let ((packages-count
          (count-packages-in-revision conn commit-hash))
+        (git-repositories-and-branches
+         (git-branches-with-repository-details-for-commit conn commit-hash))
         (derivations-counts
          (count-packages-derivations-in-revision conn commit-hash)))
     (case (most-appropriate-mime-type
@@ -108,6 +110,7 @@
               (view-revision
                commit-hash
                packages-count
+               git-repositories-and-branches
                derivations-counts))))))
 
 (define (texinfo->variants-alist s)

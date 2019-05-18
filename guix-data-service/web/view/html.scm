@@ -402,7 +402,8 @@
                   (td ,(build-status-span status)))))
              derivations)))))))))
 
-(define (view-revision commit-hash packages-count derivations-count)
+(define (view-revision commit-hash packages-count
+                       git-repositories-and-branches derivations-count)
   (layout
    #:extra-headers
    '((cache-control . ((max-age . 60))))
@@ -426,7 +427,28 @@
                 ,packages-count)
         (a (@ (href ,(string-append "/revision/" commit-hash
                                     "/packages")))
-           "View packages"))
+           "View packages")
+
+        ,@(if
+           (null? git-repositories-and-branches)
+           '()
+           `((h3 "Git repositories")
+             ,@(map
+                (match-lambda
+                  (((label url cgit-url-base) . branches)
+                   `((h4 ,url)
+                     ,@(map
+                        (match-lambda
+                          ((name datetime)
+                           (if (string-null? cgit-url-base)
+                               `(,name " at " ,datetime)
+                               `(a (@ (href ,(string-append
+                                              cgit-url-base
+                                              "commit/?id="
+                                              commit-hash)))
+                                   ,name " at " ,datetime))))
+                        branches))))
+                git-repositories-and-branches))))
        (div
         (@ (class "col-md-6"))
         (h3 "Derivations")
