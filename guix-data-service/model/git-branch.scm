@@ -1,8 +1,10 @@
 (define-module (guix-data-service model git-branch)
   #:use-module (squee)
   #:use-module (srfi srfi-19)
+  #:use-module (guix-data-service model utils)
   #:export (insert-git-branch-entry
             git-branches-for-commit
+            git-branches-with-repository-details-for-commit
             most-recent-commits-for-branch
             all-branches-with-most-recent-commit))
 
@@ -27,6 +29,21 @@ SELECT name, datetime FROM git_branches WHERE commit = $1
 ORDER BY datetime DESC")
 
   (exec-query conn query (list commit)))
+
+(define (git-branches-with-repository-details-for-commit conn commit)
+  (define query
+    "
+SELECT git_repositories.label, git_repositories.url,
+       git_repositories.cgit_url_base,
+       git_branches.name, git_branches.datetime
+FROM git_branches
+INNER JOIN git_repositories
+  ON git_branches.git_repository_id = git_repositories.id
+WHERE git_branches.commit = $1")
+
+  (group-list-by-first-n-fields
+   3
+   (exec-query conn query (list commit))))
 
 (define* (most-recent-commits-for-branch conn branch-name
                                          #:key
