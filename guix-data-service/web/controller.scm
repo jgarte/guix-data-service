@@ -48,6 +48,14 @@
   #:use-module (guix-data-service web view html)
   #:export (controller))
 
+(define cache-control-default-max-age
+  (* 60 60 24)) ; One day
+
+(define http-headers-for-unchanging-content
+  `((cache-control
+     . (public
+        (max-age . ,cache-control-default-max-age)))))
+
 (define-syntax-rule (-> target functions ...)
   (fold (lambda (f val) (and=> val f))
         target
@@ -104,14 +112,16 @@
                                           `((system . ,system)
                                             (target . ,target)
                                             (derivation_count . ,derivation_count))))
-                                       derivations-counts))))))
+                                       derivations-counts))))
+        #:extra-headers http-headers-for-unchanging-content))
       (else
        (render-html
         #:sxml (view-revision
                 commit-hash
                 packages-count
                 git-repositories-and-branches
-                derivations-counts))))))
+                derivations-counts)
+        #:extra-headers http-headers-for-unchanging-content)))))
 
 (define (texinfo->variants-alist s)
   (let ((stexi (texi-fragment->stexi s)))
@@ -202,14 +212,16 @@
                                              #()
                                              (json-string->scm licenses))))
                                    '()))))
-                        packages))))))
+                        packages))))
+            #:extra-headers http-headers-for-unchanging-content))
           (else
            (render-html
             #:sxml (view-revision-packages commit-hash
                                            query-parameters
                                            packages
                                            git-repositories
-                                           show-next-page?)))))))
+                                           show-next-page?)
+            #:extra-headers http-headers-for-unchanging-content))))))
 
 (define (render-revision-package mime-types
                                  conn
@@ -249,7 +261,8 @@
                                    `((system . ,system)
                                      (target . ,target)
                                      (derivation . ,file-name))))
-                                derivations))))))
+                                derivations))))
+        #:extra-headers http-headers-for-unchanging-content))
       (else
        (render-html
         #:sxml (view-revision-package-and-version commit-hash
@@ -257,7 +270,8 @@
                                                   version
                                                   metadata
                                                   derivations
-                                                  git-repositories))))))
+                                                  git-repositories)
+        #:extra-headers http-headers-for-unchanging-content)))))
 
 (define (render-compare-unknown-commit mime-types
                                        conn
@@ -314,7 +328,8 @@
           `((new-packages . ,(list->vector new-packages))
             (removed-packages . ,(list->vector removed-packages))
             (version-changes . ,version-changes)
-            (derivation-changes . ,derivation-changes))))
+            (derivation-changes . ,derivation-changes))
+          #:extra-headers http-headers-for-unchanging-content))
         (else
          (render-html
           #:sxml (compare base-commit
@@ -322,7 +337,8 @@
                           new-packages
                           removed-packages
                           version-changes
-                          derivation-changes)))))))
+                          derivation-changes)
+          #:extra-headers http-headers-for-unchanging-content))))))
 
 (define (render-compare/derivations mime-types
                                     conn
@@ -391,7 +407,8 @@
                   (target . ((commit . ,target-commit)
                              (derivations . ,(list->vector
                                               (derivations->alist
-                                               target-derivations))))))))
+                                               target-derivations))))))
+                #:extra-headers http-headers-for-unchanging-content))
               (else
                (render-html
                 #:sxml (compare/derivations
@@ -399,7 +416,8 @@
                         (valid-systems conn)
                         build-status-strings
                         base-derivations
-                        target-derivations)))))))))
+                        target-derivations)
+                #:extra-headers http-headers-for-unchanging-content))))))))
 
 (define (render-compare/packages mime-types
                                  conn
@@ -434,14 +452,16 @@
           (target
            . ((commit . ,target-commit)
               (packages . ,(list->vector
-                            (package-data-vhash->json target-packages-vhash))))))))
+                            (package-data-vhash->json target-packages-vhash))))))
+        #:extra-headers http-headers-for-unchanging-content))
       (else
        (render-html
         #:sxml (compare/packages
                 base-commit
                 target-commit
                 base-packages-vhash
-                target-packages-vhash))))))
+                target-packages-vhash)
+        #:extra-headers http-headers-for-unchanging-content)))))
 
 (define (render-derivation conn derivation-file-name)
   (let ((derivation (select-derivation-by-file-name conn
@@ -460,7 +480,9 @@
            #:sxml (view-derivation derivation
                                    derivation-inputs
                                    derivation-outputs
-                                   builds)))
+                                   builds)
+           #:extra-headers http-headers-for-unchanging-content))
+
         #f ;; TODO
         )))
 
@@ -478,7 +500,8 @@
                                          ((file-name output-id rest ...)
                                           (select-derivations-using-output
                                            conn output-id))))
-                                     derivations)))))))
+                                     derivations))
+        #:extra-headers http-headers-for-unchanging-content)))))
 
 (define (parse-commit conn)
   (lambda (s)
