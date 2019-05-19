@@ -150,6 +150,21 @@
         (() (cons name default))
         (x (cons name x))))
 
+     ((name processor #:no-default-when fields #:default default)
+      (let ((use-default?
+             (every (lambda (field)
+                      (not (memq field fields)))
+                    fields)))
+        (match (assq name request-query-parameters)
+          (#f (if use-default?
+                  (cons name default)
+                  #f))
+          ((_ . "") (if use-default?
+                        (cons name default)
+                        #f))
+          ((_ . value) (cons name
+                             (processor value))))))
+
      ((name processor #:default default)
       (match (assq name request-query-parameters)
         (#f (cons name default))
