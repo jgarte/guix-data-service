@@ -151,7 +151,8 @@
                                          #f))))
 
       (let* ((search-query (assq-ref query-parameters 'search_query))
-             (limit-results (assq-ref query-parameters 'limit_results))
+             (limit-results (or (assq-ref query-parameters 'limit_results)
+                                99999)) ; TODO There shouldn't be a limit
              (fields (assq-ref query-parameters 'field))
              (packages
               (if search-query
@@ -563,10 +564,14 @@
                 (field          ,identity #:multi-value
                                 #:default ("version" "synopsis"))
                 (search_query   ,identity)
-                (limit_results  ,parse-result-limit #:default 100)))
+                (limit_results  ,parse-result-limit
+                                #:no-default-when (all_results)
+                                #:default 100)
+                (all_results    ,parse-checkbox-value)))
              ;; You can't specify a search query, but then also limit the
              ;; results by filtering for after a particular package name
-             '((after_name search_query)))))
+             '((after_name search_query)
+               (limit_results all_results)))))
 
        (render-revision-packages mime-types
                                  conn

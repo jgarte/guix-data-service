@@ -527,6 +527,10 @@
           ,(form-horizontal-control
             "Limit results" query-parameters
             #:help-text "The maximum number of packages by name to return.")
+          ,(form-horizontal-control
+            "All results" query-parameters
+            #:type "checkbox"
+            #:help-text "Return all results.")
           (div (@ (class "form-group form-group-lg"))
                (div (@ (class "col-sm-offset-2 col-sm-10"))
                     (button (@ (type "submit")
