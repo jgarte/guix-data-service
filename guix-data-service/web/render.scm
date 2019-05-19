@@ -91,9 +91,12 @@
               failure))
         failure)))
 
-(define* (render-html #:key sxml (extra-headers '()))
-  (list (append extra-headers
-                '((content-type . (text/html))))
+(define* (render-html #:key sxml (extra-headers '())
+                      (code 200))
+  (list (build-response
+         #:code code
+         #:headers (append extra-headers
+                           '((content-type . (text/html)))))
         (lambda (port)
           (sxml->html sxml port))))
 
