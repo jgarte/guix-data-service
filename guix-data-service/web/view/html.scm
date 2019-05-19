@@ -98,7 +98,8 @@
                                   name
                                   help-text
                                   required?
-                                  options)
+                                  options
+                                  (type "text"))
   (define (value->text value)
     (match value
       (#f "")
@@ -162,6 +163,7 @@
             `(input (@ (class "form-control")
                        (style "font-family: monospace;")
                        (id ,input-id)
+                       (type ,type)
                        ,@(if required?
                              '((required #t))
                              '())
@@ -173,9 +175,17 @@
                                       query-parameters)
                            (#f '())
                            ((_key . ($ <invalid-query-parameter> value))
-                            `((value ,(value->text value))))
+                            (if (string=? type "checkbox")
+                                (if value
+                                    '((checked #t))
+                                    '())
+                                `((value ,(value->text value)))))
                            ((_key . value)
-                            `((value ,(value->text value))))))))
+                            (if (string=? type "checkbox")
+                                (if (peek "VALUE" value)
+                                    '((checked #t))
+                                    '())
+                                `((value ,(value->text value)))))))))
        ,@(if show-help-span?
              `((span (@ (id ,help-span-id)
                         (class "help-block"))
