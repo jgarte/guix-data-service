@@ -131,6 +131,22 @@
                      (sxml->html (stexi->shtml stexi)))))
       (plain . ,(stexi->plain-text stexi)))))
 
+(define (render-unknown-revision mime-types conn commit-hash)
+  (case (most-appropriate-mime-type
+         '(application/json text/html)
+         mime-types)
+    ((application/json)
+     (render-json
+      '((unknown_commit . ,commit-hash))
+      #:code 404))
+    (else
+     (render-html
+      #:code 404
+      #:sxml (unknown-revision
+              commit-hash
+              (select-job-for-commit
+               conn commit-hash))))))
+
 (define (render-revision-packages mime-types
                                   conn
                                   commit-hash
@@ -552,37 +568,49 @@
      (render-html
       #:sxml (view-statistics (count-guix-revisions conn)
                               (count-derivations conn))))
-    ((GET "revision" commit-hash) (render-view-revision mime-types
-                                                        conn
-                                                        commit-hash))
+    ((GET "revision" commit-hash) (if (guix-commit-exists? conn commit-hash)
+                                      (render-view-revision mime-types
+                                                            conn
+                                                            commit-hash)
+                                      (render-unknown-revision mime-types
+                                                               conn
+                                                               commit-hash)))
     ((GET "revision" commit-hash "packages")
-     (let ((parsed-query-parameters
-            (guard-against-mutually-exclusive-query-parameters
-             (parse-query-parameters
-              request
-              `((after_name     ,identity)
-                (field          ,identity #:multi-value
-                                #:default ("version" "synopsis"))
-                (search_query   ,identity)
-                (limit_results  ,parse-result-limit
-                                #:no-default-when (all_results)
-                                #:default 100)
-                (all_results    ,parse-checkbox-value)))
-             ;; You can't specify a search query, but then also limit the
-             ;; results by filtering for after a particular package name
-             '((after_name search_query)
-               (limit_results all_results)))))
+     (if (guix-commit-exists? conn commit-hash)
+         (let ((parsed-query-parameters
+                (guard-against-mutually-exclusive-query-parameters
+                 (parse-query-parameters
+                  request
+                  `((after_name     ,identity)
+                    (field          ,identity #:multi-value
+                                    #:default ("version" "synopsis"))
+                    (search_query   ,identity)
+                    (limit_results  ,parse-result-limit
+                                    #:no-default-when (all_results)
+                                    #:default 100)
+                    (all_results    ,parse-checkbox-value)))
+                 ;; You can't specify a search query, but then also limit the
+                 ;; results by filtering for after a particular package name
+                 '((after_name search_query)
+                   (limit_results all_results)))))
 
-       (render-revision-packages mime-types
-                                 conn
-                                 commit-hash
-                                 parsed-query-parameters)))
-    ((GET "revision" commit-hash "package" name version) (render-revision-package
-                                                          mime-types
-                                                          conn
-                                                          commit-hash
-                                                          name
-                                                          version))
+           (render-revision-packages mime-types
+                                     conn
+                                     commit-hash
+                                     parsed-query-parameters))
+         (render-unknown-revision mime-types
+                                  conn
+                                  commit-hash)))
+    ((GET "revision" commit-hash "package" name version)
+     (if (guix-commit-exists? conn commit-hash)
+         (render-revision-package mime-types
+                                  conn
+                                  commit-hash
+                                  name
+                                  version)
+         (render-unknown-revision mime-types
+                                  conn
+                                  commit-hash)))
     ((GET "branches")
      (render-html
       #:sxml (view-branches

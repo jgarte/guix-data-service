@@ -29,6 +29,7 @@
   #:use-module (texinfo html)
   #:use-module (json)
   #:export (index
+            unknown-revision
             view-statistics
             view-revision-package-and-version
             view-revision
@@ -1387,6 +1388,19 @@
               (map (lambda (data)
                      (take data 2))
                    (vlist->list target-packages-vhash))))))))))))
+
+(define (unknown-revision commit-hash job)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (h1 "Unknown revision")
+      (p "No known revision with commit "
+         (strong (samp ,commit-hash))
+         ,(if job
+              " and it is not currently queued for processing"
+              " but it is queued for processing"))))))
 
 (define (compare-unknown-commit base-commit target-commit
                                 base-exists? target-exists?
