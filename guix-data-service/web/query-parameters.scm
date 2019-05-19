@@ -40,6 +40,7 @@
             query-parameters->string
 
             parse-datetime
+            parse-checkbox-value
             parse-result-limit))
 
 (define (parse-query-string query)
@@ -161,6 +162,7 @@
   (define (value->text value)
     (match value
       (#f "")
+      (#t "on")
       ((? date? date)
        (date->string date "~1 ~3"))
       (other other)))
@@ -190,6 +192,9 @@
       (string->date s "~Y-~m-~d ~H:~M:~S"))
     (lambda (key . args)
       (make-invalid-query-parameter s #f))))
+
+(define (parse-checkbox-value s)
+  (string=? s "on"))
 
 (define (parse-result-limit s)
   (match (string->number s)
