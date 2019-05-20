@@ -507,7 +507,11 @@
   (let ((derivation (select-derivation-by-output-filename conn filename)))
     (match derivation
       (()
-       #f)
+       (render-html
+        #:sxml (general-not-found
+                "Store item not found"
+                "No derivation found producing this output")
+        #:code 404))
       (derivations
        (render-html
         #:sxml (view-store-item filename

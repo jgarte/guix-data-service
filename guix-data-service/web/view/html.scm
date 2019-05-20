@@ -29,6 +29,7 @@
   #:use-module (texinfo html)
   #:use-module (json)
   #:export (index
+            general-not-found
             unknown-revision
             view-statistics
             view-revision-package-and-version
@@ -1388,6 +1389,15 @@
               (map (lambda (data)
                      (take data 2))
                    (vlist->list target-packages-vhash))))))))))))
+
+(define (general-not-found header-text body)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (h1 ,header-text)
+      (p ,body)))))
 
 (define (unknown-revision commit-hash job)
   (layout
