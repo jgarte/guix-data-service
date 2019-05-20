@@ -154,7 +154,7 @@
       (let ((use-default?
              (every (lambda (field)
                       (not (memq field fields)))
-                    fields)))
+                    (map car request-query-parameters))))
         (match (assq name request-query-parameters)
           (#f (if use-default?
                   (cons name default)
