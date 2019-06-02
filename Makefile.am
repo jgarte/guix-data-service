@@ -67,6 +67,7 @@ TEST_EXTENSIONS = .scm
 
 TESTS =					\
   tests/branch-updated-emails.scm		\
+  tests/jobs-load-new-guix-revision.scm	\
   tests/model-derivation.scm			\
   tests/model-git-branch.scm			\
   tests/model-git-repository.scm		\
