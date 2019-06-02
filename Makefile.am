@@ -65,12 +65,14 @@ SOURCES =							\
 
 TEST_EXTENSIONS = .scm
 
-TESTS =				\
-  tests/model-derivation.scm		\
-  tests/model-git-branch.scm		\
-  tests/model-git-repository.scm	\
-  tests/model-package-metadata.scm	\
-  tests/branch-updated-emails.scm
+TESTS =					\
+  tests/branch-updated-emails.scm		\
+  tests/model-derivation.scm			\
+  tests/model-git-branch.scm			\
+  tests/model-git-repository.scm		\
+  tests/model-license-set.scm			\
+  tests/model-license.scm			\
+  tests/model-package-metadata.scm
 
 AM_TESTS_ENVIRONMENT = abs_top_srcdir="$(abs_top_srcdir)"
 
