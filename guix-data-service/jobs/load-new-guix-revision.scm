@@ -267,29 +267,33 @@
 
 (define (channel->derivation-file-name store channel)
   (let ((inferior
-         (open-inferior/container
-          store
-          (guix-store-path store)
-          #:extra-shared-directories
-          '("/gnu/store")
-          #:extra-environment-variables
-          (list (string-append
-                 "SSL_CERT_DIR=" (nss-certs-store-path store))))))
+         (if (defined? 'open-inferior/container)
+             (open-inferior/container
+              store
+              (guix-store-path store)
+              #:extra-shared-directories
+              '("/gnu/store")
+              #:extra-environment-variables
+              (list (string-append
+                     "SSL_CERT_DIR=" (nss-certs-store-path store))))
+             (open-inferior (guix-store-path store)))))
 
     (catch
       #t
       (lambda ()
-        ;; Create /etc/pass, as %known-shorthand-profiles in (guix
-        ;; profiles) tries to read from this file. Because the environment
-        ;; is cleaned in build-self.scm, xdg-directory in (guix utils)
-        ;; falls back to accessing /etc/passwd.
-        (inferior-eval
-         '(begin
-            (mkdir "/etc")
-            (call-with-output-file "/etc/passwd"
-              (lambda (port)
-                (display "root:x:0:0::/root:/bin/bash" port))))
-         inferior)
+        ;; /etc is only missing if open-inferior/container has been used
+        (unless (file-exists? "/etc")
+          ;; Create /etc/pass, as %known-shorthand-profiles in (guix
+          ;; profiles) tries to read from this file. Because the environment
+          ;; is cleaned in build-self.scm, xdg-directory in (guix utils)
+          ;; falls back to accessing /etc/passwd.
+          (inferior-eval
+           '(begin
+              (mkdir "/etc")
+              (call-with-output-file "/etc/passwd"
+                (lambda (port)
+                  (display "root:x:0:0::/root:/bin/bash" port))))
+           inferior))
 
         (let ((channel-instance
                (first
@@ -355,60 +359,67 @@
       (simple-format #t "guix-data-service: load-new-guix-revision: error: ~A\n" args)
       #f)))
 
-(define (extract-information-from store conn git-repository-id commit store-path)
+(define (extract-information-from conn git-repository-id commit store-path)
   (simple-format
    #t "debug: extract-information-from: ~A\n" store-path)
-  (let ((inf (open-inferior/container store store-path
-                                      #:extra-shared-directories
-                                      '("/gnu/store"))))
-    (inferior-eval '(use-modules (srfi srfi-1)
-                                 (srfi srfi-34)
-                                 (guix grafts)
-                                 (guix derivations))
-                   inf)
-    (inferior-eval '(%graft? #f) inf)
+  (with-store store
+    (let ((inf (if (defined? 'open-inferior/container)
+                   (open-inferior/container store store-path
+                                            #:extra-shared-directories
+                                            '("/gnu/store"))
+                   (open-inferior store-path))))
+      (inferior-eval '(use-modules (srfi srfi-1)
+                                   (srfi srfi-34)
+                                   (guix grafts)
+                                   (guix derivations))
+                     inf)
+      (inferior-eval '(%graft? #f) inf)
 
-    (exec-query conn "BEGIN")
-    (catch
-      #t
-      (lambda ()
-        (let* ((package-derivation-ids
-                (inferior-guix->package-derivation-ids store conn inf))
-               (guix-revision-id
-                (insert-guix-revision conn git-repository-id commit store-path)))
+      (catch
+        #t
+        (lambda ()
+          (let* ((package-derivation-ids
+                  (inferior-guix->package-derivation-ids store conn inf))
+                 (guix-revision-id
+                  (insert-guix-revision conn git-repository-id commit store-path)))
 
-          (insert-guix-revision-package-derivations conn
-                                                    guix-revision-id
-                                                    package-derivation-ids)
+            (insert-guix-revision-package-derivations conn
+                                                      guix-revision-id
+                                                      package-derivation-ids)
 
-          (exec-query conn "COMMIT")
+            (simple-format
+             #t "Successfully loaded ~A package/derivation pairs\n"
+             (length package-derivation-ids)))
+          #t)
+        (lambda (key . args)
+          (simple-format (current-error-port)
+                         "Failed extracting information: ~A ~A\n"
+                         key args)
+          (force-output)
+          #f)))))
 
-          (simple-format
-           #t "Successfully loaded ~A package/derivation pairs\n"
-           (length package-derivation-ids)))
-        #t)
-      (lambda (key . args)
-        (simple-format (current-error-port)
-                       "Failed extracting information: ~A ~A\n"
-                       key args)
-        (force-output)
-        (exec-query conn "ROLLBACK")
-        #f))))
+(define (store-item-for-git-repository-id-and-commit
+         conn git-repository-id commit)
+  (with-store store
+    (channel->guix-store-item
+     store
+     (channel (name 'guix)
+              (url (git-repository-id->url
+                    conn
+                    git-repository-id))
+              (commit commit)))))
 
 (define (load-new-guix-revision conn git-repository-id commit)
-  (if (guix-revision-exists? conn git-repository-id commit)
-      #t
-      (with-store store
-        (let ((store-item (channel->guix-store-item
-                           store
-                           (channel (name 'guix)
-                                    (url (git-repository-id->url
-                                          conn
-                                          git-repository-id))
-                                    (commit commit)))))
-          (and store-item
-               (extract-information-from store conn git-repository-id
-                                         commit store-item))))))
+  (let ((store-item
+         (store-item-for-git-repository-id-and-commit
+          conn git-repository-id commit)))
+    (if store-item
+        (extract-information-from conn git-repository-id
+                                  commit store-item)
+        (begin
+          (simple-format #t "Failed to generate store item for ~A\n"
+                         commit)
+          #f))))
 
 (define (enqueue-load-new-guix-revision-job conn git-repository-id commit source)
   (define query
@@ -442,27 +453,54 @@ RETURNING id;")
           (list (number->string n)))))
     result))
 
+(define (select-next-job-to-process conn)
+  (exec-query
+   conn
+   (string-append
+    "SELECT id, commit, source, git_repository_id "
+    "FROM load_new_guix_revision_jobs "
+    "WHERE succeeded_at IS NULL AND NOT EXISTS ("
+    "SELECT 1 "
+    "FROM load_new_guix_revision_job_events "
+    ;; Skip jobs that have failed, to avoid trying them over and over again
+    "WHERE job_id = load_new_guix_revision_jobs.id AND event = 'failure'"
+    ") ORDER BY id ASC LIMIT 1")))
+
+(define (record-job-event conn job-id event)
+  (exec-query
+   conn
+   (string-append
+    "INSERT INTO load_new_guix_revision_job_events (job_id, event) "
+    "VALUES ($1, $2)")
+   (list job-id event)))
+
 (define (record-job-succeeded conn id)
   (exec-query
    conn
    (string-append
-    "UPDATE load_new_guix_revision_jobs WHERE id = $1 "
-    "SET succeeded_at = current_time")
+    "UPDATE load_new_guix_revision_jobs "
+    "SET succeeded_at = clock_timestamp() "
+    "WHERE id = $1 ")
    (list id)))
 
 (define (process-next-load-new-guix-revision-job conn)
-  (let ((next
-         (exec-query
-          conn
-          (string-append
-           "SELECT id, commit, source, git_repository_id "
-           "FROM load_new_guix_revision_jobs ORDER BY id ASC LIMIT 1"))))
-    (match next
-      (((id commit source git-repository-id))
-       (begin
-         (simple-format #t "Processing job ~A (commit: ~A, source: ~A)\n\n"
-                        id commit source)
-         (when (eq? (load-new-guix-revision conn git-repository-id commit)
-                    #t)
-           (record-job-succeeded conn id))))
-      (_ #f))))
+  (match (select-next-job-to-process conn)
+    (((id commit source git-repository-id))
+     (begin
+       (record-job-event conn id "start")
+       (simple-format #t "Processing job ~A (commit: ~A, source: ~A)\n\n"
+                      id commit source)
+       (exec-query conn "BEGIN")
+       (if (or (guix-revision-exists? conn git-repository-id commit)
+               (eq? (load-new-guix-revision conn git-repository-id commit)
+                    #t))
+           (begin
+             (record-job-succeeded conn id)
+             (record-job-event conn id "success")
+             (exec-query conn "COMMIT")
+             #t)
+           (begin
+             (exec-query conn "ROLLBACK")
+             (record-job-event conn id "failure")
+             #f))))
+    (_ #f)))

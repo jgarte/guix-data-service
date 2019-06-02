@@ -46,7 +46,7 @@
     "
 SELECT NULL AS id, load_new_guix_revision_jobs.id AS job_id, commit, source
 FROM load_new_guix_revision_jobs
-WHERE git_repository_id = $1
+WHERE git_repository_id = $1 AND succeeded_at IS NULL
 UNION
 SELECT id, NULL, commit, NULL
 FROM guix_revisions
