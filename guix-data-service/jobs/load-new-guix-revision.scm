@@ -385,13 +385,15 @@
 
           (simple-format
            #t "Successfully loaded ~A package/derivation pairs\n"
-           (length package-derivation-ids))))
+           (length package-derivation-ids)))
+        #t)
       (lambda (key . args)
         (simple-format (current-error-port)
                        "Failed extracting information: ~A ~A\n"
                        key args)
         (force-output)
-        (exec-query conn "ROLLBACK")))))
+        (exec-query conn "ROLLBACK")
+        #f))))
 
 (define (load-new-guix-revision conn git-repository-id commit)
   (if (guix-revision-exists? conn git-repository-id commit)
@@ -440,6 +442,14 @@ RETURNING id;")
           (list (number->string n)))))
     result))
 
+(define (record-job-succeeded conn id)
+  (exec-query
+   conn
+   (string-append
+    "UPDATE load_new_guix_revision_jobs WHERE id = $1 "
+    "SET succeeded_at = current_time")
+   (list id)))
+
 (define (process-next-load-new-guix-revision-job conn)
   (let ((next
          (exec-query
@@ -452,10 +462,7 @@ RETURNING id;")
        (begin
          (simple-format #t "Processing job ~A (commit: ~A, source: ~A)\n\n"
                         id commit source)
-         (load-new-guix-revision conn git-repository-id commit)
-         (exec-query
-          conn
-          (string-append "DELETE FROM load_new_guix_revision_jobs WHERE id = '"
-                         id
-                         "'"))))
+         (when (eq? (load-new-guix-revision conn git-repository-id commit)
+                    #t)
+           (record-job-succeeded conn id))))
       (_ #f))))

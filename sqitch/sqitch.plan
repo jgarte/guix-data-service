@@ -11,3 +11,4 @@ remove_package_metadata_sha1_hash 2019-05-12T10:37:40Z Christopher Baines <mail@
 add_location_information 2019-05-12T20:27:48Z Christopher Baines <mail@cbaines.net> # Add locations table and location to package_metadata
 add_git_repositories_cgit_url_base 2019-05-13T18:45:14Z Christopher Baines <mail@cbaines.net> # Add cgit_url_base to git_repositories
 license_support 2019-05-13T20:37:40Z Christopher Baines <mail@cbaines.net> # Add support for storing license information
+dates_to_load_new_guix_revision_jobs 2019-06-02T07:39:49Z Christopher Baines <mail@cbaines.net> # Add dates to the load_new_guix_revision_jobs table
