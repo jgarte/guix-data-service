@@ -31,6 +31,7 @@
   #:use-module (squee)
   #:use-module (json)
   #:use-module (guix-data-service comparison)
+  #:use-module (guix-data-service database)
   #:use-module (guix-data-service model git-branch)
   #:use-module (guix-data-service model git-repository)
   #:use-module (guix-data-service model guix-revision)
@@ -537,7 +538,27 @@
 (define (parse-build-status s)
   s)
 
-(define (controller request method-and-path-components mime-types body conn)
+(define (controller request method-and-path-components mime-types body)
+  (match method-and-path-components
+    ((GET "assets" rest ...)
+     (or (render-static-asset (string-join rest "/")
+                              (request-headers request))
+         (not-found (request-uri request))))
+
+    (_
+     (with-postgresql-connection
+      (lambda (conn)
+        (controller-with-database-connection request
+                                             method-and-path-components
+                                             mime-types
+                                             body
+                                             conn))))))
+
+(define (controller-with-database-connection request
+                                             method-and-path-components
+                                             mime-types
+                                             body
+                                             conn)
   (define query-parameters
     (-> request
         request-uri
@@ -694,4 +715,4 @@
                                      target-commit
                                      target-revision-id)))))
     ((GET path ...)
-     (render-static-asset request))))
+     (not-found (request-uri request)))))

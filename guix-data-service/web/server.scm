@@ -23,22 +23,18 @@
   #:use-module (web request)
   #:use-module (web uri)
   #:use-module (fibers web server)
-  #:use-module (guix-data-service database)
   #:use-module (guix-data-service web controller)
   #:use-module (guix-data-service web util)
   #:export (start-guix-data-service-web-server))
 
 (define (run-controller controller request body)
-  (with-postgresql-connection
-   (lambda (conn)
-     (let-values (((request-components mime-types)
-                   (request->path-components-and-mime-type request)))
-       (controller request
-                   (cons (request-method request)
-                         request-components)
-                   mime-types
-                   body
-                   conn)))))
+  (let-values (((request-components mime-types)
+                (request->path-components-and-mime-type request)))
+    (controller request
+                (cons (request-method request)
+                      request-components)
+                mime-types
+                body)))
 
 (define (handler request body controller)
   (format #t "~a ~a\n"

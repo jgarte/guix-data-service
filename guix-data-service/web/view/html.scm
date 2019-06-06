@@ -74,18 +74,18 @@
        (@ (rel "stylesheet")
           (media "screen")
           (type "text/css")
-          (href "/css/reset.css")))
+          (href "/assets/css/reset.css")))
       (link
        (@ (rel "stylesheet")
           (media "screen")
           (type "text/css")
-          (href "/css/bootstrap.css")))
+          (href "/assets/css/bootstrap.css")))
       ,@head
       (link
        (@ (rel "stylesheet")
           (media "screen")
           (type "text/css")
-          (href "/css/screen.css"))))
+          (href "/assets/css/screen.css"))))
      (body ,@body
            (footer
             (p "Copyright © 2016—2019 by the GNU Guix community."

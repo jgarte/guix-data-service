@@ -49,22 +49,13 @@
     ("ttf"  . (application/octet-stream))
     ("html" . (text/html))))
 
-(define (render-static-asset request)
-  (render-static-file (%config 'assets-dir) request))
+(define (render-static-asset path headers)
+  (render-static-file (%config 'assets-dir) path headers))
 
 (define %not-slash
   (char-set-complement (char-set #\/)))
 
-(define (render-static-file root request)
-  (define path
-    (uri-path (request-uri request)))
-
-  (define failure
-    (not-found (build-uri 'http
-                          #:host (%config 'host)
-                          #:port (%config 'port)
-                          #:path path)))
-
+(define (render-static-file root path headers)
   (let ((file-name (string-append root "/" path)))
     (if (not (any (cut string-contains <> "..")
                   (string-tokenize path %not-slash)))
@@ -79,7 +70,7 @@
                   (call-with-input-file file-name get-bytevector-all)))
 
           (if (and stat (not (eq? 'directory (stat:type stat))))
-              (cond ((assoc-ref (request-headers request) 'if-modified-since)
+              (cond ((assoc-ref headers 'if-modified-since)
                      =>
                      (lambda (client-date)
                        (if (time>? modified (date->time-utc client-date))
@@ -88,8 +79,8 @@
                                  #f))))
                     (else
                      (send-file)))
-              failure))
-        failure)))
+              #f))
+        #f)))
 
 (define* (render-html #:key sxml (extra-headers '())
                       (code 200))
