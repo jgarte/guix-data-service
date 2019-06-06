@@ -544,7 +544,28 @@
      (or (render-static-asset (string-join rest "/")
                               (request-headers request))
          (not-found (request-uri request))))
-
+    ((GET "healthcheck")
+     (let ((database-status
+            (catch
+              #t
+              (lambda ()
+                (with-postgresql-connection
+                 (lambda (conn)
+                   (number?
+                    (string->number
+                     (first
+                      (count-guix-revisions conn)))))))
+              (lambda (key . args)
+                (peek key args)
+                #f))))
+       (render-json
+        `((status . ,(if database-status
+                         "ok"
+                         "not ok")))
+        #:code (if (eq? database-status
+                        #t)
+                   200
+                   500))))
     (_
      (with-postgresql-connection
       (lambda (conn)
