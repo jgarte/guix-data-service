@@ -30,6 +30,12 @@
                                  ;; TODO: use @assetsdir@ variable here
                                  "@prefix@/share/guix-data-service/assets")))
            (host        . "localhost")
-           (port        . 8765))))
+           (port        . 8765)
+
+           (sqitch      . "@sqitch@")
+
+           (database-user . "guix_data_service")
+           (database-host . "localhost")
+           (database-name . "guix_data_service"))))
     (lambda (key)
       (assoc-ref config key))))

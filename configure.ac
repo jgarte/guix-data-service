@@ -35,6 +35,8 @@ guilemoduledir="${datarootdir}/guile/site/${GUILE_EFFECTIVE_VERSION}"
 AC_SUBST([guilemoduledir])
 AC_SUBST([GUILE_EFFECTIVE_VERSION])
 
+AC_PATH_PROG([sqitch], [sqitch])
+
 dnl Substitute placeholders to generate these target files
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([guix-data-service/config.scm])
