@@ -71,6 +71,7 @@
     (let ((command
            (list (%config 'sqitch)
                  "deploy"
+                 "--plan-file" (%config 'sqitch-plan)
                  (string-append "db:pg://"
                                 (%config 'database-user)
                                 "@"
