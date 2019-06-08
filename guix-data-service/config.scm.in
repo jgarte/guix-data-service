@@ -23,16 +23,24 @@
   (let ((config
          ;; Try to find the "assets" directory relative to the executable
          ;; first.  This is useful when using "pre-inst-env".
-         `((assets-dir  . ,(let ((maybe-dir
+         `((assets-dir  . ,(let ((install-dir
+                                  "@prefix@/share/guix-data-service/assets")
+                                 (dev-dir
                                   (string-append (getcwd) "/assets")))
-                             (if (file-exists? maybe-dir)
-                                 maybe-dir
-                                 ;; TODO: use @assetsdir@ variable here
-                                 "@prefix@/share/guix-data-service/assets")))
+                             (if (file-exists? install-dir)
+                                 install-dir
+                                 dev-dir)))
            (host        . "localhost")
            (port        . 8765)
 
            (sqitch      . "@sqitch@")
+           (sqitch-plan . ,(let ((installed-plan
+                                  "@prefix@/share/guix-data-service/sqitch/sqitch.plan")
+                                 (dev-plan
+                                  (string-append (getcwd) "/sqitch/sqitch.plan")))
+                             (if (file-exists? installed-plan)
+                                 installed-plan
+                                 dev-plan)))
 
            (database-user . "guix_data_service")
            (database-host . "localhost")
