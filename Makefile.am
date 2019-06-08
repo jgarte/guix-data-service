@@ -30,6 +30,16 @@ moddir = $(prefix)/share/guile/site/$(GUILE_EFFECTIVE_VERSION)
 godir  = $(moddir)
 assetsdir = $(datadir)/@PACKAGE@
 
+install-data-local:
+	mkdir -p "$(DESTDIR)$(pkgdatadir)" || exit 1;
+	cp -r assets "$(DESTDIR)$(pkgdatadir)/" || exit 1;
+	cp -r sqitch "$(DESTDIR)$(pkgdatadir)/" || exit 1;
+
+install-data-hook:
+# These files shouldn't be installed, but I have no idea how to specify that
+# :(
+	rm -r "$(DESTDIR)$(moddir)/tests"
+
 SOURCES =							\
   guix-data-service/branch-updated-emails.scm			\
   guix-data-service/builds.scm					\
