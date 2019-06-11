@@ -34,6 +34,7 @@
            (port        . 8765)
 
            (sqitch      . "@sqitch@")
+           (sqitch-psql . "@psql@")
            (sqitch-plan . ,(let ((installed-plan
                                   "@prefix@/share/guix-data-service/sqitch/sqitch.plan")
                                  (dev-plan

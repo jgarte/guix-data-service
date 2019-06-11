@@ -36,6 +36,7 @@ AC_SUBST([guilemoduledir])
 AC_SUBST([GUILE_EFFECTIVE_VERSION])
 
 AC_PATH_PROG([sqitch], [sqitch])
+AC_PATH_PROG([psql], [psql])
 
 dnl Substitute placeholders to generate these target files
 AC_CONFIG_FILES([Makefile])
