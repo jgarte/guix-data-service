@@ -44,6 +44,11 @@
                         (alist-cons 'listen-repl port
                                     (alist-delete 'listen-repl result))
                         (error "invalid REPL server port" arg)))))
+        (option '("pid-file") #t #f
+                (lambda (opt name arg result)
+                  (alist-cons 'pid-file
+                              arg
+                              result)))
         (option '("update-database") #f #f
                 (lambda (opt name _ result)
                   (alist-cons 'update-database #t result)))))
@@ -86,6 +91,12 @@
         (simple-format
          (current-error-port)
          "error: sqitch command failed\n")
-        (exit 1)))))
+        (exit 1))))
+
+  (let ((pid-file (assq-ref opts 'pid-file)))
+    (when pid-file
+      (call-with-output-file pid-file
+        (lambda (port)
+          (simple-format port "~A\n" (getpid)))))))
 
 (start-guix-data-service-web-server 8765)
