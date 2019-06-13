@@ -51,12 +51,25 @@
                               result)))
         (option '("update-database") #f #f
                 (lambda (opt name _ result)
-                  (alist-cons 'update-database #t result)))))
+                  (alist-cons 'update-database #t result)))
+        (option '("port") #t #f
+                (lambda (opt name arg result)
+                  (alist-cons 'port
+                              (string->number arg)
+                              (alist-delete 'port result))))
+        (option '("host") #t #f
+                (lambda (opt name arg result)
+                  (alist-cons 'host
+                              arg
+                              (alist-delete 'host result))))))
+
 
 (define %default-options
   ;; Alist of default option values
   `((listen-repl          . #f)
-    (update-database . #f)))
+    (update-database      . #f)
+    (port                 . 8765)
+    (host                 . "0.0.0.0")))
 
 (define (parse-options args)
   (args-fold
@@ -97,6 +110,10 @@
     (when pid-file
       (call-with-output-file pid-file
         (lambda (port)
-          (simple-format port "~A\n" (getpid)))))))
+          (simple-format port "~A\n" (getpid))))))
 
-(start-guix-data-service-web-server 8765)
+  (simple-format #t "starting the server on port ~A\n"
+                 (assq-ref opts 'port))
+
+  (start-guix-data-service-web-server (assq-ref opts 'port)
+                                      (assq-ref opts 'host)))

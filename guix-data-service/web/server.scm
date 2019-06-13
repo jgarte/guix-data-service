@@ -43,8 +43,8 @@
   (apply values
          (run-controller controller request body)))
 
-(define (start-guix-data-service-web-server port)
+(define (start-guix-data-service-web-server port host)
   (run-server (lambda (request body)
                 (handler request body controller))
-              #:addr INADDR_ANY
+              #:host host
               #:port port))
