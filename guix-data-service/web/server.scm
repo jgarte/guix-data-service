@@ -37,9 +37,10 @@
                 body)))
 
 (define (handler request body controller)
-  (format #t "~a ~a\n"
-          (request-method request)
-          (uri-path (request-uri request)))
+  (display
+   (format #f "~a ~a\n"
+           (request-method request)
+           (uri-path (request-uri request))))
   (apply values
          (run-controller controller request body)))
 
