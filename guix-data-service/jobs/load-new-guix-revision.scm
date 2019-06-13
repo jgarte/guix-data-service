@@ -12,6 +12,7 @@
   #:use-module (guix packages)
   #:use-module (guix derivations)
   #:use-module (guix build utils)
+  #:use-module (guix-data-service config)
   #:use-module (guix-data-service model package)
   #:use-module (guix-data-service model git-repository)
   #:use-module (guix-data-service model guix-revision)
@@ -245,18 +246,27 @@
       (if (and store-path
                (file-exists? store-path))
           store-path
-          (begin
-            (invalidate-derivation-caches!)
-            (hash-clear! (@@ (guix packages) %derivation-cache))
-            (let* ((guix-package (@ (gnu packages package-management)
-                                    guix))
-                   (derivation (package-derivation store guix-package)))
-              (build-derivations store (list derivation))
+          (let ((config-guix (%config 'guix)))
+            (if (and (file-exists? config-guix)
+                     (string-prefix? "/gnu/store/" config-guix))
+                (begin
+                  (set! store-path
+                    (dirname
+                     (dirname
+                      (%config 'guix))))
+                  store-path)
+                (begin
+                  (invalidate-derivation-caches!)
+                  (hash-clear! (@@ (guix packages) %derivation-cache))
+                  (let* ((guix-package (@ (gnu packages package-management)
+                                          guix))
+                         (derivation (package-derivation store guix-package)))
+                    (build-derivations store (list derivation))
 
-              (let ((new-store-path
-                     (derivation->output-path derivation)))
-                (set! store-path new-store-path)
-                new-store-path)))))))
+                    (let ((new-store-path
+                           (derivation->output-path derivation)))
+                      (set! store-path new-store-path)
+                      new-store-path)))))))))
 
 (define (nss-certs-store-path store)
   (let* ((nss-certs-package (@ (gnu packages certs)

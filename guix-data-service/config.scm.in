@@ -33,6 +33,8 @@
            (host        . "localhost")
            (port        . 8765)
 
+           (guix        . "@guix@")
+
            (sqitch      . "@sqitch@")
            (sqitch-psql . "@psql@")
            (sqitch-plan . ,(let ((installed-plan

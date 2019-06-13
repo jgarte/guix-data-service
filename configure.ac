@@ -35,6 +35,8 @@ guilemoduledir="${datarootdir}/guile/site/${GUILE_EFFECTIVE_VERSION}"
 AC_SUBST([guilemoduledir])
 AC_SUBST([GUILE_EFFECTIVE_VERSION])
 
+AC_PATH_PROG([guix], [guix])
+
 AC_PATH_PROG([sqitch], [sqitch])
 AC_PATH_PROG([psql], [psql])
 
