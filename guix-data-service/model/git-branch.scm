@@ -1,4 +1,5 @@
 (define-module (guix-data-service model git-branch)
+  #:use-module (ice-9 match)
   #:use-module (squee)
   #:use-module (srfi srfi-19)
   #:use-module (guix-data-service model utils)
@@ -6,6 +7,7 @@
             git-branches-for-commit
             git-branches-with-repository-details-for-commit
             most-recent-commits-for-branch
+            latest-processed-commit-for-branch
             all-branches-with-most-recent-commit))
 
 (define (insert-git-branch-entry conn
@@ -74,6 +76,25 @@ WHERE git_branches.commit = $1")
    conn
    query
    (list branch-name)))
+
+(define* (latest-processed-commit-for-branch conn branch-name)
+  (define query
+    (string-append
+     "SELECT git_branches.commit "
+     "FROM git_branches "
+     "INNER JOIN guix_revisions ON git_branches.commit = guix_revisions.commit "
+     "WHERE git_branches.name = $1 "
+     "ORDER BY datetime DESC "
+     "LIMIT 1"))
+
+  (match (exec-query
+          conn
+          query
+          (list branch-name))
+    (((commit-hash))
+     commit-hash)
+    ('()
+     #f)))
 
 (define (all-branches-with-most-recent-commit conn)
   (define query

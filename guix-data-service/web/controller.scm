@@ -682,6 +682,44 @@
                                             'after_date)
                      #:before-date (assq-ref parsed-query-parameters
                                              'before_date)))))))
+    ((GET "branch" branch-name "latest-processed-revision")
+     (let ((commit-hash
+            (latest-processed-commit-for-branch conn branch-name)))
+       (if commit-hash
+           (render-view-revision mime-types
+                                 conn
+                                 commit-hash)
+           (render-unknown-revision mime-types
+                                    conn
+                                    commit-hash))))
+    ((GET "branch" branch-name "latest-processed-revision" "packages")
+     (let ((commit-hash
+            (latest-processed-commit-for-branch conn branch-name)))
+       (if commit-hash
+           (let ((parsed-query-parameters
+                  (guard-against-mutually-exclusive-query-parameters
+                   (parse-query-parameters
+                    request
+                    `((after_name     ,identity)
+                      (field          ,identity #:multi-value
+                                      #:default ("version" "synopsis"))
+                      (search_query   ,identity)
+                      (limit_results  ,parse-result-limit
+                                      #:no-default-when (all_results)
+                                      #:default 100)
+                      (all_results    ,parse-checkbox-value)))
+                   ;; You can't specify a search query, but then also limit the
+                   ;; results by filtering for after a particular package name
+                   '((after_name search_query)
+                     (limit_results all_results)))))
+
+             (render-revision-packages mime-types
+                                       conn
+                                       commit-hash
+                                       parsed-query-parameters))
+           (render-unknown-revision mime-types
+                                    conn
+                                    commit-hash))))
     ((GET "gnu" "store" filename)
      ;; These routes are a little special, as the extensions aren't used for
      ;; content negotiation, so just use the path from the request
