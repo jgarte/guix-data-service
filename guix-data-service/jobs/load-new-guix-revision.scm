@@ -266,8 +266,10 @@
     (derivation->output-path derivation)))
 
 (define (channel->derivation-file-name store channel)
+  (define use-container? (defined? 'open-inferior/container))
+
   (let ((inferior
-         (if (defined? 'open-inferior/container)
+         (if use-container?
              (open-inferior/container
               store
               (guix-store-path store)
@@ -282,13 +284,13 @@
       #t
       (lambda ()
         ;; /etc is only missing if open-inferior/container has been used
-        (unless (file-exists? "/etc")
-          ;; Create /etc/pass, as %known-shorthand-profiles in (guix
-          ;; profiles) tries to read from this file. Because the environment
-          ;; is cleaned in build-self.scm, xdg-directory in (guix utils)
-          ;; falls back to accessing /etc/passwd.
+        (when use-container?
           (inferior-eval
            '(begin
+              ;; Create /etc/pass, as %known-shorthand-profiles in (guix
+              ;; profiles) tries to read from this file. Because the environment
+              ;; is cleaned in build-self.scm, xdg-directory in (guix utils)
+              ;; falls back to accessing /etc/passwd.
               (mkdir "/etc")
               (call-with-output-file "/etc/passwd"
                 (lambda (port)
