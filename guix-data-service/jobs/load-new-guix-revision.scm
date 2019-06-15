@@ -408,8 +408,9 @@
           #t)
         (lambda (key . args)
           (simple-format (current-error-port)
-                         "Failed extracting information: ~A ~A\n"
-                         key args)
+                         "Failed extracting information from commit: ~A\n\n" commit)
+          (simple-format (current-error-port)
+                         "  ~A ~A\n\n" key args)
           (force-output)
           #f)))))
 
