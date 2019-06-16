@@ -184,7 +184,7 @@
                                 `((value ,(value->text value)))))
                            ((_key . value)
                             (if (string=? type "checkbox")
-                                (if (peek "VALUE" value)
+                                (if value
                                     '((checked #t))
                                     '())
                                 `((value ,(value->text value)))))))))

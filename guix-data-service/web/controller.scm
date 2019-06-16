@@ -579,7 +579,6 @@
                      (first
                       (count-guix-revisions conn)))))))
               (lambda (key . args)
-                (peek key args)
                 #f))))
        (render-json
         `((status . ,(if database-status
