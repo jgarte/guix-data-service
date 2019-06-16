@@ -316,9 +316,11 @@
                    (style "font-size: 2em; display: block;"))
                 ,derivations-count)))))))
 
-(define (view-revision-package-and-version revision-commit-hash name version
-                                           package-metadata
-                                           derivations git-repositories)
+(define* (view-revision-package-and-version revision-commit-hash name version
+                                            package-metadata
+                                            derivations git-repositories
+                                            #:key header-text
+                                            header-link)
   (layout
    #:body
    `(,(header)
@@ -328,9 +330,8 @@
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
-        (h3 (a (@ (href ,(string-append
-                          "/revision/" revision-commit-hash)))
-               "Revision " (samp ,revision-commit-hash)))))
+        (h3 (a (@ (href ,header-link))
+               ,@header-text))))
       (div
        (@ (class "row"))
        (div
@@ -405,8 +406,10 @@
                   (td ,(build-status-span status)))))
              derivations)))))))))
 
-(define (view-revision commit-hash packages-count
-                       git-repositories-and-branches derivations-count)
+(define* (view-revision commit-hash packages-count
+                        git-repositories-and-branches derivations-count
+                        #:key (path-base "/revision/")
+                        header-text)
   (layout
    #:body
    `(,(header)
@@ -417,17 +420,16 @@
        (div
         (@ (class "col-md-12"))
         (h1 (@ (style "white-space: nowrap;"))
-            "Revision " (samp ,commit-hash))))
+            ,@header-text)))
       (div
        (@ (class "row"))
        (div
         (@ (class "col-md-6"))
-        (h3 "Packages")
+        (h2 "Packages")
         (strong (@ (class "text-center")
                    (style "font-size: 2em; display: block;"))
                 ,packages-count)
-        (a (@ (href ,(string-append "/revision/" commit-hash
-                                    "/packages")))
+        (a (@ (href ,(string-append path-base "/packages")))
            "View packages")
 
         ,@(if
@@ -476,11 +478,13 @@
                           (td (samp ,count))))))
                  derivations-count)))))))))
 
-(define (view-revision-packages revision-commit-hash
-                                query-parameters
-                                packages
-                                git-repositories
-                                show-next-page?)
+(define* (view-revision-packages revision-commit-hash
+                                 query-parameters
+                                 packages
+                                 git-repositories
+                                 show-next-page?
+                                 #:key path-base
+                                 header-text header-link)
   (define field-options
     (map
      (lambda (field)
@@ -499,9 +503,9 @@
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
-        (h3 (a (@ (href ,(string-append
-                          "/revision/" revision-commit-hash)))
-               "Revision " (samp ,revision-commit-hash)))))
+        (h3 (a (@ (style "white-space: nowrap;")
+                  (href ,header-link))
+               ,@header-text))))
       (div
        (@ (class "row"))
        (div
@@ -546,7 +550,7 @@
               (href ,(let ((query-parameter-string
                             (query-parameters->string query-parameters)))
                        (string-append
-                        "/revision/" revision-commit-hash "/packages.json"
+                        path-base ".json"
                         (if (string-null? query-parameter-string)
                             ""
                             (string-append "?" query-parameter-string))))))
@@ -628,20 +632,20 @@
                          '())
                     (td (@ (class "text-right"))
                         (a (@ (href ,(string-append
-                                      "/revision/" revision-commit-hash
-                                      "/package/" name "/" version)))
+                                      (string-drop-right path-base 1)
+                                      "/" name "/" version)))
                            "More information")))))
                packages))))))
       ,@(if show-next-page?
             `((div
                (@ (class "row"))
-               (a (@ (href ,(string-append "/revision/" revision-commit-hash
+               (a (@ (href ,(string-append path-base revision-commit-hash
                                            "/packages?after_name="
                                            (car (last packages)))))
                   "Next page")))
             '())))))
 
-(define (view-branches branches-with-most-recent-commits)
+(define* (view-branches branches-with-most-recent-commits)
   (layout
    #:body
    `(,(header)

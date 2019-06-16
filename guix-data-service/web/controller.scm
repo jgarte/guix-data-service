@@ -92,9 +92,12 @@
        target-commit
        (commit->revision-id conn target-commit))))
 
-(define (render-view-revision mime-types
-                              conn
-                              commit-hash)
+(define* (render-view-revision mime-types
+                               conn
+                               commit-hash
+                               #:key path-base
+                               (header-text
+                                `("Revision " (samp ,commit-hash))))
   (let ((packages-count
          (count-packages-in-revision conn commit-hash))
         (git-repositories-and-branches
@@ -121,7 +124,9 @@
                 commit-hash
                 packages-count
                 git-repositories-and-branches
-                derivations-counts)
+                derivations-counts
+                #:path-base path-base
+                #:header-text header-text)
         #:extra-headers http-headers-for-unchanging-content)))))
 
 (define (texinfo->variants-alist s)
@@ -148,10 +153,16 @@
               (select-job-for-commit
                conn commit-hash))))))
 
-(define (render-revision-packages mime-types
-                                  conn
-                                  commit-hash
-                                  query-parameters)
+(define* (render-revision-packages mime-types
+                                   conn
+                                   commit-hash
+                                   query-parameters
+                                   #:key
+                                   (path-base "/revision/")
+                                   (header-text
+                                    `("Revision " (samp ,commit-hash)))
+                                   (header-link
+                                    (string-append "/revision/" commit-hash)))
   (if (any-invalid-query-parameters? query-parameters)
       (case (most-appropriate-mime-type
              '(application/json text/html)
@@ -238,14 +249,24 @@
                                            query-parameters
                                            packages
                                            git-repositories
-                                           show-next-page?)
+                                           show-next-page?
+                                           #:path-base path-base
+                                           #:header-text header-text
+                                           #:header-link header-link)
             #:extra-headers http-headers-for-unchanging-content))))))
 
-(define (render-revision-package mime-types
-                                 conn
-                                 commit-hash
-                                 name
-                                 version)
+(define* (render-revision-package mime-types
+                                  conn
+                                  commit-hash
+                                  name
+                                  version
+                                  #:key
+                                  (header-text
+                                   `("Revision "
+                                     (samp ,commit-hash)))
+                                  (header-link
+                                   (string-append
+                                    "/revision/" commit-hash)))
   (let ((metadata
          (select-package-metadata-by-revision-name-and-version
           conn
@@ -288,7 +309,9 @@
                                                   version
                                                   metadata
                                                   derivations
-                                                  git-repositories)
+                                                  git-repositories
+                                                  #:header-text header-text
+                                                  #:header-link header-link)
         #:extra-headers http-headers-for-unchanging-content)))))
 
 (define (render-compare-unknown-commit mime-types
@@ -586,6 +609,9 @@
         uri-query
         parse-query-string))
 
+  (define path
+    (uri-path (request-uri request)))
+
   (match method-and-path-components
     ((GET)
      (render-html
@@ -617,7 +643,8 @@
     ((GET "revision" commit-hash) (if (guix-commit-exists? conn commit-hash)
                                       (render-view-revision mime-types
                                                             conn
-                                                            commit-hash)
+                                                            commit-hash
+                                                            #:path-base path)
                                       (render-unknown-revision mime-types
                                                                conn
                                                                commit-hash)))
@@ -643,7 +670,8 @@
            (render-revision-packages mime-types
                                      conn
                                      commit-hash
-                                     parsed-query-parameters))
+                                     parsed-query-parameters
+                                     #:path-base path))
          (render-unknown-revision mime-types
                                   conn
                                   commit-hash)))
@@ -688,7 +716,11 @@
        (if commit-hash
            (render-view-revision mime-types
                                  conn
-                                 commit-hash)
+                                 commit-hash
+                                 #:path-base path
+                                 #:header-text
+                                 `("Latest processed revision for branch "
+                                   (samp ,branch-name)))
            (render-unknown-revision mime-types
                                     conn
                                     commit-hash))))
@@ -716,7 +748,34 @@
              (render-revision-packages mime-types
                                        conn
                                        commit-hash
-                                       parsed-query-parameters))
+                                       parsed-query-parameters
+                                       #:path-base path
+                                       #:header-text
+                                       `("Latest processed revision for branch "
+                                         (samp ,branch-name))
+                                       #:header-link
+                                       (string-append
+                                        "/branch/" branch-name
+                                        "/latest-processed-revision")))
+           (render-unknown-revision mime-types
+                                    conn
+                                    commit-hash))))
+    ((GET "branch" branch-name "latest-processed-revision" "package" name version)
+     (let ((commit-hash
+            (latest-processed-commit-for-branch conn branch-name)))
+       (if commit-hash
+           (render-revision-package mime-types
+                                    conn
+                                    commit-hash
+                                    name
+                                    version
+                                    #:header-text
+                                    `("Latest processed revision for branch "
+                                      (samp ,branch-name))
+                                    #:header-link
+                                    (string-append
+                                     "/branch/" branch-name
+                                     "/latest-processed-revision"))
            (render-unknown-revision mime-types
                                     conn
                                     commit-hash))))
