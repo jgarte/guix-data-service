@@ -725,6 +725,14 @@
       (div
        (@ (class "row"))
        (div
+        (@ (class "col-sm-12"))
+        (a (@ (class "btn btn-default btn-lg pull-right")
+              (href ,(string-append
+                      "/branch/" branch-name "/latest-processed-revision")))
+           "Latest processed revision")))
+      (div
+       (@ (class "row"))
+       (div
         (@ (class "col-md-12"))
         (table
          (@ (class "table table-responsive"))
