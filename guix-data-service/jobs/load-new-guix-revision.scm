@@ -33,13 +33,11 @@
 
 (define (log-time action f)
   (simple-format #t "debug: Starting ~A\n" action)
-  (force-output)
   (let* ((start-time (current-time))
          (result (f))
          (time-taken (- (current-time) start-time)))
     (simple-format #t "debug: Finished ~A, took ~A seconds\n"
                    action time-taken)
-    (force-output)
     result))
 
 (define (all-inferior-package-derivations store inf packages)
@@ -124,7 +122,6 @@
                        (package-name package)
                        key
                        args)
-                      (force-output)
                       (exit 1))
                     (begin
                       (simple-format
@@ -133,7 +130,6 @@
                        (package-name package)
                        key
                        args)
-                      (force-output)
                       '()))))))
         (list ,@(map inferior-package-id packages)))))
 
@@ -425,7 +421,6 @@
                          "Failed extracting information from commit: ~A\n\n" commit)
           (simple-format (current-error-port)
                          "  ~A ~A\n\n" key args)
-          (force-output)
           #f)))))
 
 (define (store-item-for-git-repository-id-and-commit

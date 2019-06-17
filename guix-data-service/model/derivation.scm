@@ -362,7 +362,6 @@ ORDER BY derivations.system DESC,
       (simple-format
        #t "debug: ensure-input-derivations-exist: processing ~A derivations\n"
        (length input-derivation-file-names))
-      (force-output)
       (let* ((existing-derivation-entries
               (derivation-file-names->vhash conn
                                             derivation-ids-hash-table
@@ -443,7 +442,6 @@ ORDER BY derivations.system DESC,
 
     (simple-format
      #t "debug: insert-missing-derivations: ensure-input-derivations-exist\n")
-    (force-output)
 
     (ensure-input-derivations-exist (deduplicate-strings
                                      (map derivation-input-path

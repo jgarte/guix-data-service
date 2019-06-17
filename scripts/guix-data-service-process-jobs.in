@@ -27,6 +27,9 @@
              (guix-data-service database)
              (guix-data-service jobs))
 
+(setvbuf (current-output-port) 'line)
+(setvbuf (current-error-port) 'line)
+
 (with-postgresql-connection
  (lambda (conn)
    (simple-format #t "Ready to process jobs...\n")

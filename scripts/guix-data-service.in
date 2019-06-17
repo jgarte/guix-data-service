@@ -80,6 +80,9 @@
      (error "extraneous argument" arg))
    %default-options))
 
+(setvbuf (current-output-port) 'line)
+(setvbuf (current-error-port) 'line)
+
 (let ((opts (parse-options (cdr (program-arguments)))))
   (let ((repl-port (assoc-ref opts 'listen-repl)))
     (when repl-port
