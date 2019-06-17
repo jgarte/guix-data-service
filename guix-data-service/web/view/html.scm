@@ -40,6 +40,7 @@
             view-builds
             view-derivation
             view-store-item
+            view-jobs
             compare
             compare/derivations
             compare/packages
@@ -905,6 +906,65 @@
                       derivations-using-store-item))))))
              derivations
              derivations-using-store-item-list)))))
+
+(define (view-jobs jobs-and-events)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h1 "Jobs")))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (table
+         (@ (class "table"))
+         (thead
+          (tr
+           (th "Commit")
+           (th "Source")
+           (th "Events")))
+         (tdata
+          ,@(map (match-lambda
+                   ((id commit source git-repository-id created-at succeeded-at
+                        events)
+                    `(tr
+                      (@ (class
+                           ,(let ((event-names
+                                   (map (lambda (event)
+                                          (assoc-ref event "event"))
+                                        (vector->list events))))
+                              (cond
+                               ((member "success" event-names)
+                                "success")
+                               ((member "failure" event-names)
+                                "danger")
+                               ((member "start" event-names)
+                                "info")
+                               (else
+                                "")))))
+                      (td (a (@ (href
+                                 ,(string-append
+                                   "/revision/" commit)))
+                             (samp ,commit)))
+                      (td ,source)
+                      (td
+                       (dl
+                        (@ (class "dl-horizontal"))
+                        ,@(map
+                           (lambda (event)
+                             `((dt ,(assoc-ref event "event"))
+                               (dd ,(assoc-ref event "occurred_at"))))
+                           (cons
+                            `(("event" . "created")
+                              ("occurred_at" . ,created-at))
+                            (vector->list events))))))))
+                 jobs-and-events)))))))))
 
 (define (view-derivation derivation derivation-inputs derivation-outputs
                          builds)

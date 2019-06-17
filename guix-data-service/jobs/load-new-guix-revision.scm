@@ -2,6 +2,7 @@
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 match)
   #:use-module (ice-9 hash-table)
+  #:use-module (json)
   #:use-module (squee)
   #:use-module (guix monads)
   #:use-module (guix store)
@@ -23,6 +24,7 @@
   #:use-module (guix-data-service model derivation)
   #:export (process-next-load-new-guix-revision-job
             select-job-for-commit
+            select-jobs-and-events
             enqueue-load-new-guix-revision-job
             most-recent-n-load-new-guix-revision-jobs))
 
@@ -458,6 +460,36 @@ RETURNING id;")
            "FROM load_new_guix_revision_jobs WHERE commit = $1")
           (list commit))))
     result))
+
+(define (select-jobs-and-events conn)
+  (define query
+    "
+SELECT
+  load_new_guix_revision_jobs.id,
+  load_new_guix_revision_jobs.commit,
+  load_new_guix_revision_jobs.source,
+  load_new_guix_revision_jobs.git_repository_id,
+  load_new_guix_revision_jobs.created_at,
+  load_new_guix_revision_jobs.succeeded_at,
+  (
+    SELECT JSON_AGG(
+      json_build_object('event', event, 'occurred_at', occurred_at) ORDER BY occurred_at ASC
+    )
+    FROM load_new_guix_revision_job_events
+    WHERE job_id = load_new_guix_revision_jobs.id
+  )
+  FROM load_new_guix_revision_jobs
+ORDER BY load_new_guix_revision_jobs.id DESC")
+
+  (map
+   (match-lambda
+     ((id commit source git-repository-id created-at succeeded-at
+          events-json)
+      (list id commit source git-repository-id created-at succeeded-at
+            (if (string-null? events-json)
+                #()
+                (json-string->scm events-json)))))
+   (exec-query conn query)))
 
 (define (most-recent-n-load-new-guix-revision-jobs conn n)
   (let ((result

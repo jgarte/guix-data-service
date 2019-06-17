@@ -548,6 +548,11 @@
                                      derivations))
         #:extra-headers http-headers-for-unchanging-content)))))
 
+(define (render-jobs mime-types conn)
+  (render-html
+   #:sxml (view-jobs
+           (select-jobs-and-events conn))))
+
 (define (parse-commit conn)
   (lambda (s)
     (if (guix-commit-exists? conn s)
@@ -831,5 +836,8 @@
                                      base-revision-id
                                      target-commit
                                      target-revision-id)))))
+    ((GET "jobs")
+     (render-jobs mime-types
+                  conn))
     ((GET path ...)
      (not-found (request-uri request)))))
