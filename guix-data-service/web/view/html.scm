@@ -1420,9 +1420,11 @@
       (h1 "Unknown revision")
       (p "No known revision with commit "
          (strong (samp ,commit-hash))
-         ,(if job
-              " and it is not currently queued for processing"
-              " but it is queued for processing"))))))
+         ,(match job
+            (()
+             " and it is not currently queued for processing")
+            ((job)
+             " but it is queued for processing")))))))
 
 (define (compare-unknown-commit base-commit target-commit
                                 base-exists? target-exists?
