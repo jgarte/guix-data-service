@@ -263,7 +263,10 @@
                   (let* ((guix-package (@ (gnu packages package-management)
                                           guix))
                          (derivation (package-derivation store guix-package)))
-                    (build-derivations store (list derivation))
+                    (log-time
+                     "building the guix derivation"
+                     (lambda ()
+                       (build-derivations store (list derivation))))
 
                     (let ((new-store-path
                            (derivation->output-path derivation)))
@@ -274,7 +277,10 @@
   (let* ((nss-certs-package (@ (gnu packages certs)
                                nss-certs))
          (derivation (package-derivation store nss-certs-package)))
-    (build-derivations store (list derivation))
+    (log-time
+     "building the nss-certs derivation"
+     (lambda ()
+       (build-derivations store (list derivation))))
     (derivation->output-path derivation)))
 
 (define (channel->derivation-file-name store channel)
@@ -357,10 +363,16 @@
 
 (define (channel->manifest-store-item store channel)
   (let* ((manifest-store-item-derivation-file-name
-          (channel->derivation-file-name store channel))
+          (log-time
+           "computing the channel derivation"
+           (lambda ()
+             (channel->derivation-file-name store channel))))
          (derivation
           (read-derivation-from-file manifest-store-item-derivation-file-name)))
-    (build-derivations store (list derivation))
+    (log-time
+     "building the channel derivation"
+     (lambda ()
+       (build-derivations store (list derivation))))
     (derivation->output-path derivation)))
 
 (define (channel->guix-store-item store channel)
