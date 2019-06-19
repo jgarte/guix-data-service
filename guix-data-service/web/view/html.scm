@@ -1471,20 +1471,59 @@
       (h1 ,header-text)
       (p ,body)))))
 
-(define (unknown-revision commit-hash job)
+(define (unknown-revision commit-hash job git-repositories-and-branches)
   (layout
    #:body
    `(,(header)
      (div
       (@ (class "container"))
-      (h1 "Unknown revision")
-      (p "No known revision with commit "
-         (strong (samp ,commit-hash))
-         ,(match job
-            (()
-             " and it is not currently queued for processing")
-            ((job)
-             " but it is queued for processing")))))))
+      ,@(match job
+          (()
+           `((h1 "Unknown revision")
+             (p "No known revision with commit "
+                (strong (samp ,commit-hash)))))
+          ((jobs ...)
+           `((div
+              (@ (class "row"))
+              (div
+               (@ (class "col-md-12"))
+               (h1 (@ (style "white-space: nowrap;"))
+                   "Revision " (samp ,commit-hash))))
+             (div
+              (@ (class "row"))
+              (div
+               (@ (class "col-md-6"))
+               (h2 "Packages")
+               (strong (@ (class "text-center")
+                          (style "font-size: 2em; display: block;"))
+                       "Unknown")
+
+               ,@(if
+                  (null? git-repositories-and-branches)
+                  '()
+                  `((h3 "Git repositories")
+                    ,@(map
+                       (match-lambda
+                         (((label url cgit-url-base) . branches)
+                          `((h4 ,url)
+                            ,@(map
+                               (match-lambda
+                                 ((name datetime)
+                                  (if (string-null? cgit-url-base)
+                                      `(,name " at " ,datetime)
+                                      `(a (@ (href ,(string-append
+                                                     cgit-url-base
+                                                     "commit/?id="
+                                                     commit-hash)))
+                                          ,name " at " ,datetime))))
+                               branches))))
+                       git-repositories-and-branches))))
+                     (div
+                      (@ (class "col-md-6"))
+                      (h3 "Derivations")
+                      (strong (@ (class "text-center")
+                                 (style "font-size: 2em; display: block;"))
+                              "Unknown"))))))))))
 
 (define (compare-unknown-commit base-commit target-commit
                                 base-exists? target-exists?

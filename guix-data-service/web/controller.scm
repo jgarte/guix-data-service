@@ -151,7 +151,8 @@
       #:sxml (unknown-revision
               commit-hash
               (select-job-for-commit
-               conn commit-hash))))))
+               conn commit-hash)
+              (git-branches-with-repository-details-for-commit conn commit-hash))))))
 
 (define* (render-revision-packages mime-types
                                    conn
