@@ -274,25 +274,39 @@
                       (@ (class "table"))
                       (thead
                        (tr
+                        (th (@ (class "col-md-6")) "Branch")
                         (th (@ (class "col-md-6")) "Commit")))
                       (tbody
                        ,@(map
                           (match-lambda
-                            ((id job-id commit source branches)
+                            ((id job-id job-events commit source branches)
                              `(tr
-                               (td ,(if (string-null? id)
-                                        `(samp ,commit)
-                                        `(a (@ (href ,(string-append
-                                                       "/revision/" commit)))
-                                            (samp ,commit))))
                                (td
                                 ,@(map
                                    (match-lambda
                                      ((name date)
-                                      `(a (@ (href ,(string-append
-                                                     "/branch/" name)))
-                                          ,name)))
-                                   branches)))))
+                                      `(span
+                                        (a (@ (href ,(string-append
+                                                      "/branch/" name)))
+                                           ,name)
+                                        " at "
+                                        ,date)))
+                                   branches))
+                               (td (a (@ (href ,(string-append
+                                                 "/revision/" commit)))
+                                      (samp ,commit)
+                                      " "
+                                      ,(cond
+                                        ((not (string-null? id))
+                                         '(span
+                                           (@ (class "label label-success"))
+                                           "✓"))
+                                        ((member "failure" job-events)
+                                         '(span (@ (class "label label-danger"))
+                                                "Failed to import data"))
+                                        (else
+                                         '(span (@ (class "label label-default"))
+                                                "No information yet"))))))))
                           revisions))))))))
          git-repositories-and-revisions)))))
 

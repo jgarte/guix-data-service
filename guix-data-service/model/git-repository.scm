@@ -1,5 +1,6 @@
 (define-module (guix-data-service model git-repository)
   #:use-module (ice-9 match)
+  #:use-module (json)
   #:use-module (squee)
   #:export (all-git-repositories
             git-repository-id->url
@@ -44,22 +45,36 @@
 (define (guix-revisions-and-jobs-for-git-repository conn git-repository-id)
   (define query
     "
-SELECT NULL AS id, load_new_guix_revision_jobs.id AS job_id, commit, source
+SELECT NULL AS id, load_new_guix_revision_jobs.id AS job_id,
+  (
+    SELECT json_agg(event)
+    FROM load_new_guix_revision_job_events
+    WHERE load_new_guix_revision_jobs.id = load_new_guix_revision_job_events.job_id
+  ) AS job_events, commit, source
 FROM load_new_guix_revision_jobs
 WHERE git_repository_id = $1 AND succeeded_at IS NULL AND NOT EXISTS (
   SELECT 1 FROM load_new_guix_revision_job_events
   WHERE event = 'failure' AND job_id = load_new_guix_revision_jobs.id
 )
-UNION
-SELECT id, NULL, commit, NULL
+UNION ALL
+SELECT id, NULL, NULL, commit, NULL
 FROM guix_revisions
 WHERE git_repository_id = $1
 ORDER BY 1 DESC NULLS FIRST, 2 DESC LIMIT 10;")
 
-  (exec-query
-   conn
-   query
-   (list git-repository-id)))
+  (map
+   (match-lambda
+     ((id job_id job_events commit source)
+      (list id
+            job_id
+            (if (string=? "" job_events)
+                '()
+                (vector->list (json-string->scm job_events)))
+            commit source)))
+   (exec-query
+    conn
+    query
+    (list git-repository-id))))
 
 (define (git-repositories-containing-commit conn commit)
   (define query

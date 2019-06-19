@@ -627,9 +627,10 @@
                   git-repository-details
                   (map
                    (match-lambda
-                     ((id job-id commit source)
+                     ((id job-id job-events commit source)
                       (list id
                             job-id
+                            job-events
                             commit
                             source
                             (git-branches-for-commit conn commit))))
