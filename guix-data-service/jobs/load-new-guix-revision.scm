@@ -519,7 +519,7 @@ ORDER BY load_new_guix_revision_jobs.id DESC")
     "FROM load_new_guix_revision_job_events "
     ;; Skip jobs that have failed, to avoid trying them over and over again
     "WHERE job_id = load_new_guix_revision_jobs.id AND event = 'failure'"
-    ") ORDER BY id ASC LIMIT 1")))
+    ") ORDER BY id DESC LIMIT 1")))
 
 (define (record-job-event conn job-id event)
   (exec-query
