@@ -666,24 +666,34 @@
          (thead
           (tr
            (th (@ (class "col-md-3")) "Name")
-           (th (@ (class "col-md-3")) "Date")
-           (th (@ (class "col-md-3")) "Commit")))
+           (th (@ (class "col-md-2")) "Date")
+           (th (@ (class "col-md-7")) "Commit")))
          (tbody
           ,@(map
              (match-lambda
-               ((name commit date revision-exists)
+               ((name commit date revision-exists? job-events)
                 `(tr
                   (td
                    (a (@ (href ,(string-append "/branch/" name)))
                       ,name))
                   (td ,date)
-                  (td ,(if (string=? revision-exists "t")
+                  (td ,(if (string=? commit "NULL")
+                           '(samp "branch deleted")
                            `(a (@ (href ,(string-append
                                           "/revision/" commit)))
-                               (samp ,commit))
-                           `(samp ,(if (string=? commit "NULL")
-                                       "branch deleted"
-                                       commit)))))))
+                               (samp ,commit)
+                               " "
+                               ,(cond
+                                 (revision-exists?
+                                  '(span
+                                    (@ (class "label label-success"))
+                                    "✓"))
+                                 ((member "failure" job-events)
+                                  '(span (@ (class "label label-danger"))
+                                         "Failed to import data"))
+                                 (else
+                                  '(span (@ (class "label label-default"))
+                                         "No information yet")))))))))
              branches-with-most-recent-commits)))))))))
 
 (define (view-branch branch-name query-parameters
@@ -744,16 +754,26 @@
          (tbody
           ,@(map
              (match-lambda
-               ((commit date revision-exists)
+               ((commit date revision-exists? job-events)
                 `(tr
                   (td ,date)
-                  (td ,(if (string=? revision-exists "t")
+                  (td ,(if (string=? commit "NULL")
+                           '(samp "branch deleted")
                            `(a (@ (href ,(string-append
                                           "/revision/" commit)))
-                               (samp ,commit))
-                           `(samp ,(if (string=? commit "NULL")
-                                       "branch deleted"
-                                       commit)))))))
+                               (samp ,commit)
+                               " "
+                               ,(cond
+                                 (revision-exists?
+                                  '(span
+                                    (@ (class "label label-success"))
+                                    "✓"))
+                                 ((member "failure" job-events)
+                                  '(span (@ (class "label label-danger"))
+                                         "Failed to import data"))
+                                 (else
+                                  '(span (@ (class "label label-default"))
+                                         "No information yet")))))))))
              branch-commits)))))))))
 
 (define (view-builds stats builds)

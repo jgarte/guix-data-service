@@ -1,5 +1,6 @@
 (define-module (guix-data-service model git-branch)
   #:use-module (ice-9 match)
+  #:use-module (json)
   #:use-module (squee)
   #:use-module (srfi srfi-19)
   #:use-module (guix-data-service model utils)
@@ -55,7 +56,15 @@ WHERE git_branches.commit = $1")
   (define query
     (string-append
      "SELECT git_branches.commit, datetime, "
-     "(guix_revisions.id IS NOT NULL) as guix_revision_exists "
+     "(guix_revisions.id IS NOT NULL) as guix_revision_exists, "
+     "(
+        SELECT json_agg(event)
+        FROM load_new_guix_revision_job_events
+        INNER JOIN load_new_guix_revision_jobs ON
+          load_new_guix_revision_jobs.id = load_new_guix_revision_job_events.job_id
+        WHERE load_new_guix_revision_jobs.commit = git_branches.commit AND
+              git_branches.git_repository_id = load_new_guix_revision_jobs.git_repository_id
+      ) AS job_events "
      "FROM git_branches "
      "LEFT OUTER JOIN guix_revisions ON git_branches.commit = guix_revisions.commit "
      "WHERE name = $1 "
@@ -72,10 +81,19 @@ WHERE git_branches.commit = $1")
          (simple-format #f " LIMIT ~A;" limit)
          "")))
 
-  (exec-query
-   conn
-   query
-   (list branch-name)))
+  (map
+   (match-lambda
+     ((commit datetime guix_revision_exists job_events)
+      (list commit
+            datetime
+            (string=? guix_revision_exists "t")
+            (if (string=? job_events "")
+                '()
+                (vector->list (json-string->scm job_events))))))
+   (exec-query
+    conn
+    query
+    (list branch-name))))
 
 (define* (latest-processed-commit-for-branch conn branch-name)
   (define query
@@ -99,14 +117,34 @@ WHERE git_branches.commit = $1")
 (define (all-branches-with-most-recent-commit conn)
   (define query
     (string-append
-     "SELECT DISTINCT ON (name) name, git_branches.commit, "
-     "datetime, (guix_revisions.id IS NOT NULL) guix_revision_exists "
-     "FROM git_branches "
-     "LEFT OUTER JOIN guix_revisions ON git_branches.commit = guix_revisions.commit "
-     "WHERE git_branches.commit IS NOT NULL "
-     "ORDER BY name, datetime DESC;"))
+     "
+SELECT DISTINCT ON (name)
+  name, git_branches.commit,
+  datetime, (guix_revisions.id IS NOT NULL) guix_revision_exists,
+  (
+    SELECT json_agg(event)
+    FROM load_new_guix_revision_job_events
+    INNER JOIN load_new_guix_revision_jobs ON
+      load_new_guix_revision_jobs.id = load_new_guix_revision_job_events.job_id
+    WHERE load_new_guix_revision_jobs.commit = git_branches.commit AND
+          git_branches.git_repository_id = load_new_guix_revision_jobs.git_repository_id
+  ) AS job_events
+FROM git_branches
+LEFT OUTER JOIN guix_revisions ON git_branches.commit = guix_revisions.commit
+WHERE git_branches.commit IS NOT NULL
+ORDER BY name, datetime DESC;"))
 
-  (exec-query
-   conn
-   query))
+  (map
+   (match-lambda
+     ((name commit datetime guix_revision_exists job_events)
+      (list name
+            commit
+            datetime
+            (string=? guix_revision_exists "t")
+            (if (string=? job_events "")
+                '()
+                (vector->list (json-string->scm job_events))))))
+   (exec-query
+    conn
+    query)))
 
