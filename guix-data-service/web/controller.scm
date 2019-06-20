@@ -358,10 +358,7 @@
                                                     target-packages-vhash))
            (version-changes
             (package-data-version-changes base-packages-vhash
-                                          target-packages-vhash))
-           (derivation-changes
-            (package-data-derivation-changes base-packages-vhash
-                                             target-packages-vhash)))
+                                          target-packages-vhash)))
       (case (most-appropriate-mime-type
              '(application/json text/html)
              mime-types)
@@ -369,8 +366,7 @@
          (render-json
           `((new-packages . ,(list->vector new-packages))
             (removed-packages . ,(list->vector removed-packages))
-            (version-changes . ,version-changes)
-            (derivation-changes . ,derivation-changes))
+            (version-changes . ,(list->vector version-changes)))
           #:extra-headers http-headers-for-unchanging-content))
         (else
          (render-html
@@ -378,8 +374,7 @@
                           target-commit
                           new-packages
                           removed-packages
-                          version-changes
-                          derivation-changes)
+                          version-changes)
           #:extra-headers http-headers-for-unchanging-content))))))
 
 (define (render-compare/derivations mime-types
@@ -409,7 +404,6 @@
                   query-parameters
                   (valid-systems conn)
                   build-status-strings
-                  '()
                   '()))))
 
       (let ((base-commit    (assq-ref query-parameters 'base_commit))
@@ -423,33 +417,15 @@
                (package-differences-data conn
                                          (commit->revision-id conn base-commit)
                                          (commit->revision-id conn target-commit)))))
-          (let ((base-derivations
-                 (package-data-vhash->derivations-and-build-status
-                  conn
-                  base-packages-vhash
-                  systems
-                  targets
-                  build-statuses))
-                (target-derivations
-                 (package-data-vhash->derivations-and-build-status
-                  conn
-                  target-packages-vhash
-                  systems
-                  targets
-                  build-statuses)))
+          (let ((derivation-changes
+                 (package-data-derivation-changes base-packages-vhash
+                                                  target-packages-vhash)))
             (case (most-appropriate-mime-type
                    '(application/json text/html)
                    mime-types)
               ((application/json)
                (render-json
-                `((base . ((commit . ,base-commit)
-                           (derivations . ,(list->vector
-                                            (derivations->alist
-                                             base-derivations)))))
-                  (target . ((commit . ,target-commit)
-                             (derivations . ,(list->vector
-                                              (derivations->alist
-                                               target-derivations))))))
+                derivation-changes
                 #:extra-headers http-headers-for-unchanging-content))
               (else
                (render-html
@@ -457,8 +433,7 @@
                         query-parameters
                         (valid-systems conn)
                         build-status-strings
-                        base-derivations
-                        target-derivations)
+                        derivation-changes)
                 #:extra-headers http-headers-for-unchanging-content))))))))
 
 (define (render-compare/packages mime-types

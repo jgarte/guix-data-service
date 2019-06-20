@@ -1095,8 +1095,7 @@
                  target-commit
                  new-packages
                  removed-packages
-                 version-changes
-                 derivation-changes)
+                 version-changes)
   (define query-params
     (string-append "?base_commit=" base-commit
                    "&target_commit=" target-commit))
@@ -1210,7 +1209,75 @@
                                                  " (old)"
                                                  " (new)"))))
                                     versions))))))
-                   version-changes))))))
+                   version-changes))))))))))
+
+(define (compare/derivations query-parameters
+                             valid-systems
+                             valid-build-statuses
+                             derivation-changes)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (h1 ,@(let ((base-commit (assq-ref query-parameters 'base_commit))
+                   (target-commit (assq-ref query-parameters 'target_commit)))
+               (if (every string? (list base-commit target-commit))
+                   `("Comparing "
+                     (samp ,(string-take base-commit 8) "…")
+                     " and "
+                     (samp ,(string-take target-commit 8) "…"))
+                   '("Comparing derivations")))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (div
+         (@ (class "well"))
+         (form
+          (@ (method "get")
+             (action "")
+             (class "form-horizontal"))
+          ,(form-horizontal-control
+            "Base commit" query-parameters
+            #:required? #t
+            #:help-text "The commit to use as the basis for the comparison."
+            #:font-family "monospace")
+          ,(form-horizontal-control
+            "Target commit" query-parameters
+            #:required? #t
+            #:help-text "The commit to compare against the base commit."
+            #:font-family "monospace")
+          ,(form-horizontal-control
+            "System" query-parameters
+            #:options valid-systems
+            #:help-text "Only include derivations for this system."
+            #:font-family "monospace")
+          ,(form-horizontal-control
+            "Target" query-parameters
+            #:options valid-systems
+            #:help-text "Only include derivations that are build for this system."
+            #:font-family "monospace")
+          ,(form-horizontal-control
+            "Build status" query-parameters
+            #:options valid-build-statuses
+            #:help-text "Only include derivations which have this build status.")
+          (div (@ (class "form-group form-group-lg"))
+               (div (@ (class "col-sm-offset-2 col-sm-10"))
+                    (button (@ (type "submit")
+                               (class "btn btn-lg btn-primary"))
+                            "Update results")))
+          (a (@ (class "btn btn-default btn-lg pull-right")
+                (href ,(let ((query-parameter-string
+                              (query-parameters->string query-parameters)))
+                         (string-append
+                          "/compare/derivations.json"
+                          (if (string-null? query-parameter-string)
+                              ""
+                              (string-append "?" query-parameter-string))))))
+             "View JSON")))))
       (div
        (@ (class "row"))
        (div
@@ -1291,133 +1358,6 @@
                                 `(tr ,data-row))
                               (cdr data-columns))))))
                 (vector->list derivation-changes)))))))))))
-
-(define (compare/derivations query-parameters
-                             valid-systems
-                             valid-build-statuses
-                             base-derivations
-                             target-derivations)
-  (layout
-   #:body
-   `(,(header)
-     (div
-      (@ (class "container"))
-      (div
-       (@ (class "row"))
-       (h1 ,@(let ((base-commit (assq-ref query-parameters 'base_commit))
-                   (target-commit (assq-ref query-parameters 'target_commit)))
-               (if (every string? (list base-commit target-commit))
-                   `("Comparing "
-                     (samp ,(string-take base-commit 8) "…")
-                     " and "
-                     (samp ,(string-take target-commit 8) "…"))
-                   '("Comparing derivations")))))
-      (div
-       (@ (class "row"))
-       (div
-        (@ (class "col-md-12"))
-        (div
-         (@ (class "well"))
-         (form
-          (@ (method "get")
-             (action "")
-             (class "form-horizontal"))
-          ,(form-horizontal-control
-            "Base commit" query-parameters
-            #:required? #t
-            #:help-text "The commit to use as the basis for the comparison."
-            #:font-family "monospace")
-          ,(form-horizontal-control
-            "Target commit" query-parameters
-            #:required? #t
-            #:help-text "The commit to compare against the base commit."
-            #:font-family "monospace")
-          ,(form-horizontal-control
-            "System" query-parameters
-            #:options valid-systems
-            #:help-text "Only include derivations for this system."
-            #:font-family "monospace")
-          ,(form-horizontal-control
-            "Target" query-parameters
-            #:options valid-systems
-            #:help-text "Only include derivations that are build for this system."
-            #:font-family "monospace")
-          ,(form-horizontal-control
-            "Build status" query-parameters
-            #:options valid-build-statuses
-            #:help-text "Only include derivations which have this build status.")
-          (div (@ (class "form-group form-group-lg"))
-               (div (@ (class "col-sm-offset-2 col-sm-10"))
-                    (button (@ (type "submit")
-                               (class "btn btn-lg btn-primary"))
-                            "Update results")))
-          (a (@ (class "btn btn-default btn-lg pull-right")
-                (href ,(let ((query-parameter-string
-                              (query-parameters->string query-parameters)))
-                         (string-append
-                          "/compare/derivations.json"
-                          (if (string-null? query-parameter-string)
-                              ""
-                              (string-append "?" query-parameter-string))))))
-             "View JSON")))))
-      (div
-       (@ (class "row"))
-       (div
-        (@ (class "col-sm-12"))
-        (h3 "Base"
-            ,@(let ((base-commit (assq-ref query-parameters 'base_commit)))
-                (if (string? base-commit)
-                    `(" (" (samp ,base-commit) ")")
-                    '())))
-        (p "Derivations found only in the base revision.")
-        (table
-         (@ (class "table"))
-         (thead
-          (tr
-           (th (@ (class "col-md-6")) "File Name")
-           (th (@ (class "col-md-2")) "System")
-           (th (@ (class "col-md-2")) "Target")
-           (th (@ (class "col-md-4")) "Build status")))
-         (tbody
-          ,@(map
-             (match-lambda
-               ((file-name system target build-status)
-                `(tr
-                  (td (a (@ (href ,file-name))
-                         ,(display-store-item-short file-name)))
-                  (td (samp ,system))
-                  (td (samp ,target))
-                  (td ,(build-status-span build-status)))))
-             base-derivations)))))
-      (div
-       (@ (class "row"))
-       (div
-        (@ (class "col-sm-12"))
-        (h3 "Target"
-            ,@(let ((target-commit (assq-ref query-parameters 'target_commit)))
-                (if (string? target-commit)
-                    `(" (" (samp ,target-commit) ")")
-                    '())))
-        (p "Derivations found only in the target revision.")
-        (table
-         (@ (class "table"))
-         (thead
-          (tr
-           (th (@ (class "col-md-8")) "File Name")
-           (th (@ (class "col-md-2")) "System")
-           (th (@ (class "col-md-2")) "Target")
-           (th (@ (class "col-md-4")) "Build status")))
-         (tbody
-          ,@(map
-             (match-lambda
-               ((file-name system target build-status)
-                `(tr
-                  (td (a (@ (href ,file-name))
-                         ,(display-store-item-short file-name)))
-                  (td (samp ,system))
-                  (td (samp ,target))
-                  (td ,(build-status-span build-status)))))
-             target-derivations)))))))))
 
 (define (compare/packages base-commit
                           target-commit
