@@ -228,45 +228,6 @@
        (div
         (@ (class "col-sm-12"))
         (h1 "Guix Data Service")))
-      (div
-       (@ (class "row"))
-       (div
-        (@ (class "col-sm-12"))
-        (form
-         (@ (id "compare")
-            (action "/compare"))
-         (div
-          (@ (class "col-md-6"))
-          (div
-           (@ (class "form-group form-group-lg"))
-           (label (@ (class "control-label")
-                     (style "font-size: 18px;")
-                     (for "base_commit"))
-                  "Base commit")
-           (input (@ (type "text")
-                     (class "form-control")
-                     (style "font-family: monospace;")
-                     (id   "base_commit")
-                     (name "base_commit")
-                     (placeholder "base commit"))))
-          (div
-           (@ (class "form-group form-group-lg"))
-           (label (@ (class "control-label")
-                     (style "font-size: 18px;")
-                     (for "target_commit"))
-                  "Target commit")
-           (input (@ (type "text")
-                     (class "form-control")
-                     (style "font-family: monospace;")
-                     (id   "target_commit")
-                     (name "target_commit")
-                     (placeholder "target commit")))))
-         (div
-          (@ (class "col-md-6"))
-          (button
-           (@ (type "submit")
-              (class "btn btn-lg btn-primary"))
-           "Compare")))))
       ,@(map
          (match-lambda
            (((id label url) . revisions)
