@@ -102,6 +102,7 @@
                                   help-text
                                   required?
                                   options
+                                  font-family
                                   (type "text"))
   (define (value->text value)
     (match value
@@ -133,7 +134,10 @@
        (@ (class "col-sm-9"))
        ,(if options
             `(select (@ (class "form-control")
-                        (style "font-family: monospace;")
+                        (style ,(if font-family
+                                    (string-append
+                                     "font-family: " font-family ";")
+                                    ""))
                         (multiple #t)
                         (id ,input-id)
                         ,@(if show-help-span?
@@ -149,22 +153,25 @@
                           (_ '()))))
 
                    (map (match-lambda
-                          ((option-value)
-                           `(option
-                             (@ ,@(if (member option-value selected-options)
-                                      '((selected ""))
-                                      '()))
-                             ,(value->text option-value)))
                           ((option-label . option-value)
                            `(option
                              (@ ,@(if (member option-value selected-options)
                                       '((selected ""))
                                       '())
                                 (value ,option-value))
-                             ,(value->text option-label))))
+                             ,(value->text option-label)))
+                          (option-value
+                           `(option
+                             (@ ,@(if (member option-value selected-options)
+                                      '((selected ""))
+                                      '()))
+                             ,(value->text option-value))))
                         options)))
             `(input (@ (class "form-control")
-                       (style "font-family: monospace;")
+                       (style ,(if font-family
+                                   (string-append
+                                    "font-family: " font-family ";")
+                                   ""))
                        (id ,input-id)
                        (type ,type)
                        ,@(if required?
@@ -1318,19 +1325,23 @@
           ,(form-horizontal-control
             "Base commit" query-parameters
             #:required? #t
-            #:help-text "The commit to use as the basis for the comparison.")
+            #:help-text "The commit to use as the basis for the comparison."
+            #:font-family "monospace")
           ,(form-horizontal-control
             "Target commit" query-parameters
             #:required? #t
-            #:help-text "The commit to compare against the base commit.")
+            #:help-text "The commit to compare against the base commit."
+            #:font-family "monospace")
           ,(form-horizontal-control
             "System" query-parameters
             #:options valid-systems
-            #:help-text "Only include derivations for this system.")
+            #:help-text "Only include derivations for this system."
+            #:font-family "monospace")
           ,(form-horizontal-control
             "Target" query-parameters
             #:options valid-systems
-            #:help-text "Only include derivations that are build for this system.")
+            #:help-text "Only include derivations that are build for this system."
+            #:font-family "monospace")
           ,(form-horizontal-control
             "Build status" query-parameters
             #:options valid-build-statuses
