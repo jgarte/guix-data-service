@@ -262,19 +262,19 @@
                                    branches))
                                (td (a (@ (href ,(string-append
                                                  "/revision/" commit)))
-                                      (samp ,commit)
-                                      " "
-                                      ,(cond
-                                        ((not (string-null? id))
-                                         '(span
-                                           (@ (class "label label-success"))
-                                           "✓"))
-                                        ((member "failure" job-events)
-                                         '(span (@ (class "label label-danger"))
-                                                "Failed to import data"))
-                                        (else
-                                         '(span (@ (class "label label-default"))
-                                                "No information yet"))))))))
+                                      (samp ,commit))
+                                   " "
+                                   ,(cond
+                                     ((not (string-null? id))
+                                      '(span
+                                        (@ (class "label label-success"))
+                                        "✓"))
+                                     ((member "failure" job-events)
+                                      '(span (@ (class "label label-danger"))
+                                             "Failed to import data"))
+                                     (else
+                                      '(span (@ (class "label label-default"))
+                                             "No information yet")))))))
                           revisions))))))))
          git-repositories-and-revisions)))))
 
@@ -659,23 +659,23 @@
                    (a (@ (href ,(string-append "/branch/" name)))
                       ,name))
                   (td ,date)
-                  (td ,(if (string=? commit "NULL")
-                           '(samp "branch deleted")
-                           `(a (@ (href ,(string-append
-                                          "/revision/" commit)))
-                               (samp ,commit)
-                               " "
-                               ,(cond
-                                 (revision-exists?
-                                  '(span
-                                    (@ (class "label label-success"))
-                                    "✓"))
-                                 ((member "failure" job-events)
-                                  '(span (@ (class "label label-danger"))
-                                         "Failed to import data"))
-                                 (else
-                                  '(span (@ (class "label label-default"))
-                                         "No information yet")))))))))
+                  (td ,@(if (string=? commit "NULL")
+                            '((samp "branch deleted"))
+                            `((a (@ (href ,(string-append
+                                            "/revision/" commit)))
+                                 (samp ,commit))
+                              " "
+                              ,(cond
+                                (revision-exists?
+                                 '(span
+                                   (@ (class "label label-success"))
+                                   "✓"))
+                                ((member "failure" job-events)
+                                 '(span (@ (class "label label-danger"))
+                                        "Failed to import data"))
+                                (else
+                                 '(span (@ (class "label label-default"))
+                                        "No information yet")))))))))
              branches-with-most-recent-commits)))))))))
 
 (define (view-branch branch-name query-parameters
@@ -739,23 +739,23 @@
                ((commit date revision-exists? job-events)
                 `(tr
                   (td ,date)
-                  (td ,(if (string=? commit "NULL")
-                           '(samp "branch deleted")
-                           `(a (@ (href ,(string-append
-                                          "/revision/" commit)))
-                               (samp ,commit)
-                               " "
-                               ,(cond
-                                 (revision-exists?
-                                  '(span
-                                    (@ (class "label label-success"))
-                                    "✓"))
-                                 ((member "failure" job-events)
-                                  '(span (@ (class "label label-danger"))
-                                         "Failed to import data"))
-                                 (else
-                                  '(span (@ (class "label label-default"))
-                                         "No information yet")))))))))
+                  (td ,@(if (string=? commit "NULL")
+                            '((samp "branch deleted"))
+                            `((a (@ (href ,(string-append
+                                            "/revision/" commit)))
+                                 (samp ,commit))
+                              " "
+                              ,(cond
+                                (revision-exists?
+                                 '(span
+                                   (@ (class "label label-success"))
+                                   "✓"))
+                                ((member "failure" job-events)
+                                 '(span (@ (class "label label-danger"))
+                                        "Failed to import data"))
+                                (else
+                                 '(span (@ (class "label label-default"))
+                                        "No information yet")))))))))
              branch-commits)))))))))
 
 (define (view-builds stats builds)
