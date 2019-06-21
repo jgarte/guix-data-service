@@ -196,54 +196,62 @@
                              (lambda ()
                                (deduplicate-inferior-packages
                                 (inferior-packages inf)))))
-         (package-license-set-ids
-          (log-time "fetching inferior package license metadata"
-                    (lambda ()
-                      (inferior-packages->license-set-ids conn inf
-                                                          packages))))
-         (packages-metadata-ids
-          (log-time "fetching inferior package metadata"
-                    (lambda ()
-                      (inferior-packages->package-metadata-ids
-                       conn packages package-license-set-ids))))
-         (package-ids
-          (log-time "getting package-ids"
-                    (lambda ()
-                      (inferior-packages->package-ids
-                       conn packages packages-metadata-ids))))
-         (inferior-package-id->package-id-hash-table
-          (alist->hashq-table
-           (map (lambda (package package-id)
-                  (cons (inferior-package-id package)
-                        package-id))
-                packages
-                package-ids)))
          (inferior-data-4-tuples
           (log-time "getting inferior derivations"
                     (lambda ()
                       (all-inferior-package-derivations store inf packages)))))
 
-    (simple-format
-     #t "debug: finished loading information from inferior\n")
-    (close-inferior inf)
+    (define loading-inferior-data
+      (record-start-time "critical region fetching and loading inferior data"))
 
-    (let ((derivation-ids
-           (derivation-file-names->derivation-ids
-            conn
-            (map fourth inferior-data-4-tuples)))
-          (flat-package-ids-systems-and-targets
-           (map
-            (match-lambda
-              ((inferior-package-id system target derivation-file-name)
-               (list (hashq-ref inferior-package-id->package-id-hash-table
-                                inferior-package-id)
-                     system
-                     target)))
-            inferior-data-4-tuples)))
+    (let* ((package-license-set-ids
+            (log-time "fetching inferior package license metadata"
+                      (lambda ()
+                        (inferior-packages->license-set-ids conn inf
+                                                            packages))))
+           (packages-metadata-ids
+            (log-time "fetching inferior package metadata"
+                      (lambda ()
+                        (inferior-packages->package-metadata-ids
+                         conn packages package-license-set-ids))))
+           (package-ids
+            (log-time "getting package-ids"
+                      (lambda ()
+                        (inferior-packages->package-ids
+                         conn packages packages-metadata-ids)))))
 
-      (insert-package-derivations conn
-                                  flat-package-ids-systems-and-targets
-                                  derivation-ids))))
+      (simple-format
+       #t "debug: finished loading information from inferior\n")
+      (close-inferior inf)
+
+      (let* ((derivation-ids
+              (derivation-file-names->derivation-ids
+               conn
+               (map fourth inferior-data-4-tuples)))
+             (inferior-package-id->package-id-hash-table
+              (alist->hashq-table
+               (map (lambda (package package-id)
+                      (cons (inferior-package-id package)
+                            package-id))
+                    packages
+                    package-ids)))
+             (flat-package-ids-systems-and-targets
+              (map
+               (match-lambda
+                 ((inferior-package-id system target derivation-file-name)
+                  (list (hashq-ref inferior-package-id->package-id-hash-table
+                                   inferior-package-id)
+                        system
+                        target)))
+               inferior-data-4-tuples))
+             (package-derivation-ids
+              (insert-package-derivations conn
+                                          flat-package-ids-systems-and-targets
+                                          derivation-ids)))
+
+        (record-end-time loading-inferior-data)
+
+        package-derivation-ids))))
 
 (define (inferior-package-transitive-supported-systems package)
   ((@@ (guix inferior) inferior-package-field)
