@@ -551,7 +551,10 @@ ORDER BY load_new_guix_revision_jobs.id DESC")
                       id commit source)
        (exec-query conn "BEGIN")
        (if (or (guix-revision-exists? conn git-repository-id commit)
-               (eq? (load-new-guix-revision conn git-repository-id commit)
+               (eq? (log-time
+                     (string-append "loading revision " commit)
+                     (lambda ()
+                       (load-new-guix-revision conn git-repository-id commit)))
                     #t))
            (begin
              (record-job-succeeded conn id)
