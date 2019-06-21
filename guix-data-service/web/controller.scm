@@ -529,6 +529,12 @@
    #:sxml (view-jobs
            (select-jobs-and-events conn))))
 
+(define (render-job mime-types conn job-id)
+  (render-html
+   #:sxml (view-job
+           job-id
+           (log-for-job conn job-id))))
+
 (define (parse-commit conn)
   (lambda (s)
     (if (guix-commit-exists? conn s)
@@ -816,5 +822,9 @@
     ((GET "jobs")
      (render-jobs mime-types
                   conn))
+    ((GET "job" job-id)
+     (render-job mime-types
+                 conn
+                 job-id))
     ((GET path ...)
      (not-found (request-uri request)))))

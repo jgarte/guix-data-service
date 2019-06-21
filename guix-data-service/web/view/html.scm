@@ -41,6 +41,7 @@
             view-derivation
             view-store-item
             view-jobs
+            view-job
             compare
             compare/derivations
             compare/packages
@@ -930,11 +931,12 @@
           (tr
            (th "Commit")
            (th "Source")
-           (th "Events")))
+           (th "Events")
+           (th "")))
          (tdata
           ,@(map (match-lambda
                    ((id commit source git-repository-id created-at succeeded-at
-                        events)
+                        events log-exists?)
                     `(tr
                       (@ (class
                            ,(let ((event-names
@@ -965,8 +967,29 @@
                            (cons
                             `(("event" . "created")
                               ("occurred_at" . ,created-at))
-                            (vector->list events))))))))
+                            (vector->list events)))))
+                      (td
+                       ,@(if log-exists?
+                             `((a (@ (href ,(string-append "/job/" id)))
+                                  "View log"))
+                             '())))))
                  jobs-and-events)))))))))
+
+(define (view-job job-id log)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h1 "Job " ,job-id)))
+      (div
+       (@ (class "row"))
+       (div
+        (pre ,log)))))))
 
 (define (view-derivation derivation derivation-inputs derivation-outputs
                          builds)
