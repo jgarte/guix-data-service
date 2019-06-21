@@ -40,6 +40,18 @@
                    action time-taken)
     result))
 
+(define (record-start-time action)
+  (simple-format #t "debug: Starting ~A\n" action)
+  (cons action
+        (current-time)))
+
+(define record-end-time
+  (match-lambda
+    ((action . start-time)
+     (let ((time-taken (- (current-time) start-time)))
+       (simple-format #t "debug: Finished ~A, took ~A seconds\n"
+                      action time-taken)))))
+
 (define (all-inferior-package-derivations store inf packages)
   (define inferior-%supported-systems
     (inferior-eval '(@ (guix packages) %supported-systems) inf))
