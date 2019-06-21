@@ -388,6 +388,8 @@
   (simple-format
    #t "debug: extract-information-from: ~A\n" store-path)
   (with-store store
+    (set-build-options store
+                       #:fallback? #t)
     (let ((inf (if (defined? 'open-inferior/container)
                    (open-inferior/container store store-path
                                             #:extra-shared-directories
@@ -426,6 +428,8 @@
 (define (store-item-for-git-repository-id-and-commit
          conn git-repository-id commit)
   (with-store store
+    (set-build-options store
+                       #:fallback? #t)
     (channel->guix-store-item
      store
      (channel (name 'guix)
