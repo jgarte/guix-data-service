@@ -14,6 +14,7 @@
   #:use-module (guix derivations)
   #:use-module (guix build utils)
   #:use-module (guix-data-service config)
+  #:use-module (guix-data-service database)
   #:use-module (guix-data-service model package)
   #:use-module (guix-data-service model git-repository)
   #:use-module (guix-data-service model guix-revision)
@@ -22,11 +23,84 @@
   #:use-module (guix-data-service model license-set)
   #:use-module (guix-data-service model package-metadata)
   #:use-module (guix-data-service model derivation)
-  #:export (process-next-load-new-guix-revision-job
+  #:export (log-for-job
+            process-next-load-new-guix-revision-job
             select-job-for-commit
             select-jobs-and-events
             enqueue-load-new-guix-revision-job
             most-recent-n-load-new-guix-revision-jobs))
+
+(define (log-port job-id conn)
+  (define output-port
+    (current-output-port))
+
+  (define id 0)
+
+  (define (insert job_id s)
+    (exec-query
+     conn
+     (string-append
+      "INSERT INTO load_new_guix_revision_job_log_parts (id, job_id, contents) "
+      "VALUES ($1, $2, $3)")
+     (list (number->string id) job_id s)))
+
+  (define (log-string s)
+    (set! id (+ 1 id)) ; increment id
+    (insert job-id s)
+    (display s output-port))
+
+  ;; TODO, this is useful when re-running jobs, but I'm not sure that should
+  ;; be a thing, jobs should probably be only attempted once.
+  (exec-query
+   conn
+   "DELETE FROM load_new_guix_revision_job_log_parts WHERE job_id = $1"
+   (list job-id))
+
+  (make-soft-port
+   (vector (lambda (c)
+             (log-string (string c)))
+           log-string
+           (lambda ()
+             (force-output output-port))
+           #f ; fetch one character
+           (lambda ()
+             (close-port output-port))
+           #f) ; number of characters that can be read
+   "w"))
+
+(define (log-for-job conn job-id)
+  (define log-query
+    "SELECT contents FROM load_new_guix_revision_job_logs WHERE job_id = $1")
+
+  (define parts-query
+    (string-append
+     "SELECT STRING_AGG(contents, '' ORDER BY id ASC) "
+     "FROM load_new_guix_revision_job_log_parts WHERE job_id = $1"))
+
+  (match (exec-query conn log-query (list job-id))
+    (((contents))
+     contents)
+    (()
+     (match (exec-query conn parts-query (list job-id))
+       (((contents))
+        contents)))))
+
+(define (combine-log-parts! conn job-id)
+  (with-postgresql-transaction
+   conn
+   (lambda (conn)
+     (exec-query
+      conn
+      (string-append
+       "INSERT INTO load_new_guix_revision_job_logs (job_id, contents) "
+       "SELECT job_id, STRING_AGG(contents, '' ORDER BY id ASC) FROM "
+       "load_new_guix_revision_job_log_parts WHERE job_id = $1 "
+       "GROUP BY job_id")
+      (list job-id))
+     (exec-query
+      conn
+      "DELETE FROM load_new_guix_revision_job_log_parts WHERE job_id = $1"
+      (list job-id)))))
 
 (define inferior-package-id
   (@@ (guix inferior) inferior-package-id))
@@ -508,18 +582,24 @@ SELECT
     )
     FROM load_new_guix_revision_job_events
     WHERE job_id = load_new_guix_revision_jobs.id
-  )
-  FROM load_new_guix_revision_jobs
+  ),
+  EXISTS (
+    SELECT 1 FROM load_new_guix_revision_job_logs WHERE job_id = load_new_guix_revision_jobs.id
+    UNION ALL
+    SELECT 1 FROM load_new_guix_revision_job_log_parts WHERE job_id = load_new_guix_revision_jobs.id
+  ) AS log_exists
+FROM load_new_guix_revision_jobs
 ORDER BY load_new_guix_revision_jobs.id DESC")
 
   (map
    (match-lambda
      ((id commit source git-repository-id created-at succeeded-at
-          events-json)
+          events-json log-exists?)
       (list id commit source git-repository-id created-at succeeded-at
             (if (string-null? events-json)
                 #()
-                (json-string->scm events-json)))))
+                (json-string->scm events-json))
+            (string=? log-exists? "t"))))
    (exec-query conn query)))
 
 (define (most-recent-n-load-new-guix-revision-jobs conn n)
@@ -565,7 +645,8 @@ ORDER BY load_new_guix_revision_jobs.id DESC")
 (define (process-next-load-new-guix-revision-job conn)
   (match (select-next-job-to-process conn)
     (((id commit source git-repository-id))
-     (begin
+     (let ((previous-output-port (current-output-port))
+           (previous-error-port (current-error-port)))
        (record-job-event conn id "start")
        (simple-format #t "Processing job ~A (commit: ~A, source: ~A)\n\n"
                       id commit source)
@@ -574,7 +655,19 @@ ORDER BY load_new_guix_revision_jobs.id DESC")
                (eq? (log-time
                      (string-append "loading revision " commit)
                      (lambda ()
-                       (load-new-guix-revision conn git-repository-id commit)))
+                       (let ((result
+                              (with-postgresql-connection
+                               (lambda (logging-conn)
+                                 (let ((logging-port (log-port id logging-conn)))
+                                   (set-current-output-port logging-port)
+                                   (set-current-error-port logging-port))
+                                 (let ((result
+                                        (load-new-guix-revision conn git-repository-id commit)))
+                                   (combine-log-parts! logging-conn id)
+                                   result)))))
+                         (set-current-output-port previous-output-port)
+                         (set-current-error-port previous-error-port)
+                         result)))
                     #t))
            (begin
              (record-job-succeeded conn id)

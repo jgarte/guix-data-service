@@ -13,3 +13,4 @@ add_git_repositories_cgit_url_base 2019-05-13T18:45:14Z Christopher Baines <mail
 license_support 2019-05-13T20:37:40Z Christopher Baines <mail@cbaines.net> # Add support for storing license information
 dates_to_load_new_guix_revision_jobs 2019-06-02T07:39:49Z Christopher Baines <mail@cbaines.net> # Add dates to the load_new_guix_revision_jobs table
 load_new_guix_revision_job_events 2019-06-02T15:44:41Z Christopher Baines <mail@cbaines.net> # Add new table for guix_revision_job_events
+load_new_guix_revision_job_logs 2019-06-21T14:33:09Z chris <chris@phact> # Add load_new_guix_revision_job_logs
