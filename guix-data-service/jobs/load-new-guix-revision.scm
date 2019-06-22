@@ -64,7 +64,8 @@
              (force-output output-port))
            #f ; fetch one character
            (lambda ()
-             (close-port output-port))
+             ;; close port
+             #f)
            #f) ; number of characters that can be read
    "w"))
 
