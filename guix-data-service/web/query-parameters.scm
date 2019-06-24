@@ -41,6 +41,7 @@
 
             parse-datetime
             parse-checkbox-value
+            parse-number
             parse-result-limit))
 
 (define (parse-query-string query)
@@ -211,10 +212,12 @@
 (define (parse-checkbox-value s)
   (string=? s "on"))
 
-(define (parse-result-limit s)
+(define (parse-number s)
   (match (string->number s)
     (#f (make-invalid-query-parameter s #f))
     ((? number? num) num)))
+
+(define parse-result-limit parse-number)
 
 (define (any-invalid-query-parameters? query-parameters)
   (->bool (any invalid-query-parameter? (map cdr query-parameters))))
