@@ -88,7 +88,8 @@
           (media "screen")
           (type "text/css")
           (href "/assets/css/screen.css"))))
-     (body ,@body
+     (body (a (@ (id "top")))
+           ,@body
            (footer
             (p "Copyright © 2016—2019 by the GNU Guix community."
                (br)
@@ -1010,7 +1011,23 @@
       (div
        (@ (class "row"))
        (div
-        (pre (raw ,log))))))))
+        (@ (class "col-sm-12"))
+        (a (@ (class "btn btn-default btn-lg pull-right")
+              (style "margin-bottom: 20px;")
+              (href "#bottom"))
+           "Scroll to the bottom of the page")))
+      (div
+       (@ (class "row"))
+       (div
+        (pre (raw ,log))
+        (a (@ (id "bottom")))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (a (@ (class "btn btn-default btn-lg pull-right")
+              (href "#top"))
+           "Scroll to the top of the page")))))))
 
 (define (view-derivation derivation derivation-inputs derivation-outputs
                          builds)
