@@ -975,7 +975,7 @@
                              '())))))
                  jobs-and-events)))))))))
 
-(define (view-job job-id log)
+(define (view-job job-id query-parameters log)
   (layout
    #:body
    `(,(header)
@@ -989,7 +989,28 @@
       (div
        (@ (class "row"))
        (div
-        (pre ,log)))))))
+        (@ (class "col-md-12"))
+        (div
+         (@ (class "well"))
+         (form
+          (@ (method "get")
+             (action "")
+             (class "form-horizontal"))
+          ,(form-horizontal-control
+            "Characters" query-parameters
+            #:help-text "Return at most this many characters.")
+          ,(form-horizontal-control
+            "Start character" query-parameters
+            #:help-text "Start reading the log from this character.")
+          (div (@ (class "form-group form-group-lg"))
+               (div (@ (class "col-sm-offset-2 col-sm-10"))
+                    (button (@ (type "submit")
+                               (class "btn btn-lg btn-primary"))
+                            "Update log")))))))
+      (div
+       (@ (class "row"))
+       (div
+        (pre (raw ,log))))))))
 
 (define (view-derivation derivation derivation-inputs derivation-outputs
                          builds)

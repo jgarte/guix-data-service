@@ -69,14 +69,41 @@
            #f) ; number of characters that can be read
    "w"))
 
-(define (log-for-job conn job-id)
+(define* (log-for-job conn job-id
+                      #:key
+                      character-limit
+                      start-character)
+  (define (sql-html-escape s)
+    (string-append
+     "replace("
+     (string-append
+      "replace("
+      (string-append
+       "replace("
+       s
+       ",'&','&amp;')")
+      ",'<','&lt;')")
+     ",'>','&gt;')"))
+
+  (define (get-characters s)
+    (if start-character
+        (simple-format #f "substr(~A, ~A, ~A)"
+                       s start-character
+                       character-limit)
+        (simple-format #f "right(~A, ~A)" s character-limit)))
+
   (define log-query
-    "SELECT contents FROM load_new_guix_revision_job_logs WHERE job_id = $1")
+    (string-append
+     "SELECT "
+     (sql-html-escape (get-characters "contents"))
+     " FROM load_new_guix_revision_job_logs WHERE job_id = $1"))
 
   (define parts-query
     (string-append
-     "SELECT STRING_AGG(contents, '' ORDER BY id ASC) "
-     "FROM load_new_guix_revision_job_log_parts WHERE job_id = $1"))
+     "SELECT "
+     (sql-html-escape
+      (get-characters "STRING_AGG(contents, '' ORDER BY id ASC)"))
+     " FROM load_new_guix_revision_job_log_parts WHERE job_id = $1"))
 
   (match (exec-query conn log-query (list job-id))
     (((contents))

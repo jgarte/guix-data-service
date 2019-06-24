@@ -529,11 +529,16 @@
    #:sxml (view-jobs
            (select-jobs-and-events conn))))
 
-(define (render-job mime-types conn job-id)
+(define (render-job mime-types conn job-id query-parameters)
   (render-html
    #:sxml (view-job
            job-id
-           (log-for-job conn job-id))))
+           query-parameters
+           (log-for-job conn job-id
+                        #:character-limit
+                        (assq-ref query-parameters 'characters)
+                        #:start-character
+                        (assq-ref query-parameters 'start_character)))))
 
 (define (parse-commit conn)
   (lambda (s)
@@ -823,8 +828,14 @@
      (render-jobs mime-types
                   conn))
     ((GET "job" job-id)
-     (render-job mime-types
-                 conn
-                 job-id))
+     (let ((parsed-query-parameters
+            (parse-query-parameters
+             request
+             `((start_character ,parse-number)
+               (characters ,parse-number #:default 1000000)))))
+       (render-job mime-types
+                   conn
+                   job-id
+                   parsed-query-parameters)))
     ((GET path ...)
      (not-found (request-uri request)))))
