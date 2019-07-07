@@ -96,7 +96,8 @@
     (string-append
      "SELECT "
      (sql-html-escape (get-characters "contents"))
-     " FROM load_new_guix_revision_job_logs WHERE job_id = $1"))
+     " FROM load_new_guix_revision_job_logs"
+     " WHERE job_id = $1 AND contents IS NOT NULL"))
 
   (define parts-query
     (string-append
@@ -113,6 +114,13 @@
        (((contents))
         contents)))))
 
+(define (insert-empty-log-entry conn job-id)
+  (exec-query
+   conn
+   "INSERT INTO load_new_guix_revision_job_logs (job_id, contents) VALUES
+($1, NULL)"
+   (list job-id)))
+
 (define (combine-log-parts! conn job-id)
   (with-postgresql-transaction
    conn
@@ -120,10 +128,13 @@
      (exec-query
       conn
       (string-append
-       "INSERT INTO load_new_guix_revision_job_logs (job_id, contents) "
-       "SELECT job_id, STRING_AGG(contents, '' ORDER BY id ASC) FROM "
+       "UPDATE load_new_guix_revision_job_logs SET contents = "
+       "("
+       "SELECT STRING_AGG(contents, '' ORDER BY id ASC) FROM "
        "load_new_guix_revision_job_log_parts WHERE job_id = $1 "
-       "GROUP BY job_id")
+       "GROUP BY job_id"
+       ")"
+       "WHERE job_id = $1")
       (list job-id))
      (exec-query
       conn
@@ -613,8 +624,6 @@ SELECT
   ),
   EXISTS (
     SELECT 1 FROM load_new_guix_revision_job_logs WHERE job_id = load_new_guix_revision_jobs.id
-    UNION ALL
-    SELECT 1 FROM load_new_guix_revision_job_log_parts WHERE job_id = load_new_guix_revision_jobs.id
   ) AS log_exists
 FROM load_new_guix_revision_jobs
 ORDER BY load_new_guix_revision_jobs.id DESC")
@@ -686,6 +695,7 @@ ORDER BY load_new_guix_revision_jobs.id DESC")
                        (let ((result
                               (with-postgresql-connection
                                (lambda (logging-conn)
+                                 (insert-empty-log-entry logging-conn id)
                                  (let ((logging-port (log-port id logging-conn)))
                                    (set-current-output-port logging-port)
                                    (set-current-error-port logging-port)
