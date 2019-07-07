@@ -177,7 +177,10 @@
                                          query-parameters
                                          '()
                                          '()
-                                         #f))))
+                                         #f
+                                         #:path-base path-base
+                                         #:header-text header-text
+                                         #:header-link header-link))))
 
       (let* ((search-query (assq-ref query-parameters 'search_query))
              (limit-results (or (assq-ref query-parameters 'limit_results)
