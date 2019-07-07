@@ -304,67 +304,55 @@
                  (string<? a-name
                            b-name)))))))
 
-(define (inferior-guix->package-derivation-ids store conn inf)
-  (let* ((packages (log-time "fetching inferior packages"
-                             (lambda ()
-                               (deduplicate-inferior-packages
-                                (inferior-packages inf)))))
-         (inferior-data-4-tuples
-          (log-time "getting inferior derivations"
+(define (packages-and-inferior-data->package-derivation-ids conn inf
+                                                            packages
+                                                            inferior-data-4-tuples)
+  (let* ((package-license-set-ids
+          (log-time "fetching inferior package license metadata"
                     (lambda ()
-                      (all-inferior-package-derivations store inf packages)))))
+                      (inferior-packages->license-set-ids conn inf
+                                                          packages))))
+         (packages-metadata-ids
+          (log-time "fetching inferior package metadata"
+                    (lambda ()
+                      (inferior-packages->package-metadata-ids
+                       conn packages package-license-set-ids))))
+         (package-ids
+          (log-time "getting package-ids"
+                    (lambda ()
+                      (inferior-packages->package-ids
+                       conn packages packages-metadata-ids)))))
 
-    (define loading-inferior-data
-      (record-start-time "critical region fetching and loading inferior data"))
+    (simple-format
+     #t "debug: finished loading information from inferior\n")
+    (close-inferior inf)
 
-    (let* ((package-license-set-ids
-            (log-time "fetching inferior package license metadata"
-                      (lambda ()
-                        (inferior-packages->license-set-ids conn inf
-                                                            packages))))
-           (packages-metadata-ids
-            (log-time "fetching inferior package metadata"
-                      (lambda ()
-                        (inferior-packages->package-metadata-ids
-                         conn packages package-license-set-ids))))
-           (package-ids
-            (log-time "getting package-ids"
-                      (lambda ()
-                        (inferior-packages->package-ids
-                         conn packages packages-metadata-ids)))))
+    (let* ((derivation-ids
+            (derivation-file-names->derivation-ids
+             conn
+             (map fourth inferior-data-4-tuples)))
+           (inferior-package-id->package-id-hash-table
+            (alist->hashq-table
+             (map (lambda (package package-id)
+                    (cons (inferior-package-id package)
+                          package-id))
+                  packages
+                  package-ids)))
+           (flat-package-ids-systems-and-targets
+            (map
+             (match-lambda
+               ((inferior-package-id system target derivation-file-name)
+                (list (hashq-ref inferior-package-id->package-id-hash-table
+                                 inferior-package-id)
+                      system
+                      target)))
+             inferior-data-4-tuples))
+           (package-derivation-ids
+            (insert-package-derivations conn
+                                        flat-package-ids-systems-and-targets
+                                        derivation-ids)))
 
-      (simple-format
-       #t "debug: finished loading information from inferior\n")
-      (close-inferior inf)
-
-      (let* ((derivation-ids
-              (derivation-file-names->derivation-ids
-               conn
-               (map fourth inferior-data-4-tuples)))
-             (inferior-package-id->package-id-hash-table
-              (alist->hashq-table
-               (map (lambda (package package-id)
-                      (cons (inferior-package-id package)
-                            package-id))
-                    packages
-                    package-ids)))
-             (flat-package-ids-systems-and-targets
-              (map
-               (match-lambda
-                 ((inferior-package-id system target derivation-file-name)
-                  (list (hashq-ref inferior-package-id->package-id-hash-table
-                                   inferior-package-id)
-                        system
-                        target)))
-               inferior-data-4-tuples))
-             (package-derivation-ids
-              (insert-package-derivations conn
-                                          flat-package-ids-systems-and-targets
-                                          derivation-ids)))
-
-        (record-end-time loading-inferior-data)
-
-        package-derivation-ids))))
+      package-derivation-ids)))
 
 (define (inferior-package-transitive-supported-systems package)
   ((@@ (guix inferior) inferior-package-field)
@@ -538,18 +526,31 @@
       (catch
         #t
         (lambda ()
-          (let* ((package-derivation-ids
-                  (inferior-guix->package-derivation-ids store conn inf))
-                 (guix-revision-id
-                  (insert-guix-revision conn git-repository-id commit store-path)))
+          (let* ((packages
+                  (log-time
+                   "fetching inferior packages"
+                   (lambda ()
+                     (deduplicate-inferior-packages
+                      (inferior-packages inf)))))
+                 (inferior-data-4-tuples
+                  (log-time
+                   "getting inferior derivations"
+                   (lambda ()
+                     (all-inferior-package-derivations store inf packages)))))
 
-            (insert-guix-revision-package-derivations conn
-                                                      guix-revision-id
-                                                      package-derivation-ids)
+            (let* ((package-derivation-ids
+                    (packages-and-inferior-data->package-derivation-ids
+                     conn inf packages inferior-data-4-tuples))
+                   (guix-revision-id
+                    (insert-guix-revision conn git-repository-id commit store-path)))
 
-            (simple-format
-             #t "Successfully loaded ~A package/derivation pairs\n"
-             (length package-derivation-ids)))
+              (insert-guix-revision-package-derivations conn
+                                                        guix-revision-id
+                                                        package-derivation-ids)
+
+              (simple-format
+               #t "Successfully loaded ~A package/derivation pairs\n"
+               (length package-derivation-ids))))
           #t)
         (lambda (key . args)
           (simple-format (current-error-port)
