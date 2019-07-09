@@ -118,7 +118,7 @@
   (exec-query
    conn
    "INSERT INTO load_new_guix_revision_job_logs (job_id, contents) VALUES
-($1, NULL)"
+($1, NULL) ON CONFLICT DO NOTHING"
    (list job-id)))
 
 (define (combine-log-parts! conn job-id)
