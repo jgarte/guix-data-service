@@ -401,7 +401,9 @@
     (derivation->output-path derivation)))
 
 (define (channel->derivation-file-name store channel)
-  (define use-container? (defined? 'open-inferior/container))
+  (define use-container? (defined?
+                           'open-inferior/container
+                           (resolve-module '(guix inferior))))
 
   (let ((inferior
          (if use-container?
@@ -413,7 +415,9 @@
               #:extra-environment-variables
               (list (string-append
                      "SSL_CERT_DIR=" (nss-certs-store-path store))))
-             (open-inferior (guix-store-path store)))))
+             (begin
+               (simple-format #t "debug: using open-inferior\n")
+               (open-inferior (guix-store-path store))))))
 
     (catch
       #t
@@ -511,11 +515,15 @@
   (with-store store
     (set-build-options store
                        #:fallback? #t)
-    (let ((inf (if (defined? 'open-inferior/container)
+    (let ((inf (if (defined?
+                     'open-inferior/container
+                     (resolve-module '(guix inferior)))
                    (open-inferior/container store store-path
                                             #:extra-shared-directories
                                             '("/gnu/store"))
-                   (open-inferior store-path))))
+                   (begin
+                     (simple-format #t "debug: using open-inferior\n")
+                     (open-inferior store-path)))))
       (inferior-eval '(use-modules (srfi srfi-1)
                                    (srfi srfi-34)
                                    (guix grafts)
