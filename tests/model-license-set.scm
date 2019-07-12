@@ -25,6 +25,7 @@
         "https://example.com/why-license-2")))))
 
  (with-postgresql-connection
+  "test-model-license-set"
   (lambda (conn)
     (with-postgresql-transaction
      conn

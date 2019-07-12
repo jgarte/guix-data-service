@@ -24,10 +24,12 @@
 (define pg-conn-finish
   (@@ (squee) pg-conn-finish))
 
-(define (with-postgresql-connection f)
+(define* (with-postgresql-connection name f)
   (define paramstring
-    (or (getenv "GUIX_DATA_SERVICE_DATABASE_PARAMSTRING")
-        "dbname=guix_data_service user=guix_data_service"))
+    (string-append
+     (or (getenv "GUIX_DATA_SERVICE_DATABASE_PARAMSTRING")
+         "dbname=guix_data_service user=guix_data_service")
+     " application_name='guix-data-service " name "'"))
 
   (let* ((conn (connect-to-postgres-paramstring paramstring)))
     (with-throw-handler

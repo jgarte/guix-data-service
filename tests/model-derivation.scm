@@ -6,6 +6,7 @@
 (test-begin "test-model-derivation")
 
 (with-postgresql-connection
+ "test-model-derivation"
  (lambda (conn)
    (test-equal "valid-systems"
      '()

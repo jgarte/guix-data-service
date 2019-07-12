@@ -703,6 +703,7 @@ ORDER BY load_new_guix_revision_jobs.id DESC")
                      (lambda ()
                        (let ((result
                               (with-postgresql-connection
+                               (simple-format #f "load-new-guix-revision ~A logging" id)
                                (lambda (logging-conn)
                                  (insert-empty-log-entry logging-conn id)
                                  (let ((logging-port (log-port id logging-conn)))

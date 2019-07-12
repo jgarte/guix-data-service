@@ -29,6 +29,7 @@
              (guix-data-service branch-updated-emails))
 
 (with-postgresql-connection
+ "process-branch-updated-email"
  (lambda (conn)
    (enqueue-job-for-email
     conn

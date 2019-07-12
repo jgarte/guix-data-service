@@ -37,6 +37,7 @@
                 (guix-data-service model package-metadata))
 
    (with-postgresql-connection
+    "test-model-package-metadata"
     (lambda (conn)
       (test-assert "inferior-packages->package-metadata-ids"
         (with-postgresql-transaction

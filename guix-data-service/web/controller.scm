@@ -568,6 +568,7 @@
               #t
               (lambda ()
                 (with-postgresql-connection
+                 "web healthcheck"
                  (lambda (conn)
                    (number?
                     (string->number
@@ -585,6 +586,7 @@
                    500))))
     (_
      (with-postgresql-connection
+      "web"
       (lambda (conn)
         (controller-with-database-connection request
                                              method-and-path-components

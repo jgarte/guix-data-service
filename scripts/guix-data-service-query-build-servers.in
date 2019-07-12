@@ -25,4 +25,5 @@
              (squee)
              (guix-data-service builds))
 
-(with-postgresql-connection query-build-servers)
+(with-postgresql-connection "query-build-servers"
+                            query-build-servers)

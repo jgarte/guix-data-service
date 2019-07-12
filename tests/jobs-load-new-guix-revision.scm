@@ -12,6 +12,7 @@
 (test-begin "jobs-load-new-guix-revision")
 
 (with-postgresql-connection
+ "test-jobs-load-new-guix-revision"
  (lambda (conn)
    (test-equal "select-job-for-commit works"
      '()

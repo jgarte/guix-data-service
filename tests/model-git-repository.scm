@@ -6,6 +6,7 @@
 (test-begin "test-model-git-repository")
 
 (with-postgresql-connection
+ "test-model-git-repository"
  (lambda (conn)
    (test-assert "returns an id for a non existent URL"
      (with-postgresql-transaction

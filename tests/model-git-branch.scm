@@ -8,6 +8,7 @@
 (test-begin "test-model-git-branch")
 
 (with-postgresql-connection
+ "test-module-git-branch"
  (lambda (conn)
    (test-assert "insert-git-branch-entry works"
      (with-postgresql-transaction

@@ -107,6 +107,7 @@ Summary of changes:
 (test-begin "test-branch-updated-emails")
 
 (with-postgresql-connection
+ "test-branch-updated-emails"
  (lambda (conn)
    (test-assert "enqueue-job-for-email works"
      (with-postgresql-transaction
