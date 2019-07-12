@@ -18,7 +18,10 @@
 (define-module (guix-data-service database)
   #:use-module (squee)
   #:export (with-postgresql-connection
-            with-postgresql-transaction))
+            with-postgresql-transaction
+
+            with-advisory-session-lock
+            obtain-advisory-transaction-lock))
 
 ;; TODO This isn't exported for some reason
 (define pg-conn-finish
@@ -54,3 +57,26 @@
         result))
     (lambda (key . args)
       (exec-query conn "ROLLBACK;"))))
+
+(define (with-advisory-session-lock conn lock f)
+  (let ((lock-number (number->string (symbol-hash lock))))
+    (exec-query conn
+                "SELECT pg_advisory_lock($1)"
+                (list lock-number))
+    (with-throw-handler #t
+      (lambda ()
+        (let ((result (f)))
+          (exec-query conn
+                      "SELECT pg_advisory_unlock($1)"
+                      (list lock-number))
+          result))
+      (lambda (key . args)
+        (exec-query conn
+                    "SELECT pg_advisory_unlock($1)"
+                    (list lock-number))))))
+
+(define (obtain-advisory-transaction-lock conn lock)
+  (let ((lock-number (number->string (symbol-hash lock))))
+    (exec-query conn
+                "SELECT pg_advisory_xact_lock($1)"
+                (list lock-number))))
