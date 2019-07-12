@@ -1,0 +1,36 @@
+#!@GUILE@ --no-auto-compile
+-*- scheme -*-
+-*- geiser-scheme-implementation: guile -*-
+!#
+;;; Guix Data Service -- Information about Guix over time
+;;; Copyright © 2016, 2017 Ricardo Wurmus <rekado@elephly.net>
+;;; Copyright © 2018 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2019 Christopher Baines <mail@cbaines.net>
+;;;
+;;; This file is part of guix-data-service.
+;;;
+;;; guix-data-service is free software; you can redistribute it and/or modify it
+;;; under the terms of the GNU General Public License as published by
+;;; the Free Software Foundation; either version 3 of the License, or
+;;; (at your option) any later version.
+;;;
+;;; guix-data-service is distributed in the hope that it will be useful, but
+;;; WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;;; General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU General Public License
+;;; along with the guix-data-service.  If not, see <http://www.gnu.org/licenses/>.
+
+(use-modules (srfi srfi-1)
+             (srfi srfi-37)
+             (ice-9 match)
+             (guix-data-service database)
+             (guix-data-service jobs load-new-guix-revision))
+
+(setvbuf (current-output-port) 'line)
+(setvbuf (current-error-port) 'line)
+
+(match (command-line)
+  ((name job)
+   (process-load-new-guix-revision-job job)))

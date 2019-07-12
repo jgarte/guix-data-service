@@ -22,6 +22,7 @@ include guile.am
 
 bin_SCRIPTS =							\
   scripts/guix-data-service					\
+  scripts/guix-data-service-process-job			\
   scripts/guix-data-service-process-jobs			\
   scripts/guix-data-service-process-branch-updated-email	\
   scripts/guix-data-service-query-build-servers
