@@ -32,13 +32,13 @@
         (lambda (conn git-repository-id commit store-path)
           #t))
 
-       (enqueue-load-new-guix-revision-job
-        conn
-        (git-repository-url->git-repository-id conn "test-url")
-        "test-commit"
-        "test-source")
-
-       (process-next-load-new-guix-revision-job conn))))
+       (match (enqueue-load-new-guix-revision-job
+               conn
+               (git-repository-url->git-repository-id conn "test-url")
+               "test-commit"
+               "test-source")
+         ((id)
+          (process-load-new-guix-revision-job id))))))
 
    (test-equal "test build store item failure"
      #f
@@ -48,13 +48,13 @@
        (lambda (conn git-repository-id commit)
          #f))
 
-      (enqueue-load-new-guix-revision-job
-       conn
-       (git-repository-url->git-repository-id conn "test-url")
-       "test-commit"
-       "test-source")
-
-      (process-next-load-new-guix-revision-job conn)))
+      (match (enqueue-load-new-guix-revision-job
+              conn
+              (git-repository-url->git-repository-id conn "test-url")
+              "test-commit"
+              "test-source")
+        ((id)
+         (process-load-new-guix-revision-job id)))))
 
    (test-equal "test extract information failure"
      #f
@@ -70,12 +70,12 @@
         (lambda (conn git-repository-id commit store-path)
           #f))
 
-       (enqueue-load-new-guix-revision-job
-        conn
-        (git-repository-url->git-repository-id conn "test-url")
-        "test-commit"
-        "test-source")
-
-       (process-next-load-new-guix-revision-job conn))))))
+       (match (enqueue-load-new-guix-revision-job
+               conn
+               (git-repository-url->git-repository-id conn "test-url")
+               "test-commit"
+               "test-source")
+         ((id)
+          (process-load-new-guix-revision-job id))))))))
 
 (test-end)

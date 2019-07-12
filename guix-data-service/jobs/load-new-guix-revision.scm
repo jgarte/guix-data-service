@@ -24,7 +24,8 @@
   #:use-module (guix-data-service model package-metadata)
   #:use-module (guix-data-service model derivation)
   #:export (log-for-job
-            process-next-load-new-guix-revision-job
+            fetch-unlocked-jobs
+            process-load-new-guix-revision-job
             select-job-for-commit
             select-jobs-and-events
             enqueue-load-new-guix-revision-job
@@ -671,18 +672,20 @@ ORDER BY load_new_guix_revision_jobs.id DESC")
           (list (number->string n)))))
     result))
 
-(define (select-next-job-to-process conn)
+(define (select-job-for-update conn id)
   (exec-query
    conn
    (string-append
     "SELECT id, commit, source, git_repository_id "
     "FROM load_new_guix_revision_jobs "
-    "WHERE succeeded_at IS NULL AND NOT EXISTS ("
+    "WHERE id = $1 AND succeeded_at IS NULL AND NOT EXISTS ("
     "SELECT 1 "
     "FROM load_new_guix_revision_job_events "
     ;; Skip jobs that have failed, to avoid trying them over and over again
     "WHERE job_id = load_new_guix_revision_jobs.id AND event = 'failure'"
-    ") ORDER BY id DESC LIMIT 1")))
+    ") ORDER BY id DESC "
+    "FOR NO KEY UPDATE SKIP LOCKED")
+   (list id)))
 
 (define (record-job-event conn job-id event)
   (exec-query
@@ -701,43 +704,73 @@ ORDER BY load_new_guix_revision_jobs.id DESC")
     "WHERE id = $1 ")
    (list id)))
 
-(define (process-next-load-new-guix-revision-job conn)
-  (match (select-next-job-to-process conn)
-    (((id commit source git-repository-id))
-     (let ((previous-output-port (current-output-port))
-           (previous-error-port (current-error-port)))
-       (record-job-event conn id "start")
-       (simple-format #t "Processing job ~A (commit: ~A, source: ~A)\n\n"
-                      id commit source)
-       (exec-query conn "BEGIN")
-       (if (or (guix-revision-exists? conn git-repository-id commit)
-               (eq? (log-time
-                     (string-append "loading revision " commit)
-                     (lambda ()
-                       (let ((result
-                              (with-postgresql-connection
-                               (simple-format #f "load-new-guix-revision ~A logging" id)
-                               (lambda (logging-conn)
-                                 (insert-empty-log-entry logging-conn id)
-                                 (let ((logging-port (log-port id logging-conn)))
-                                   (set-current-output-port logging-port)
-                                   (set-current-error-port logging-port)
-                                   (let ((result
-                                          (parameterize ((current-build-output-port logging-port))
-                                            (load-new-guix-revision conn git-repository-id commit))))
-                                     (combine-log-parts! logging-conn id)
-                                     result))))))
-                         (set-current-output-port previous-output-port)
-                         (set-current-error-port previous-error-port)
-                         result)))
-                    #t))
-           (begin
-             (record-job-succeeded conn id)
-             (record-job-event conn id "success")
-             (exec-query conn "COMMIT")
-             #t)
-           (begin
-             (exec-query conn "ROLLBACK")
-             (record-job-event conn id "failure")
-             #f))))
-    (_ #f)))
+(define (fetch-unlocked-jobs conn)
+  (exec-query
+   conn
+   "
+SELECT id FROM load_new_guix_revision_jobs
+WHERE
+  succeeded_at IS NULL AND
+  NOT EXISTS (
+    SELECT 1
+    FROM load_new_guix_revision_job_events
+    -- Skip jobs that have failed, to avoid trying them over and over again
+    WHERE job_id = load_new_guix_revision_jobs.id AND event = 'failure'
+  )
+ORDER BY id DESC
+FOR NO KEY UPDATE SKIP LOCKED"))
+
+(define (process-load-new-guix-revision-job id)
+  (with-postgresql-connection
+   (simple-format #f "load-new-guix-revision ~A" id)
+   (lambda (conn)
+     (exec-query conn "BEGIN")
+
+     (match (select-job-for-update conn id)
+       (((id commit source git-repository-id))
+
+        ;; With a separate connection, outside of the transaction so the event
+        ;; gets persisted regardless.
+        (with-postgresql-connection
+         (simple-format #f "load-new-guix-revision ~A start-event" id)
+         (lambda (start-event-conn)
+           (record-job-event start-event-conn id "start")))
+
+        (simple-format #t "Processing job ~A (commit: ~A, source: ~A)\n\n"
+                       id commit source)
+
+        (if (or (guix-revision-exists? conn git-repository-id commit)
+                (eq? (log-time
+                      (string-append "loading revision " commit)
+                      (lambda ()
+                        (let* ((previous-output-port (current-output-port))
+                               (previous-error-port (current-error-port))
+                               (result
+                                (with-postgresql-connection
+                                 (simple-format #f "load-new-guix-revision ~A logging" id)
+                                 (lambda (logging-conn)
+                                   (insert-empty-log-entry logging-conn id)
+                                   (let ((logging-port (log-port id logging-conn)))
+                                     (set-current-output-port logging-port)
+                                     (set-current-error-port logging-port)
+                                     (let ((result
+                                            (parameterize ((current-build-output-port logging-port))
+                                              (load-new-guix-revision conn git-repository-id commit))))
+                                       (combine-log-parts! logging-conn id)
+                                       result))))))
+                          (set-current-output-port previous-output-port)
+                          (set-current-error-port previous-error-port)
+                          result)))
+                     #t))
+            (begin
+              (record-job-succeeded conn id)
+              (record-job-event conn id "success")
+              (exec-query conn "COMMIT")
+              #t)
+            (begin
+              (exec-query conn "ROLLBACK")
+              (record-job-event conn id "failure")
+              #f)))
+       (()
+        (simple-format #t "job ~A not found to be processed\n"
+                       id))))))
