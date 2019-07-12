@@ -482,12 +482,18 @@
         (close-inferior inferior)
         #f))))
 
-(define (channel->manifest-store-item store channel)
+(define (channel->manifest-store-item conn store channel)
   (let* ((manifest-store-item-derivation-file-name
           (log-time
            "computing the channel derivation"
            (lambda ()
-             (channel->derivation-file-name store channel))))
+             ;; Obtain a session level lock here, to avoid conflicts with
+             ;; other jobs over the Git repository.
+             (with-advisory-session-lock
+              conn
+              'channel->manifest-store-item
+              (lambda ()
+                (channel->derivation-file-name store channel))))))
          (derivation
           (read-derivation-from-file manifest-store-item-derivation-file-name)))
     (log-time
@@ -496,13 +502,14 @@
        (build-derivations store (list derivation))))
     (derivation->output-path derivation)))
 
-(define (channel->guix-store-item store channel)
+(define (channel->guix-store-item conn store channel)
   (catch
     #t
     (lambda ()
       (dirname
        (readlink
-        (string-append (channel->manifest-store-item store
+        (string-append (channel->manifest-store-item conn
+                                                     store
                                                      channel)
                        "/bin"))))
     (lambda args
@@ -573,6 +580,7 @@
     (set-build-options store
                        #:fallback? #t)
     (channel->guix-store-item
+     conn
      store
      (channel (name 'guix)
               (url (git-repository-id->url
