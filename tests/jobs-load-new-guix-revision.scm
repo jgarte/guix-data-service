@@ -1,4 +1,4 @@
-(define-module (tests model-license)
+(define-module (tests jobs-load-new-guix-revision)
   #:use-module (srfi srfi-64)
   #:use-module (ice-9 match)
   #:use-module (squee)
