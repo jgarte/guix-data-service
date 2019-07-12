@@ -21,10 +21,15 @@
                  4))
        1))
 
+(define default-timeout
+  (* (* 60 60) ;; 1 hour in seconds
+     24))
+
 (define* (process-jobs-concurrently fetch-new-jobs
                                     process-job
                                     #:key (max-processes
-                                           default-max-processes))
+                                           default-max-processes)
+                                    (timeout default-timeout))
   (define processes
     (make-hash-table))
 
@@ -44,9 +49,10 @@
       "\n"
       (string-concatenate
        (hash-map->list
-        (lambda (pid job-args)
-          (format #f "  pid: ~5d  job args: ~a\n"
-                  pid job-args))
+        (match-lambda*
+          ((pid (start-time job-args))
+           (format #f "  pid: ~5d  job args: ~a\n"
+                   pid job-args)))
         processes))
       "\n")))
 
@@ -59,16 +65,31 @@
            ;; No process to wait for
            #f)
           ((pid . status)
-           (let ((job-args (hashv-ref processes pid)))
-             (hashv-remove! processes pid)
-             (simple-format
-              (current-error-port)
-              "pid ~A failed with status ~A\n"
-              pid status))
+           (hashv-remove! processes pid)
+           (simple-format (current-error-port)
+                          "pid ~A failed with status ~A\n"
+                          pid status)
+
+           ;; Recurse, to check for other finished processes.
            (wait-on-processes))))
       (lambda (key . args)
         (simple-format #t "key ~A args ~A\n"
                        key args))))
+
+  (define (kill-long-running-processes)
+    (hash-map->list
+     (match-lambda*
+       ((pid (start-time job-args))
+        (let ((running-for
+               (- (current-time) start-time)))
+          (when (> running-for timeout)
+            (display
+             (simple-format
+              #f "sending SIGTERM to pid ~A started at ~A, now running for ~A\n"
+              pid start-time running-for)
+             (current-error-port))
+            (kill pid SIGTERM)))))
+     processes))
 
   (define (fork-and-process-job job-args)
     (match (primitive-fork)
@@ -80,10 +101,12 @@
          (lambda ()
            (primitive-exit 127))))
       (pid
-       (hashv-set! processes pid job-args)
+       (hashv-set! processes pid
+                   (list (current-time) job-args))
        #t)))
 
   (while #t
+    (kill-long-running-processes)
     (wait-on-processes)
     (display-status)
     (match (fetch-new-jobs)
