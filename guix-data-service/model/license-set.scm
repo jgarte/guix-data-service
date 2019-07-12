@@ -37,10 +37,13 @@ FROM license_sets")
           (exec-query->vhash conn
                              select-license-sets
                              (lambda (results)
-                               (string-split (string-drop-right
-                                              (string-drop (second results) 1)
-                                              1)
-                                             #\,))
+                               (if (string=? (second results) "{}")
+                                   '()
+                                   (string-split
+                                    (string-drop-right
+                                     (string-drop (second results) 1)
+                                     1)
+                                    #\,)))
                              first)) ;; id
          (missing-license-sets
           (delete-duplicates
