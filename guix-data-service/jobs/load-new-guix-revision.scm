@@ -553,6 +553,11 @@
                    (lambda ()
                      (all-inferior-package-derivations store inf packages)))))
 
+            ;; Wait until this is the only transaction inserting data, to
+            ;; avoid any concurrency issues
+            (obtain-advisory-transaction-lock conn
+                                              'load-new-guix-revision-inserts)
+
             (let* ((package-derivation-ids
                     (packages-and-inferior-data->package-derivation-ids
                      conn inf packages inferior-data-4-tuples))
