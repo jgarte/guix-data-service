@@ -13,8 +13,17 @@
             "guix-data-service-process-job"
             job-id))
 
+  (define (handle-job-failure job-id)
+    (record-job-event conn job-id "failure")
+    (display (simple-format #f "recording failure for job ~A\n" job-id)
+             (current-error-port))
+    (when (> (count-log-parts conn job-id)
+             0)
+      (combine-log-parts! conn job-id)))
+
   (process-jobs-concurrently fetch-new-jobs
-                             process-job))
+                             process-job
+                             handle-job-failure))
 
 (define default-max-processes
   (max (round (/ (current-processor-count)
@@ -27,6 +36,7 @@
 
 (define* (process-jobs-concurrently fetch-new-jobs
                                     process-job
+                                    handle-job-failure
                                     #:key (max-processes
                                            default-max-processes)
                                     (timeout default-timeout))
@@ -88,7 +98,11 @@
               #f "sending SIGTERM to pid ~A started at ~A, now running for ~A\n"
               pid start-time running-for)
              (current-error-port))
-            (kill pid SIGTERM)))))
+            (kill pid SIGTERM)
+
+            (match job-args
+              ((id)
+               (handle-job-failure id)))))))
      processes))
 
   (define (fork-and-process-job job-args)

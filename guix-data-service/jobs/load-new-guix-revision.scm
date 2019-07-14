@@ -24,10 +24,13 @@
   #:use-module (guix-data-service model package-metadata)
   #:use-module (guix-data-service model derivation)
   #:export (log-for-job
+            count-log-parts
+            combine-log-parts!
             fetch-unlocked-jobs
             process-load-new-guix-revision-job
             select-job-for-commit
             select-jobs-and-events
+            record-job-event
             enqueue-load-new-guix-revision-job
             most-recent-n-load-new-guix-revision-jobs))
 
@@ -121,6 +124,17 @@
    "INSERT INTO load_new_guix_revision_job_logs (job_id, contents) VALUES
 ($1, NULL) ON CONFLICT DO NOTHING"
    (list job-id)))
+
+(define (count-log-parts conn job-id)
+  (match (exec-query
+          conn
+          "
+SELECT COUNT(*)
+FROM load_new_guix_revision_job_log_parts
+WHERE job_id = $1"
+          (list job-id))
+    (((id))
+     (string->number id))))
 
 (define (combine-log-parts! conn job-id)
   (with-postgresql-transaction
