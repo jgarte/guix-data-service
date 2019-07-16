@@ -129,12 +129,17 @@
        #f)
       ((jobs ...)
        (for-each
-        (lambda (job-args)
-          (let ((current-processes
-                 (hash-count (const #t) processes)))
-            (when (< current-processes
-                     max-processes)
-              (fork-and-process-job job-args))))
+        (match-lambda
+          ((job-id priority?)
+           (let ((current-processes
+                  (hash-count (const #t) processes)))
+             (when (< current-processes
+                      (if priority?
+                          ;; For priority jobs, burst up to twice the number
+                          ;; of max processes
+                          (* 2 max-processes)
+                          max-processes))
+               (fork-and-process-job (list job-id))))))
         jobs)))
     (unless (eq? 0 (sleep 15))
       (exit 0))))

@@ -719,10 +719,21 @@ ORDER BY load_new_guix_revision_jobs.id DESC")
    (list id)))
 
 (define (fetch-unlocked-jobs conn)
-  (exec-query
-   conn
-   "
-SELECT id FROM load_new_guix_revision_jobs
+  (define query "
+SELECT
+  id,
+  commit IN (
+    SELECT commit FROM (
+      SELECT DISTINCT ON (name)
+        name, git_branches.commit
+      FROM git_branches
+      WHERE
+        git_branches.git_repository_id = load_new_guix_revision_jobs.git_repository_id AND
+        git_branches.commit IS NOT NULL
+      ORDER BY name, datetime DESC
+    ) branches_and_latest_commits
+  ) AS latest_branch_commit
+FROM load_new_guix_revision_jobs
 WHERE
   succeeded_at IS NULL AND
   NOT EXISTS (
@@ -731,8 +742,16 @@ WHERE
     -- Skip jobs that have failed, to avoid trying them over and over again
     WHERE job_id = load_new_guix_revision_jobs.id AND event = 'failure'
   )
-ORDER BY id DESC
-FOR NO KEY UPDATE SKIP LOCKED"))
+ORDER BY latest_branch_commit DESC, id DESC
+FOR NO KEY UPDATE OF load_new_guix_revision_jobs
+SKIP LOCKED")
+
+  (map
+   (match-lambda
+     ((id priority)
+      (list id
+            (string=? priority "t"))))
+   (exec-query conn query)))
 
 (define (process-load-new-guix-revision-job id)
   (with-postgresql-connection
