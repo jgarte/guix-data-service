@@ -609,7 +609,7 @@
     (uri-path (request-uri request)))
 
   (match method-and-path-components
-    ((GET)
+    (('GET)
      (render-html
       #:sxml (index
               (map
@@ -629,15 +629,15 @@
                     conn
                     (car git-repository-details)))))
                (all-git-repositories conn)))))
-    ((GET "builds")
+    (('GET "builds")
      (render-html
       #:sxml (view-builds (select-build-stats conn)
                           (select-builds-with-context conn))))
-    ((GET "statistics")
+    (('GET "statistics")
      (render-html
       #:sxml (view-statistics (count-guix-revisions conn)
                               (count-derivations conn))))
-    ((GET "revision" commit-hash) (if (guix-commit-exists? conn commit-hash)
+    (('GET "revision" commit-hash) (if (guix-commit-exists? conn commit-hash)
                                       (render-view-revision mime-types
                                                             conn
                                                             commit-hash
@@ -645,7 +645,7 @@
                                       (render-unknown-revision mime-types
                                                                conn
                                                                commit-hash)))
-    ((GET "revision" commit-hash "packages")
+    (('GET "revision" commit-hash "packages")
      (if (guix-commit-exists? conn commit-hash)
          (let ((parsed-query-parameters
                 (guard-against-mutually-exclusive-query-parameters
@@ -672,7 +672,7 @@
          (render-unknown-revision mime-types
                                   conn
                                   commit-hash)))
-    ((GET "revision" commit-hash "package" name version)
+    (('GET "revision" commit-hash "package" name version)
      (if (guix-commit-exists? conn commit-hash)
          (render-revision-package mime-types
                                   conn
@@ -682,11 +682,11 @@
          (render-unknown-revision mime-types
                                   conn
                                   commit-hash)))
-    ((GET "branches")
+    (('GET "branches")
      (render-html
       #:sxml (view-branches
               (all-branches-with-most-recent-commit conn))))
-    ((GET "branch" branch-name)
+    (('GET "branch" branch-name)
      (let ((parsed-query-parameters
             (parse-query-parameters
              request
@@ -707,7 +707,7 @@
                                             'after_date)
                      #:before-date (assq-ref parsed-query-parameters
                                              'before_date)))))))
-    ((GET "branch" branch-name "latest-processed-revision")
+    (('GET "branch" branch-name "latest-processed-revision")
      (let ((commit-hash
             (latest-processed-commit-for-branch conn branch-name)))
        (if commit-hash
@@ -721,7 +721,7 @@
            (render-unknown-revision mime-types
                                     conn
                                     commit-hash))))
-    ((GET "branch" branch-name "latest-processed-revision" "packages")
+    (('GET "branch" branch-name "latest-processed-revision" "packages")
      (let ((commit-hash
             (latest-processed-commit-for-branch conn branch-name)))
        (if commit-hash
@@ -757,7 +757,7 @@
            (render-unknown-revision mime-types
                                     conn
                                     commit-hash))))
-    ((GET "branch" branch-name "latest-processed-revision" "package" name version)
+    (('GET "branch" branch-name "latest-processed-revision" "package" name version)
      (let ((commit-hash
             (latest-processed-commit-for-branch conn branch-name)))
        (if commit-hash
@@ -776,14 +776,14 @@
            (render-unknown-revision mime-types
                                     conn
                                     commit-hash))))
-    ((GET "gnu" "store" filename)
+    (('GET "gnu" "store" filename)
      ;; These routes are a little special, as the extensions aren't used for
      ;; content negotiation, so just use the path from the request
      (let ((path (uri-path (request-uri request))))
        (if (string-suffix? ".drv" path)
            (render-derivation conn path)
            (render-store-item conn path))))
-    ((GET "compare")
+    (('GET "compare")
      (with-base-and-target-commits
       query-parameters conn
       (lambda (base-commit base-revision-id target-commit target-revision-id)
@@ -800,7 +800,7 @@
                             base-revision-id
                             target-commit
                             target-revision-id)))))
-    ((GET "compare" "derivations")
+    (('GET "compare" "derivations")
      (let* ((parsed-query-parameters
              (parse-query-parameters
               request
@@ -812,7 +812,7 @@
        (render-compare/derivations mime-types
                                    conn
                                    parsed-query-parameters)))
-    ((GET "compare" "packages")
+    (('GET "compare" "packages")
      (with-base-and-target-commits
       query-parameters conn
       (lambda (base-commit base-revision-id target-commit target-revision-id)
@@ -829,10 +829,10 @@
                                      base-revision-id
                                      target-commit
                                      target-revision-id)))))
-    ((GET "jobs")
+    (('GET "jobs")
      (render-jobs mime-types
                   conn))
-    ((GET "job" job-id)
+    (('GET "job" job-id)
      (let ((parsed-query-parameters
             (parse-query-parameters
              request
@@ -842,5 +842,5 @@
                    conn
                    job-id
                    parsed-query-parameters)))
-    ((GET path ...)
+    (('GET path ...)
      (not-found (request-uri request)))))
