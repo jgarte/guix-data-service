@@ -790,6 +790,10 @@ SKIP LOCKED")
                                             (parameterize ((current-build-output-port logging-port))
                                               (load-new-guix-revision conn git-repository-id commit))))
                                        (combine-log-parts! logging-conn id)
+
+                                       ;; This can happen with GC, so do it explicitly
+                                       (close-port logging-port)
+
                                        result))))))
                           (set-current-output-port previous-output-port)
                           (set-current-error-port previous-error-port)
