@@ -692,12 +692,7 @@ ORDER BY load_new_guix_revision_jobs.id DESC")
    (string-append
     "SELECT id, commit, source, git_repository_id "
     "FROM load_new_guix_revision_jobs "
-    "WHERE id = $1 AND succeeded_at IS NULL AND NOT EXISTS ("
-    "SELECT 1 "
-    "FROM load_new_guix_revision_job_events "
-    ;; Skip jobs that have failed, to avoid trying them over and over again
-    "WHERE job_id = load_new_guix_revision_jobs.id AND event = 'failure'"
-    ") ORDER BY id DESC "
+    "WHERE id = $1 AND succeeded_at IS NULL "
     "FOR NO KEY UPDATE SKIP LOCKED")
    (list id)))
 
