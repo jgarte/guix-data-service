@@ -48,7 +48,8 @@ WHERE git_branches.commit = $1")
    3
    (exec-query conn query (list commit))))
 
-(define* (most-recent-commits-for-branch conn branch-name
+(define* (most-recent-commits-for-branch conn git-repository-id
+                                         branch-name
                                          #:key
                                          (limit 100)
                                          after-date
@@ -67,7 +68,7 @@ WHERE git_branches.commit = $1")
       ) AS job_events "
      "FROM git_branches "
      "LEFT OUTER JOIN guix_revisions ON git_branches.commit = guix_revisions.commit "
-     "WHERE name = $1 "
+     "WHERE name = $1 AND git_branches.git_repository_id = $2"
      (if after-date
          (simple-format #f " AND datetime > '~A'"
                         (date->string after-date "~1 ~3"))
@@ -93,7 +94,7 @@ WHERE git_branches.commit = $1")
    (exec-query
     conn
     query
-    (list branch-name))))
+    (list branch-name git-repository-id))))
 
 (define* (latest-processed-commit-for-branch conn branch-name)
   (define query
@@ -114,7 +115,7 @@ WHERE git_branches.commit = $1")
     ('()
      #f)))
 
-(define (all-branches-with-most-recent-commit conn)
+(define (all-branches-with-most-recent-commit conn git-repository-id)
   (define query
     (string-append
      "
@@ -131,8 +132,8 @@ SELECT DISTINCT ON (name)
   ) AS job_events
 FROM git_branches
 LEFT OUTER JOIN guix_revisions ON git_branches.commit = guix_revisions.commit
-WHERE git_branches.commit IS NOT NULL
-ORDER BY name, datetime DESC;"))
+WHERE git_branches.commit IS NOT NULL AND git_branches.git_repository_id = $1
+ORDER BY name, datetime DESC"))
 
   (map
    (match-lambda
@@ -146,5 +147,6 @@ ORDER BY name, datetime DESC;"))
                 (vector->list (json-string->scm job_events))))))
    (exec-query
     conn
-    query)))
+    query
+    (list git-repository-id))))
 

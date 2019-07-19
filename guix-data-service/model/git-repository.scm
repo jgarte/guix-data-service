@@ -3,6 +3,7 @@
   #:use-module (json)
   #:use-module (squee)
   #:export (all-git-repositories
+            select-git-repository
             git-repository-id->url
             git-repository-url->git-repository-id
             git-repositories-containing-commit
@@ -14,6 +15,16 @@
    conn
    (string-append
     "SELECT id, label, url FROM git_repositories ORDER BY id ASC")))
+
+(define (select-git-repository conn id)
+  (match (exec-query
+          conn
+          "SELECT label, url, cgit_url_base FROM git_repositories WHERE id = $1"
+          (list id))
+    (()
+     #f)
+    ((result)
+     result)))
 
 (define (git-repository-id->url conn id)
   (match

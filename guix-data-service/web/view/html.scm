@@ -35,6 +35,7 @@
             view-revision-package-and-version
             view-revision
             view-revision-packages
+            view-git-repository
             view-branches
             view-branch
             view-builds
@@ -232,7 +233,7 @@
         (h1 "Guix Data Service")))
       ,@(map
          (match-lambda
-           (((id label url) . revisions)
+           (((repository-id label url) . revisions)
             `(div
               (@ (class "row"))
               (div
@@ -249,7 +250,7 @@
                       (tbody
                        ,@(map
                           (match-lambda
-                            ((id job-id job-events commit source branches)
+                            ((revision-id job-id job-events commit source branches)
                              `(tr
                                (td
                                 ,@(map
@@ -257,6 +258,8 @@
                                      ((name date)
                                       `(span
                                         (a (@ (href ,(string-append
+                                                      "/repository/"
+                                                      repository-id
                                                       "/branch/" name)))
                                            ,name)
                                         " at "
@@ -267,7 +270,7 @@
                                       (samp ,commit))
                                    " "
                                    ,(cond
-                                     ((not (string-null? id))
+                                     ((not (string-null? revision-id))
                                       '(span
                                         (@ (class "label label-success"))
                                         "✓"))
@@ -630,7 +633,9 @@
                   "Next page")))
             '())))))
 
-(define* (view-branches branches-with-most-recent-commits)
+(define* (view-git-repository git-repository-id
+                              label url cgit-url-base
+                              branches-with-most-recent-commits)
   (layout
    #:body
    `(,(header)
@@ -640,11 +645,12 @@
        (@ (class "row"))
        (div
         (@ (class "col-md-12"))
-        (h1 "Branches")))
+        (h1 ,url)))
       (div
        (@ (class "row"))
        (div
         (@ (class "col-md-12"))
+        (h3 "Branches")
         (table
          (@ (class "table table-responsive"))
          (thead
@@ -658,7 +664,9 @@
                ((name commit date revision-exists? job-events)
                 `(tr
                   (td
-                   (a (@ (href ,(string-append "/branch/" name)))
+                   (a (@ (href ,(string-append
+                                 "/repository/" git-repository-id
+                                 "/branch/" name)))
                       ,name))
                   (td ,date)
                   (td ,@(if (string=? commit "NULL")
@@ -680,8 +688,8 @@
                                         "No information yet")))))))))
              branches-with-most-recent-commits)))))))))
 
-(define (view-branch branch-name query-parameters
-                     branch-commits)
+(define (view-branch git-repository-id
+                     branch-name query-parameters branch-commits)
   (layout
    #:body
    `(,(header)
@@ -691,6 +699,8 @@
        (@ (class "row"))
        (div
         (@ (class "col-md-12"))
+        (a (@ (href ,(string-append "/repository/" git-repository-id)))
+           (h3 "Repository"))
         (h1 (@ (style "white-space: nowrap;"))
             (samp ,branch-name) " branch")))
       (div
@@ -723,6 +733,7 @@
         (@ (class "col-sm-12"))
         (a (@ (class "btn btn-default btn-lg pull-right")
               (href ,(string-append
+                      "/repository/" git-repository-id
                       "/branch/" branch-name "/latest-processed-revision")))
            "Latest processed revision")))
       (div

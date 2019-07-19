@@ -682,11 +682,22 @@
          (render-unknown-revision mime-types
                                   conn
                                   commit-hash)))
-    (('GET "branches")
-     (render-html
-      #:sxml (view-branches
-              (all-branches-with-most-recent-commit conn))))
-    (('GET "branch" branch-name)
+    (('GET "repository" id)
+     (match (select-git-repository conn id)
+       ((label url cgit-url-base)
+        (render-html
+         #:sxml
+         (view-git-repository
+          id
+          label url cgit-url-base
+          (all-branches-with-most-recent-commit conn id))))
+       (#f
+        (render-html
+         #:sxml (general-not-found
+                 "Repository not found"
+                 "")
+         #:code 404))))
+    (('GET "repository" repository-id "branch" branch-name)
      (let ((parsed-query-parameters
             (parse-query-parameters
              request
@@ -695,12 +706,15 @@
                (limit_results  ,parse-result-limit #:default 100)))))
        (render-html
         #:sxml (if (any-invalid-query-parameters? parsed-query-parameters)
-                   (view-branch branch-name parsed-query-parameters '())
+                   (view-branch repository-id
+                                branch-name parsed-query-parameters '())
                    (view-branch
+                    repository-id
                     branch-name
                     parsed-query-parameters
                     (most-recent-commits-for-branch
                      conn
+                     repository-id
                      branch-name
                      #:limit (assq-ref parsed-query-parameters 'limit_results)
                      #:after-date (assq-ref parsed-query-parameters
