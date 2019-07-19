@@ -426,8 +426,10 @@
            `((h3 "Git repositories")
              ,@(map
                 (match-lambda
-                  (((label url cgit-url-base) . branches)
-                   `((h4 ,url)
+                  (((id label url cgit-url-base) . branches)
+                   `((a (@ (href ,(string-append
+                                   "/repository/" id)))
+                        (h4 ,url))
                      ,@(map
                         (match-lambda
                           ((name datetime)

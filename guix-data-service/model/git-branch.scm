@@ -36,8 +36,8 @@ ORDER BY datetime DESC")
 (define (git-branches-with-repository-details-for-commit conn commit)
   (define query
     "
-SELECT git_repositories.label, git_repositories.url,
-       git_repositories.cgit_url_base,
+SELECT git_repositories.id, git_repositories.label,
+       git_repositories.url, git_repositories.cgit_url_base,
        git_branches.name, git_branches.datetime
 FROM git_branches
 INNER JOIN git_repositories
@@ -45,7 +45,7 @@ INNER JOIN git_repositories
 WHERE git_branches.commit = $1")
 
   (group-list-by-first-n-fields
-   3
+   4
    (exec-query conn query (list commit))))
 
 (define* (most-recent-commits-for-branch conn git-repository-id
