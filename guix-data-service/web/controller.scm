@@ -621,18 +621,8 @@
                (lambda (git-repository-details)
                  (cons
                   git-repository-details
-                  (map
-                   (match-lambda
-                     ((id job-id job-events commit source)
-                      (list id
-                            job-id
-                            job-events
-                            commit
-                            source
-                            (git-branches-for-commit conn commit))))
-                   (guix-revisions-and-jobs-for-git-repository
-                    conn
-                    (car git-repository-details)))))
+                  (all-branches-with-most-recent-commit
+                   conn (first git-repository-details))))
                (all-git-repositories conn)))))
     (('GET "builds")
      (render-html

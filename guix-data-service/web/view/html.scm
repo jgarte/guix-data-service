@@ -233,54 +233,17 @@
         (h1 "Guix Data Service")))
       ,@(map
          (match-lambda
-           (((repository-id label url) . revisions)
+           (((repository-id label url) . branches-with-most-recent-commits)
             `(div
               (@ (class "row"))
               (div
                (@ (class "col-sm-12"))
                (h3 ,url)
-               ,(if (null? revisions)
-                    '(p "No revisions")
-                    `(table
-                      (@ (class "table"))
-                      (thead
-                       (tr
-                        (th (@ (class "col-md-6")) "Branch")
-                        (th (@ (class "col-md-6")) "Commit")))
-                      (tbody
-                       ,@(map
-                          (match-lambda
-                            ((revision-id job-id job-events commit source branches)
-                             `(tr
-                               (td
-                                ,@(map
-                                   (match-lambda
-                                     ((name date)
-                                      `(span
-                                        (a (@ (href ,(string-append
-                                                      "/repository/"
-                                                      repository-id
-                                                      "/branch/" name)))
-                                           ,name)
-                                        " at "
-                                        ,date)))
-                                   branches))
-                               (td (a (@ (href ,(string-append
-                                                 "/revision/" commit)))
-                                      (samp ,commit))
-                                   " "
-                                   ,(cond
-                                     ((not (string-null? revision-id))
-                                      '(span
-                                        (@ (class "label label-success"))
-                                        "✓"))
-                                     ((member "failure" job-events)
-                                      '(span (@ (class "label label-danger"))
-                                             "Failed to import data"))
-                                     (else
-                                      '(span (@ (class "label label-default"))
-                                             "No information yet")))))))
-                          revisions))))))))
+               ,(if (null? branches-with-most-recent-commits)
+                    '(p "No branches")
+                    (table/branches-with-most-recent-commits
+                     repository-id
+                     branches-with-most-recent-commits))))))
          git-repositories-and-revisions)))))
 
 (define (view-statistics guix-revisions-count derivations-count)
