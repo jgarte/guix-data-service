@@ -687,6 +687,45 @@
                   "Next page")))
             '())))))
 
+(define (table/branches-with-most-recent-commits
+         git-repository-id branches-with-most-recent-commits)
+  `(table
+    (@ (class "table table-responsive"))
+    (thead
+     (tr
+      (th (@ (class "col-md-3")) "Name")
+      (th (@ (class "col-md-2")) "Date")
+      (th (@ (class "col-md-7")) "Commit")))
+    (tbody
+     ,@(map
+        (match-lambda
+          ((name commit date revision-exists? job-events)
+           `(tr
+             (td
+              (a (@ (href ,(string-append
+                            "/repository/" git-repository-id
+                            "/branch/" name)))
+                 ,name))
+             (td ,date)
+             (td ,@(if (string=? commit "NULL")
+                       '((samp "branch deleted"))
+                       `((a (@ (href ,(string-append
+                                       "/revision/" commit)))
+                            (samp ,commit))
+                         " "
+                         ,(cond
+                           (revision-exists?
+                            '(span
+                              (@ (class "label label-success"))
+                              "✓"))
+                           ((member "failure" job-events)
+                            '(span (@ (class "label label-danger"))
+                                   "Failed to import data"))
+                           (else
+                            '(span (@ (class "label label-default"))
+                                   "No information yet")))))))))
+        branches-with-most-recent-commits))))
+
 (define* (view-git-repository git-repository-id
                               label url cgit-url-base
                               branches-with-most-recent-commits)
@@ -705,42 +744,9 @@
        (div
         (@ (class "col-md-12"))
         (h3 "Branches")
-        (table
-         (@ (class "table table-responsive"))
-         (thead
-          (tr
-           (th (@ (class "col-md-3")) "Name")
-           (th (@ (class "col-md-2")) "Date")
-           (th (@ (class "col-md-7")) "Commit")))
-         (tbody
-          ,@(map
-             (match-lambda
-               ((name commit date revision-exists? job-events)
-                `(tr
-                  (td
-                   (a (@ (href ,(string-append
-                                 "/repository/" git-repository-id
-                                 "/branch/" name)))
-                      ,name))
-                  (td ,date)
-                  (td ,@(if (string=? commit "NULL")
-                            '((samp "branch deleted"))
-                            `((a (@ (href ,(string-append
-                                            "/revision/" commit)))
-                                 (samp ,commit))
-                              " "
-                              ,(cond
-                                (revision-exists?
-                                 '(span
-                                   (@ (class "label label-success"))
-                                   "✓"))
-                                ((member "failure" job-events)
-                                 '(span (@ (class "label label-danger"))
-                                        "Failed to import data"))
-                                (else
-                                 '(span (@ (class "label label-default"))
-                                        "No information yet")))))))))
-             branches-with-most-recent-commits)))))))))
+        ,(table/branches-with-most-recent-commits
+          git-repository-id
+          branches-with-most-recent-commits)))))))
 
 (define (view-branch git-repository-id
                      branch-name query-parameters branch-commits)
