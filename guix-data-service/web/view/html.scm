@@ -394,6 +394,28 @@
                   (td ,(build-status-span status)))))
              derivations)))))))))
 
+(define (view-revision/git-repositories git-repositories-and-branches
+                                         commit-hash)
+  `((h3 "Git repositories")
+    ,@(map
+       (match-lambda
+         (((id label url cgit-url-base) . branches)
+          `((a (@ (href ,(string-append
+                          "/repository/" id)))
+               (h4 ,url))
+            ,@(map
+               (match-lambda
+                 ((name datetime)
+                  (if (string-null? cgit-url-base)
+                      `(,name " at " ,datetime)
+                      `(a (@ (href ,(string-append
+                                     cgit-url-base
+                                     "commit/?id="
+                                     commit-hash)))
+                          ,name " at " ,datetime))))
+               branches))))
+       git-repositories-and-branches)))
+
 (define* (view-revision commit-hash packages-count
                         git-repositories-and-branches derivations-count
                         jobs-and-events
@@ -421,28 +443,10 @@
         (a (@ (href ,(string-append path-base "/packages")))
            "View packages")
 
-        ,@(if
-           (null? git-repositories-and-branches)
-           '()
-           `((h3 "Git repositories")
-             ,@(map
-                (match-lambda
-                  (((id label url cgit-url-base) . branches)
-                   `((a (@ (href ,(string-append
-                                   "/repository/" id)))
-                        (h4 ,url))
-                     ,@(map
-                        (match-lambda
-                          ((name datetime)
-                           (if (string-null? cgit-url-base)
-                               `(,name " at " ,datetime)
-                               `(a (@ (href ,(string-append
-                                              cgit-url-base
-                                              "commit/?id="
-                                              commit-hash)))
-                                   ,name " at " ,datetime))))
-                        branches))))
-                git-repositories-and-branches)))
+        ,@(if (null? git-repositories-and-branches)
+              '()
+              (view-revision/git-repositories git-repositories-and-branches
+                                              commit-hash))
         (h3 "Jobs")
         (table
          (@ (class "table"))
@@ -1564,26 +1568,11 @@
                           (style "font-size: 2em; display: block;"))
                        "Unknown")
 
-               ,@(if
-                  (null? git-repositories-and-branches)
-                  '()
-                  `((h3 "Git repositories")
-                    ,@(map
-                       (match-lambda
-                         (((id label url cgit-url-base) . branches)
-                          `((h4 ,url)
-                            ,@(map
-                               (match-lambda
-                                 ((name datetime)
-                                  (if (string-null? cgit-url-base)
-                                      `(,name " at " ,datetime)
-                                      `(a (@ (href ,(string-append
-                                                     cgit-url-base
-                                                     "commit/?id="
-                                                     commit-hash)))
-                                          ,name " at " ,datetime))))
-                               branches))))
-                       git-repositories-and-branches)))
+               ,@(if (null? git-repositories-and-branches)
+                     '()
+                     (view-revision/git-repositories
+                      git-repositories-and-branches
+                      commit-hash))
                (h3 "Jobs")
                (table
                 (@ (class "table"))
