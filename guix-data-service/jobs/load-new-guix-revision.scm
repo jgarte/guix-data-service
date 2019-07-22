@@ -30,6 +30,7 @@
             process-load-new-guix-revision-job
             select-job-for-commit
             select-jobs-and-events
+            select-jobs-and-events-for-commit
             record-job-event
             enqueue-load-new-guix-revision-job
             most-recent-n-load-new-guix-revision-jobs))
@@ -675,6 +676,40 @@ ORDER BY load_new_guix_revision_jobs.id DESC")
                 (json-string->scm events-json))
             (string=? log-exists? "t"))))
    (exec-query conn query)))
+
+(define (select-jobs-and-events-for-commit conn commit)
+  (define query
+    "
+SELECT
+  load_new_guix_revision_jobs.id,
+  load_new_guix_revision_jobs.source,
+  load_new_guix_revision_jobs.git_repository_id,
+  load_new_guix_revision_jobs.created_at,
+  load_new_guix_revision_jobs.succeeded_at,
+  (
+    SELECT JSON_AGG(
+      json_build_object('event', event, 'occurred_at', occurred_at) ORDER BY occurred_at ASC
+    )
+    FROM load_new_guix_revision_job_events
+    WHERE job_id = load_new_guix_revision_jobs.id
+  ),
+  EXISTS (
+    SELECT 1 FROM load_new_guix_revision_job_logs WHERE job_id = load_new_guix_revision_jobs.id
+  ) AS log_exists
+FROM load_new_guix_revision_jobs
+WHERE commit = $1
+ORDER BY load_new_guix_revision_jobs.id DESC")
+
+  (map
+   (match-lambda
+     ((id source git-repository-id created-at succeeded-at
+          events-json log-exists?)
+      (list id commit source git-repository-id created-at succeeded-at
+            (if (string-null? events-json)
+                #()
+                (json-string->scm events-json))
+            (string=? log-exists? "t"))))
+   (exec-query conn query (list commit))))
 
 (define (most-recent-n-load-new-guix-revision-jobs conn n)
   (let ((result

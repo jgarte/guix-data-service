@@ -103,7 +103,9 @@
         (git-repositories-and-branches
          (git-branches-with-repository-details-for-commit conn commit-hash))
         (derivations-counts
-         (count-packages-derivations-in-revision conn commit-hash)))
+         (count-packages-derivations-in-revision conn commit-hash))
+        (jobs-and-events
+         (select-jobs-and-events-for-commit conn commit-hash)))
     (case (most-appropriate-mime-type
            '(application/json text/html)
            mime-types)
@@ -125,6 +127,7 @@
                 packages-count
                 git-repositories-and-branches
                 derivations-counts
+                jobs-and-events
                 #:path-base path-base
                 #:header-text header-text)
         #:extra-headers http-headers-for-unchanging-content)))))
@@ -152,7 +155,9 @@
               commit-hash
               (select-job-for-commit
                conn commit-hash)
-              (git-branches-with-repository-details-for-commit conn commit-hash))))))
+              (git-branches-with-repository-details-for-commit conn commit-hash)
+              (select-jobs-and-events-for-commit conn commit-hash))))))
+
 
 (define* (render-revision-packages mime-types
                                    conn

@@ -396,6 +396,7 @@
 
 (define* (view-revision commit-hash packages-count
                         git-repositories-and-branches derivations-count
+                        jobs-and-events
                         #:key (path-base "/revision/")
                         header-text)
   (layout
@@ -441,7 +442,51 @@
                                               commit-hash)))
                                    ,name " at " ,datetime))))
                         branches))))
-                git-repositories-and-branches))))
+                git-repositories-and-branches)))
+        (h3 "Jobs")
+        (table
+         (@ (class "table"))
+         (thead
+          (tr
+           (th "Source")
+           (th "Events")
+           (th "")))
+         (tbody
+          ,@(map (match-lambda
+                   ((id commit source git-repository-id created-at succeeded-at
+                        events log-exists?)
+                    `(tr
+                      (@ (class
+                           ,(let ((event-names
+                                   (map (lambda (event)
+                                          (assoc-ref event "event"))
+                                        (vector->list events))))
+                              (cond
+                               ((member "success" event-names)
+                                "success")
+                               ((member "failure" event-names)
+                                "danger")
+                               ((member "start" event-names)
+                                "info")
+                               (else
+                                "")))))
+                      (td ,source)
+                      (td
+                       (dl
+                        ,@(map
+                           (lambda (event)
+                             `((dt ,(assoc-ref event "event"))
+                               (dd ,(assoc-ref event "occurred_at"))))
+                           (cons
+                            `(("event" . "created")
+                              ("occurred_at" . ,created-at))
+                            (vector->list events)))))
+                      (td
+                       ,@(if log-exists?
+                             `((a (@ (href ,(string-append "/job/" id)))
+                                  "View log"))
+                             '())))))
+                 jobs-and-events))))
        (div
         (@ (class "col-md-6"))
         (h3 "Derivations")
@@ -1491,7 +1536,8 @@
       (h1 ,header-text)
       (p ,body)))))
 
-(define (unknown-revision commit-hash job git-repositories-and-branches)
+(define (unknown-revision commit-hash job git-repositories-and-branches
+                          jobs-and-events)
   (layout
    #:body
    `(,(header)
@@ -1524,7 +1570,7 @@
                   `((h3 "Git repositories")
                     ,@(map
                        (match-lambda
-                         (((label url cgit-url-base) . branches)
+                         (((id label url cgit-url-base) . branches)
                           `((h4 ,url)
                             ,@(map
                                (match-lambda
@@ -1537,13 +1583,57 @@
                                                      commit-hash)))
                                           ,name " at " ,datetime))))
                                branches))))
-                       git-repositories-and-branches))))
-                     (div
-                      (@ (class "col-md-6"))
-                      (h3 "Derivations")
-                      (strong (@ (class "text-center")
-                                 (style "font-size: 2em; display: block;"))
-                              "Unknown"))))))))))
+                       git-repositories-and-branches)))
+               (h3 "Jobs")
+               (table
+                (@ (class "table"))
+                (thead
+                 (tr
+                  (th "Source")
+                  (th "Events")
+                  (th "")))
+                (tbody
+                 ,@(map (match-lambda
+                          ((id commit source git-repository-id created-at succeeded-at
+                               events log-exists?)
+                           `(tr
+                             (@ (class
+                                  ,(let ((event-names
+                                          (map (lambda (event)
+                                                 (assoc-ref event "event"))
+                                               (vector->list events))))
+                                     (cond
+                                      ((member "success" event-names)
+                                       "success")
+                                      ((member "failure" event-names)
+                                       "danger")
+                                      ((member "start" event-names)
+                                       "info")
+                                      (else
+                                       "")))))
+                             (td ,source)
+                             (td
+                              (dl
+                               ,@(map
+                                  (lambda (event)
+                                    `((dt ,(assoc-ref event "event"))
+                                      (dd ,(assoc-ref event "occurred_at"))))
+                                  (cons
+                                   `(("event" . "created")
+                                     ("occurred_at" . ,created-at))
+                                   (vector->list events)))))
+                             (td
+                              ,@(if log-exists?
+                                    `((a (@ (href ,(string-append "/job/" id)))
+                                         "View log"))
+                                    '())))))
+                        jobs-and-events))))
+              (div
+               (@ (class "col-md-6"))
+               (h3 "Derivations")
+               (strong (@ (class "text-center")
+                          (style "font-size: 2em; display: block;"))
+                       "Unknown"))))))))))
 
 (define (compare-unknown-commit base-commit target-commit
                                 base-exists? target-exists?
