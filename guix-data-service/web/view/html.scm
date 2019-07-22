@@ -233,12 +233,18 @@
         (h1 "Guix Data Service")))
       ,@(map
          (match-lambda
-           (((repository-id label url) . branches-with-most-recent-commits)
+           (((repository-id label url cgit-url-base) . branches-with-most-recent-commits)
             `(div
               (@ (class "row"))
               (div
                (@ (class "col-sm-12"))
-               (h3 ,url)
+               (h3 (@ (style "display: inline-block;"))
+                   ,url)
+               ,@(if (string-null? cgit-url-base)
+                     '()
+                     `((a (@ (style "padding-left: 0.8em;")
+                             (href ,cgit-url-base))
+                          "(View cgit)")))
                ,(if (null? branches-with-most-recent-commits)
                     '(p "No branches")
                     (table/branches-with-most-recent-commits
