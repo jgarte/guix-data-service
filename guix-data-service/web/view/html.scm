@@ -416,6 +416,52 @@
                branches))))
        git-repositories-and-branches)))
 
+(define (view-revision/jobs-and-events jobs-and-events)
+  `((h3 "Jobs")
+    (table
+     (@ (class "table"))
+     (thead
+      (tr
+       (th "Source")
+       (th "Events")
+       (th "")))
+     (tbody
+      ,@(map (match-lambda
+               ((id commit source git-repository-id created-at succeeded-at
+                    events log-exists?)
+                `(tr
+                  (@ (class
+                       ,(let ((event-names
+                               (map (lambda (event)
+                                      (assoc-ref event "event"))
+                                    (vector->list events))))
+                          (cond
+                           ((member "success" event-names)
+                            "success")
+                           ((member "failure" event-names)
+                            "danger")
+                           ((member "start" event-names)
+                            "info")
+                           (else
+                            "")))))
+                  (td ,source)
+                  (td
+                   (dl
+                    ,@(map
+                       (lambda (event)
+                         `((dt ,(assoc-ref event "event"))
+                           (dd ,(assoc-ref event "occurred_at"))))
+                       (cons
+                        `(("event" . "created")
+                          ("occurred_at" . ,created-at))
+                        (vector->list events)))))
+                  (td
+                   ,@(if log-exists?
+                         `((a (@ (href ,(string-append "/job/" id)))
+                              "View log"))
+                         '())))))
+             jobs-and-events)))))
+
 (define* (view-revision commit-hash packages-count
                         git-repositories-and-branches derivations-count
                         jobs-and-events
@@ -447,50 +493,7 @@
               '()
               (view-revision/git-repositories git-repositories-and-branches
                                               commit-hash))
-        (h3 "Jobs")
-        (table
-         (@ (class "table"))
-         (thead
-          (tr
-           (th "Source")
-           (th "Events")
-           (th "")))
-         (tbody
-          ,@(map (match-lambda
-                   ((id commit source git-repository-id created-at succeeded-at
-                        events log-exists?)
-                    `(tr
-                      (@ (class
-                           ,(let ((event-names
-                                   (map (lambda (event)
-                                          (assoc-ref event "event"))
-                                        (vector->list events))))
-                              (cond
-                               ((member "success" event-names)
-                                "success")
-                               ((member "failure" event-names)
-                                "danger")
-                               ((member "start" event-names)
-                                "info")
-                               (else
-                                "")))))
-                      (td ,source)
-                      (td
-                       (dl
-                        ,@(map
-                           (lambda (event)
-                             `((dt ,(assoc-ref event "event"))
-                               (dd ,(assoc-ref event "occurred_at"))))
-                           (cons
-                            `(("event" . "created")
-                              ("occurred_at" . ,created-at))
-                            (vector->list events)))))
-                      (td
-                       ,@(if log-exists?
-                             `((a (@ (href ,(string-append "/job/" id)))
-                                  "View log"))
-                             '())))))
-                 jobs-and-events))))
+        ,@(view-revision/jobs-and-events jobs-and-events))
        (div
         (@ (class "col-md-6"))
         (h3 "Derivations")
@@ -1573,50 +1576,7 @@
                      (view-revision/git-repositories
                       git-repositories-and-branches
                       commit-hash))
-               (h3 "Jobs")
-               (table
-                (@ (class "table"))
-                (thead
-                 (tr
-                  (th "Source")
-                  (th "Events")
-                  (th "")))
-                (tbody
-                 ,@(map (match-lambda
-                          ((id commit source git-repository-id created-at succeeded-at
-                               events log-exists?)
-                           `(tr
-                             (@ (class
-                                  ,(let ((event-names
-                                          (map (lambda (event)
-                                                 (assoc-ref event "event"))
-                                               (vector->list events))))
-                                     (cond
-                                      ((member "success" event-names)
-                                       "success")
-                                      ((member "failure" event-names)
-                                       "danger")
-                                      ((member "start" event-names)
-                                       "info")
-                                      (else
-                                       "")))))
-                             (td ,source)
-                             (td
-                              (dl
-                               ,@(map
-                                  (lambda (event)
-                                    `((dt ,(assoc-ref event "event"))
-                                      (dd ,(assoc-ref event "occurred_at"))))
-                                  (cons
-                                   `(("event" . "created")
-                                     ("occurred_at" . ,created-at))
-                                   (vector->list events)))))
-                             (td
-                              ,@(if log-exists?
-                                    `((a (@ (href ,(string-append "/job/" id)))
-                                         "View log"))
-                                    '())))))
-                        jobs-and-events))))
+               ,@(view-revision/jobs-and-events jobs-and-events))
               (div
                (@ (class "col-md-6"))
                (h3 "Derivations")
