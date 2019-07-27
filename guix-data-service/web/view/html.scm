@@ -230,7 +230,20 @@
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
-        (h1 "Guix Data Service")))
+        (h1 (@ (style "display: inline-block;"))
+            "Guix Data Service")
+        (div
+         (@ (class "btn-group pull-right")
+            (style "margin-top: 1.3rem;")
+            (role "group"))
+         (a (@ (class "btn btn-lg btn-default")
+               (href "/statistics")
+               (role "button"))
+            "Statistics")
+         (a (@ (class "btn btn-lg btn-default")
+               (href "/jobs")
+               (role "button"))
+            "Jobs"))))
       ,@(map
          (match-lambda
            (((repository-id label url cgit-url-base) . branches-with-most-recent-commits)
