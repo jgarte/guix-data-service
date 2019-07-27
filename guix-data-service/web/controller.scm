@@ -716,9 +716,9 @@
                                             'after_date)
                      #:before-date (assq-ref parsed-query-parameters
                                              'before_date)))))))
-    (('GET "branch" branch-name "latest-processed-revision")
+    (('GET "repository" repository-id "branch" branch-name "latest-processed-revision")
      (let ((commit-hash
-            (latest-processed-commit-for-branch conn branch-name)))
+            (latest-processed-commit-for-branch conn repository-id branch-name)))
        (if commit-hash
            (render-view-revision mime-types
                                  conn
@@ -730,9 +730,9 @@
            (render-unknown-revision mime-types
                                     conn
                                     commit-hash))))
-    (('GET "branch" branch-name "latest-processed-revision" "packages")
+    (('GET "repository" repository-id "branch" branch-name "latest-processed-revision" "packages")
      (let ((commit-hash
-            (latest-processed-commit-for-branch conn branch-name)))
+            (latest-processed-commit-for-branch conn repository-id branch-name)))
        (if commit-hash
            (let ((parsed-query-parameters
                   (guard-against-mutually-exclusive-query-parameters
@@ -761,14 +761,15 @@
                                          (samp ,branch-name))
                                        #:header-link
                                        (string-append
+                                        "/repository/" repository-id
                                         "/branch/" branch-name
                                         "/latest-processed-revision")))
            (render-unknown-revision mime-types
                                     conn
                                     commit-hash))))
-    (('GET "branch" branch-name "latest-processed-revision" "package" name version)
+    (('GET "repository" repository-id "branch" branch-name "latest-processed-revision" "package" name version)
      (let ((commit-hash
-            (latest-processed-commit-for-branch conn branch-name)))
+            (latest-processed-commit-for-branch conn repository-id branch-name)))
        (if commit-hash
            (render-revision-package mime-types
                                     conn
@@ -780,6 +781,7 @@
                                       (samp ,branch-name))
                                     #:header-link
                                     (string-append
+                                     "/repository/" repository-id
                                      "/branch/" branch-name
                                      "/latest-processed-revision"))
            (render-unknown-revision mime-types

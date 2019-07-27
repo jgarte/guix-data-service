@@ -96,20 +96,21 @@ WHERE git_branches.commit = $1")
     query
     (list branch-name git-repository-id))))
 
-(define* (latest-processed-commit-for-branch conn branch-name)
+(define* (latest-processed-commit-for-branch conn repository-id branch-name)
   (define query
     (string-append
      "SELECT git_branches.commit "
      "FROM git_branches "
      "INNER JOIN guix_revisions ON git_branches.commit = guix_revisions.commit "
-     "WHERE git_branches.name = $1 "
+     "WHERE guix_revisions.git_repository_id = $1 AND "
+     "git_branches.git_repository_id = $1 AND git_branches.name = $2 "
      "ORDER BY datetime DESC "
      "LIMIT 1"))
 
   (match (exec-query
           conn
           query
-          (list branch-name))
+          (list repository-id branch-name))
     (((commit-hash))
      commit-hash)
     ('()
