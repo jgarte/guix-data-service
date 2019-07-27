@@ -388,13 +388,19 @@
             ,@(map
                (match-lambda
                  ((name datetime)
-                  (if (string-null? cgit-url-base)
-                      `(,name " at " ,datetime)
-                      `(a (@ (href ,(string-append
-                                     cgit-url-base
-                                     "commit/?id="
-                                     commit-hash)))
-                          ,name " at " ,datetime))))
+                  `(div
+                    (a (@ (href ,(string-append "/repository/" id
+                                                "/branch/" name)))
+                       ,name)
+                    " at " ,datetime
+                    ,@(if (string-null? cgit-url-base)
+                          '()
+                          `(" "
+                            (a (@ (href ,(string-append
+                                          cgit-url-base
+                                          "commit/?id="
+                                          commit-hash)))
+                               "(View cgit)"))))))
                branches))))
        git-repositories-and-branches)))
 
