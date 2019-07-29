@@ -7,7 +7,8 @@
             commit->revision-id
             insert-guix-revision
             guix-commit-exists?
-            guix-revision-exists?))
+            guix-revision-exists?
+            guix-revisions-cgit-url-bases))
 
 (define (count-guix-revisions conn)
   (first
@@ -56,3 +57,21 @@
   (let ((result (caar
                  (exec-query conn query))))
     (string=? result "t")))
+
+(define (guix-revisions-cgit-url-bases conn guix-revision-ids)
+  (map
+   car
+   (exec-query
+    conn
+    (simple-format #f "
+SELECT cgit_url_base
+FROM git_repositories
+WHERE cgit_url_base IS NOT NULL AND id IN (
+  SELECT git_repository_id
+  FROM guix_revisions
+  WHERE id IN (VALUES ~A));"
+                   (string-join
+                    (map (lambda (id)
+                           (string-append "(" id ")"))
+                         guix-revision-ids)
+                    ",")))))
