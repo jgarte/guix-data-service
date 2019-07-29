@@ -386,6 +386,10 @@
          (render-html
           #:sxml (compare base-commit
                           target-commit
+                          (guix-revisions-cgit-url-bases
+                           conn
+                           (list base-revision-id
+                                 target-revision-id))
                           new-packages
                           removed-packages
                           version-changes)

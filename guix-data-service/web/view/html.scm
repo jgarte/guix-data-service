@@ -1174,6 +1174,7 @@
 
 (define (compare base-commit
                  target-commit
+                 cgit-url-bases
                  new-packages
                  removed-packages
                  version-changes)
@@ -1189,12 +1190,20 @@
       (div
        (@ (class "row"))
        (div
-        (@ (class "col-sm-12"))
-        (h1 (@ (class "pull-left"))
-            "Comparing "
+        (@ (class "col-sm-8"))
+        (h1 "Comparing "
             (samp ,(string-take base-commit 8) "…")
             " and "
             (samp ,(string-take target-commit 8) "…"))
+        ,@(if (apply string=? cgit-url-bases)
+              `((a (@ (href ,(string-append
+                              (first cgit-url-bases)
+                              "log/?qt=range&q="
+                              base-commit ".." target-commit)))
+                   "(View cgit)"))
+              '()))
+       (div
+        (@ (class "col-sm-4"))
         (div
          (@ (class "btn-group-vertical btn-group-lg pull-right")
             (style "margin-top: 2em;")
