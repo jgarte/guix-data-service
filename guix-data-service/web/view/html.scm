@@ -1234,8 +1234,9 @@
                (@ (class "table"))
                (thead
                 (tr
-                 (th (@ (class "col-md-3")) "Name")
-                 (th (@ (class "col-md-9")) "Version")))
+                 (th (@ (class "col-md-4")) "Name")
+                 (th (@ (class "col-md-4")) "Version")
+                 (th (@ (class "col-md-4")) "")))
                (tbody
                 ,@(map
                    (match-lambda
@@ -1243,7 +1244,12 @@
                        ('version . version))
                       `(tr
                         (td ,name)
-                        (td ,version))))
+                        (td ,version)
+                        (td (@ (class "text-right"))
+                            (a (@ (href ,(string-append
+                                          "/revision/" target-commit
+                                          "/package/" name "/" version)))
+                               "More information")))))
                    new-packages))))))
       (div
        (@ (class "row"))
@@ -1256,8 +1262,9 @@
                (@ (class "table"))
                (thead
                 (tr
-                 (th (@ (class "col-md-3")) "Name")
-                 (th (@ (class "col-md-9")) "Version")))
+                 (th (@ (class "col-md-4")) "Name")
+                 (th (@ (class "col-md-4")) "Version")
+                 (th (@ (class "col-md-4")) "")))
                (tbody
                 ,@(map
                    (match-lambda
@@ -1265,41 +1272,61 @@
                        ('version . version))
                       `(tr
                         (td ,name)
-                        (td ,version))))
+                        (td ,version)
+                        (td (@ (class "text-right"))
+                            (a (@ (href ,(string-append
+                                          "/revision/" base-commit
+                                          "/package/" name "/" version)))
+                               "More information")))))
                    removed-packages))))))
       (div
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
         (h3 "Version changes")
-        ,(if (null? version-changes)
-             '(p "No version changes")
-             `(table
-               (@ (class "table"))
-               (thead
-                (tr
-                 (th (@ (class "col-md-3")) "Name")
-                 (th (@ (class "col-md-9")) "Versions")))
-               (tbody
-                ,@(map
-                   (match-lambda
-                     ((name . versions)
-                      `(tr
-                        (td ,name)
-                        (td (ul
-                             ,@(map (match-lambda
-                                      ((type . versions)
-                                       `(li (@ (class ,(if (eq? type 'base)
-                                                           "text-danger"
-                                                           "text-success")))
-                                            ,(string-join
-                                              (vector->list versions)
-                                              ", ")
-                                            ,(if (eq? type 'base)
-                                                 " (old)"
-                                                 " (new)"))))
-                                    versions))))))
-                   version-changes))))))))))
+        ,(if
+          (null? version-changes)
+          '(p "No version changes")
+          `(table
+            (@ (class "table"))
+            (thead
+             (tr
+              (th (@ (class "col-md-3")) "Name")
+              (th (@ (class "col-md-9")) "Versions")))
+            (tbody
+             ,@(map
+                (match-lambda
+                  ((name . versions)
+                   `(tr
+                     (td ,name)
+                     (td
+                      (ul
+                       ,@(map
+                          (match-lambda
+                            ((type . versions)
+                             `(li (@ (class ,(if (eq? type 'base)
+                                                 "text-danger"
+                                                 "text-success")))
+                                  (ul
+                                   (@ (class "list-inline")
+                                      (style "display: inline-block;"))
+                                   ,@(map
+                                      (lambda (version)
+                                        `(li (a (@ (href
+                                                    ,(string-append
+                                                      "/revision/"
+                                                      (if (eq? type 'base)
+                                                          base-commit
+                                                          target-commit)
+                                                      "/package/"
+                                                      name "/" version)))
+                                                ,version)))
+                                        (vector->list versions)))
+                                   ,(if (eq? type 'base)
+                                        " (old)"
+                                        " (new)"))))
+                            versions))))))
+                  version-changes))))))))))
 
 (define (compare/derivations query-parameters
                              valid-systems
