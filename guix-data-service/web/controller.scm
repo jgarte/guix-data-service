@@ -374,7 +374,13 @@
          (render-json
           `((new-packages . ,(list->vector new-packages))
             (removed-packages . ,(list->vector removed-packages))
-            (version-changes . ,(list->vector version-changes)))
+            (version-changes . ,(list->vector
+                                 (map
+                                  (match-lambda
+                                    ((name data ...)
+                                     `((name . ,name)
+                                       ,@data)))
+                                  version-changes))))
           #:extra-headers http-headers-for-unchanging-content))
         (else
          (render-html
