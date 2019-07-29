@@ -789,15 +789,17 @@
        (div
         (@ (class "col-md-12"))
         (table
-         (@ (class "table table-responsive"))
+         (@ (class "table table-responsive")
+            (style "table-layout: fixed;"))
          (thead
           (tr
            (th (@ (class "col-md-3")) "Date")
-           (th (@ (class "col-md-3")) "Commit")))
+           (th (@ (class "col-md-7")) "Commit")
+           (th (@ (class "col-md-1")))))
          (tbody
           ,@(map
-             (match-lambda
-               ((commit date revision-exists? job-events)
+             (match-lambda*
+               (((commit date revision-exists? job-events) previous-commit)
                 `(tr
                   (td ,date)
                   (td ,@(if (string=? commit "NULL")
@@ -816,8 +818,26 @@
                                         "Failed to import data"))
                                 (else
                                  '(span (@ (class "label label-default"))
-                                        "No information yet")))))))))
-             branch-commits)))))))))
+                                        "No information yet"))))))
+                  ,@(if previous-commit
+                        `((td
+                           (@ (style "vertical-align: middle;")
+                              (rowspan "2"))
+                           (div
+                            (@ (class "btn-group")
+                               (role "group"))
+                            (a (@ (class "btn btn-sm btn-default")
+                                  (title "Compare")
+                                  (href ,(string-append
+                                          "/compare"
+                                          "?base_commit=" previous-commit
+                                          "&target_commit=" commit)))
+                               "⇕ Compare"))))
+                          '()))))
+             branch-commits
+             (append (map first (cdr branch-commits))
+                     (list #f)))))))))))
+
 
 (define (view-builds stats builds)
   (layout
