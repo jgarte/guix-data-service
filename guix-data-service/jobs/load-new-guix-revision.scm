@@ -122,8 +122,12 @@
 (define (insert-empty-log-entry conn job-id)
   (exec-query
    conn
+   "DELETE FROM load_new_guix_revision_job_logs WHERE job_id = $1"
+   (list job-id))
+  (exec-query
+   conn
    "INSERT INTO load_new_guix_revision_job_logs (job_id, contents) VALUES
-($1, NULL) ON CONFLICT DO NOTHING"
+($1, NULL)"
    (list job-id)))
 
 (define (count-log-parts conn job-id)
