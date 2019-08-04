@@ -43,28 +43,6 @@
   (inferior-eval '(use-modules (guix licenses)) inf)
   (inferior-eval (proc packages) inf))
 
-(define (select-licenses license-values)
-  (string-append
-   "SELECT id, licenses.name, licenses.uri, licenses.comment "
-   "FROM licenses "
-   "JOIN (VALUES "
-   (string-join
-    (map (lambda (values)
-           (string-append
-            "("
-            (string-join
-             (map value->quoted-string-or-null
-                  values)
-             ", ")
-            ")"))
-         license-values)
-    ", ")
-   ") AS vals (name, uri, comment) "
-   "ON "
-   "licenses.name = vals.name AND "
-   "licenses.uri = vals.uri AND "
-   "licenses.comment = vals.comment"))
-
 (define (insert-licenses values)
   (string-append
    "INSERT INTO licenses "
@@ -91,15 +69,39 @@
     (map number->string
          (sort (map string->number ids) <)))
 
+  (define (non-string-to-false lst)
+    (map (lambda (value)
+           (if (string? value)
+               value
+               #f))
+         lst))
+
+  (define (empty-string-to-false lst)
+    ;; TODO squee returns empty strings for null values, which will probably
+    ;; cause problems
+    (map (lambda (value)
+           (if (string? value)
+               (if (string-null? value)
+                   #f
+                   value)
+               value))
+         lst))
+
   (let* ((unique-license-tuples
           (filter (lambda (license-tuple)
                     (not (null? license-tuple)))
                   (delete-duplicates
-                   (concatenate license-data))))
+                   (map
+                    (lambda (lst)
+                      (non-string-to-false
+                       (empty-string-to-false lst)))
+                    (concatenate license-data)))))
          (existing-license-entries
           (exec-query->vhash conn
-                             (select-licenses unique-license-tuples)
-                             cdr
+                             "SELECT id, name, uri, comment FROM licenses"
+                             (lambda (vals)
+                               (non-string-to-false
+                                (empty-string-to-false (cdr vals))))
                              first)) ;; id
          (missing-license-entries
           (delete-duplicates
@@ -128,5 +130,8 @@
                         (begin
                           (error "missing license entry"
                                  license-values)))))
-                 license-value-lists)))
+                 (map (lambda (lst)
+                        (non-string-to-false
+                         (empty-string-to-false lst)))
+                      license-value-lists))))
          license-data)))

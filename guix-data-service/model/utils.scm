@@ -5,6 +5,7 @@
   #:use-module (squee)
   #:export (quote-string
             value->quoted-string-or-null
+            non-empty-string-or-false
             exec-query->vhash
             two-lists->vhash
             deduplicate-strings
@@ -17,6 +18,13 @@
   (if (string? value)
       (string-append "$STR$" value "$STR$")
       "NULL"))
+
+(define (non-empty-string-or-false s)
+  (if (string? s)
+      (if (string-null? s)
+          #f
+          s)
+      #f))
 
 (define (exec-query->vhash conn query field-function value-function)
   (fold (lambda (row result)

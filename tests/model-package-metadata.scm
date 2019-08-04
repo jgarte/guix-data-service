@@ -18,6 +18,15 @@
    (home-page "https://example.com")
    (location (location "file.scm" 5 0))))
 
+(define mock-inferior-package-foo-2
+  (mock-inferior-package
+   (name "foo")
+   (version "2")
+   (synopsis "Foo")
+   (description "Foo description")
+   (home-page #f)
+   (location #f)))
+
 (define (test-license-set-ids conn)
   (mock
    ((guix-data-service model license)
@@ -46,7 +55,8 @@
            (match
                (inferior-packages->package-metadata-ids
                 conn
-                (list mock-inferior-package-foo)
+                (list mock-inferior-package-foo
+                      mock-inferior-package-foo-2)
                 (test-license-set-ids conn))
              ((x) (string? x))))
          #:always-rollback? #t))
@@ -57,11 +67,13 @@
          (test-equal "inferior-packages->package-metadata-ids"
            (inferior-packages->package-metadata-ids
             conn
-            (list mock-inferior-package-foo)
+            (list mock-inferior-package-foo
+                  mock-inferior-package-foo-2)
             (test-license-set-ids conn))
            (inferior-packages->package-metadata-ids
             conn
-            (list mock-inferior-package-foo)
+            (list mock-inferior-package-foo
+                  mock-inferior-package-foo-2)
             (test-license-set-ids conn)))
          #:always-rollback? #t))))))
 

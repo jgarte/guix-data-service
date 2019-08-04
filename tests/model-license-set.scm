@@ -19,10 +19,10 @@
         "https://example.com/why-license-1"))
       (("License 1"
         "https://gnu.org/licenses/test-1.html"
-        "https://example.com/why-license-1")
+        #f)
        ("License 2"
-        "https://gnu.org/licenses/test-2.html"
-        "https://example.com/why-license-2")))))
+        #f
+        #f)))))
 
  (with-postgresql-connection
   "test-model-license-set"

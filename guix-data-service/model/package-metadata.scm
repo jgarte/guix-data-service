@@ -52,8 +52,14 @@
                  "ON "
                  (string-join
                   (map (lambda (field)
-                         (string-append
-                          "package_metadata." field " = vals." field))
+                         (if (member field '("home_page" "location_id"
+                                             "license_set_id"))
+                             (string-append
+                              "(package_metadata." field " = vals." field " OR "
+                              "(package_metadata." field " IS NULL AND"
+                              " vals." field " IS NULL))")
+                             (string-append
+                              "package_metadata." field " = vals." field)))
                        fields)
                   " AND ")))
 
@@ -129,7 +135,8 @@ WHERE packages.id IN (
     (map (lambda (package license-set-id)
            (list (inferior-package-synopsis package)
                  (inferior-package-description package)
-                 (inferior-package-home-page package)
+                 (non-empty-string-or-false
+                  (inferior-package-home-page package))
                  (location->location-id
                   conn
                   (inferior-package-location package))
@@ -140,7 +147,14 @@ WHERE packages.id IN (
   (let* ((existing-package-metadata-entries
           (exec-query->vhash conn
                              (select-package-metadata package-metadata)
-                             cdr
+                             (match-lambda
+                               ((id synopsis description home-page
+                                    location-id license-set-id)
+                                (list synopsis
+                                      description
+                                      (non-empty-string-or-false home-page)
+                                      location-id
+                                      license-set-id)))
                              first)) ;; id))
          (missing-package-metadata-entries
           (delete-duplicates
