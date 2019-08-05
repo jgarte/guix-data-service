@@ -789,13 +789,13 @@
        (div
         (@ (class "col-md-12"))
         (table
-         (@ (class "table table-responsive")
+         (@ (class "table")
             (style "table-layout: fixed;"))
          (thead
           (tr
-           (th (@ (class "col-md-3")) "Date")
-           (th (@ (class "col-md-7")) "Commit")
-           (th (@ (class "col-md-1")))))
+           (th (@ (class "col-sm-3")) "Date")
+           (th (@ (class "col-sm-7")) "Commit")
+           (th (@ (class "col-sm-1")))))
          (tbody
           ,@(map
              (match-lambda*
