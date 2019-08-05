@@ -87,7 +87,8 @@
   (list (build-response
          #:code code
          #:headers (append extra-headers
-                           '((content-type . (text/html)))))
+                           '((content-type . (text/html))
+                             (vary . (accept)))))
         (lambda (port)
           (sxml->html sxml port))))
 
@@ -96,7 +97,8 @@
   (list (build-response
          #:code code
          #:headers (append extra-headers
-                           '((content-type . (application/json)))))
+                           '((content-type . (application/json))
+                             (vary . (accept)))))
         (lambda (port)
           (scm->json json port))))
 
