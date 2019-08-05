@@ -518,8 +518,11 @@
                                    builds)
            #:extra-headers http-headers-for-unchanging-content))
 
-        #f ;; TODO
-        )))
+        (render-html
+         #:sxml (general-not-found
+                 "Derivation not found"
+                 "No derivation found with this file name.")
+         #:code 404))))
 
 (define (render-store-item conn filename)
   (let ((derivation (select-derivation-by-output-filename conn filename)))
