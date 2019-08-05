@@ -40,6 +40,8 @@
          ((id)
           (process-load-new-guix-revision-job id))))))
 
+   (exec-query conn "TRUNCATE load_new_guix_revision_jobs CASCADE")
+
    (test-equal "test build store item failure"
      #f
      (mock
@@ -55,6 +57,8 @@
               "test-source")
         ((id)
          (process-load-new-guix-revision-job id)))))
+
+   (exec-query conn "TRUNCATE load_new_guix_revision_jobs CASCADE")
 
    (test-equal "test extract information failure"
      #f
@@ -76,6 +80,9 @@
                "test-commit"
                "test-source")
          ((id)
-          (process-load-new-guix-revision-job id))))))))
+          (process-load-new-guix-revision-job id))))))
+
+   (exec-query conn "TRUNCATE load_new_guix_revision_jobs CASCADE")))
+
 
 (test-end)
