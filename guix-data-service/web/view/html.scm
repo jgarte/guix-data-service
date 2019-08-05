@@ -799,7 +799,8 @@
          (tbody
           ,@(map
              (match-lambda*
-               (((commit date revision-exists? job-events) previous-commit)
+               (((commit date revision-exists? job-events)
+                 (previous-commit previous-revision-exists?))
                 `(tr
                   (td ,date)
                   (td ,@(if (string=? commit "NULL")
@@ -819,7 +820,9 @@
                                 (else
                                  '(span (@ (class "label label-default"))
                                         "No information yet"))))))
-                  ,@(if previous-commit
+                  ,@(if (and previous-commit
+                             revision-exists?
+                             previous-revision-exists?)
                         `((td
                            (@ (style "vertical-align: middle;")
                               (rowspan "2"))
@@ -835,8 +838,12 @@
                                "⇕ Compare"))))
                           '()))))
              branch-commits
-             (append (map first (cdr branch-commits))
-                     (list #f)))))))))))
+             (append (map (match-lambda
+                            ((commit date revision-exists? job-events)
+                             (list commit
+                                   revision-exists?)))
+                          (cdr branch-commits))
+                     '((#f #f))))))))))))
 
 
 (define (view-builds stats builds)
