@@ -82,7 +82,24 @@
          ((id)
           (process-load-new-guix-revision-job id))))))
 
-   (exec-query conn "TRUNCATE load_new_guix_revision_jobs CASCADE")))
+   (exec-query conn "TRUNCATE load_new_guix_revision_jobs CASCADE")
+
+   (test-assert "test duplicate job handling"
+     (with-postgresql-transaction
+      conn
+      (lambda (conn)
+        (enqueue-load-new-guix-revision-job
+         conn
+         (git-repository-url->git-repository-id conn "test-url")
+         "test-commit"
+         "test-source")
+        (enqueue-load-new-guix-revision-job
+         conn
+         (git-repository-url->git-repository-id conn "test-url")
+         "test-commit"
+         "test-source")
+        #t)
+      #:always-rollback? #t))))
 
 
 (test-end)

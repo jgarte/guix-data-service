@@ -22,6 +22,25 @@
                                    id
                                    (current-date)))
         #t)
+      #:always-rollback? #t))
+
+   (test-assert "insert-git-branch-entry works twice"
+     (with-postgresql-transaction
+      conn
+      (lambda (conn)
+        (let* ((url "test-url")
+               (id (git-repository-url->git-repository-id conn url)))
+          (insert-git-branch-entry conn
+                                   "master"
+                                   "test-commit"
+                                   id
+                                   (current-date))
+          (insert-git-branch-entry conn
+                                   "master"
+                                   "test-commit"
+                                   id
+                                   (current-date)))
+        #t)
       #:always-rollback? #t))))
 
 (test-end)

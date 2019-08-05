@@ -630,12 +630,15 @@ WHERE job_id = $1"
     "
 INSERT INTO load_new_guix_revision_jobs (git_repository_id, commit, source)
 VALUES ($1, $2, $3)
+ON CONFLICT DO NOTHING
 RETURNING id;")
 
-  (first
-   (exec-query conn
-               query
-               (list git-repository-id commit source))))
+  (match (exec-query conn
+                     query
+                     (list git-repository-id commit source))
+    ((result)
+     result)
+    (() #f)))
 
 (define (select-job-for-commit conn commit)
   (let ((result
