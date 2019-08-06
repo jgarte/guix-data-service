@@ -8,6 +8,7 @@
   #:export (package-data->package-data-vhashes
             package-differences-data
             package-data-vhash->derivations
+            package-data->names-and-versions
             package-data-vhash->derivations-and-build-status
             package-data-vhashes->new-packages
             package-data-vhashes->removed-packages
@@ -83,6 +84,28 @@ ORDER BY base_packages.name DESC, base_packages.version, target_packages.name, t
                             (add-data-to-vhash target-row-part target-package-data))))))
                (list vlist-null vlist-null)
                package-data)))
+
+(define (package-data->names-and-versions package-data)
+  (reverse
+   (pair-fold
+    (lambda (pair result)
+      (match pair
+        (((name . version))
+         (cons (cons name version)
+               result))
+        (((name1 . version1) (name2 . version2) rest ...)
+         (if (and (string=? name1 name2)
+                  (string=? version1 version2))
+             result
+             (cons (cons name1 version1)
+                   result)))))
+    '()
+    (map (match-lambda
+           ((base-name base-version _ _ _ _ target-name target-version _ _ _ _)
+            (if (string-null? base-name)
+                (cons target-name target-version)
+                (cons base-name base-version))))
+         package-data))))
 
 (define (package-data-vhash->derivations conn packages-vhash)
   (define (vhash->derivation-ids vhash)
@@ -206,7 +229,10 @@ ORDER BY base_packages.name DESC, base_packages.version, target_packages.name, t
                '()
                target-versions)))
 
-(define (package-data-derivation-changes base-packages-vhash target-packages-vhash)
+(define (package-data-derivation-changes names-and-versions
+                                         base-packages-vhash
+                                         target-packages-vhash)
+
   (define base-package-details-by-name-and-version
     (package-data-vhash->package-name-and-version-hash-table base-packages-vhash))
 
@@ -224,25 +250,42 @@ ORDER BY base_packages.name DESC, base_packages.version, target_packages.name, t
           ,@(derivation-system-and-target-list->alist (cdr lst)))))
 
   (list->vector
-   (hash-fold
-    (lambda (name-and-version target-packages-entry result)
+   (filter-map
+    (lambda (name-and-version)
       (let ((base-packages-entry
              (hash-ref base-package-details-by-name-and-version
+                       name-and-version))
+            (target-packages-entry
+             (hash-ref target-package-details-by-name-and-version
                        name-and-version)))
-        (if base-packages-entry
-            (let ((base-derivations (map cdr base-packages-entry))
-                  (target-derivations (map cdr target-packages-entry)))
-              (if (equal? base-derivations target-derivations)
-                  result
-                  `(((name . ,(car name-and-version))
-                     (version . ,(cdr name-and-version))
-                     (base . ,(list->vector
-                               (derivation-system-and-target-list->alist
-                                base-derivations)))
-                     (target . ,(list->vector
-                                 (derivation-system-and-target-list->alist
-                                  target-derivations))))
-                    ,@result)))
-            result)))
-    '()
-    target-package-details-by-name-and-version)))
+        (cond
+         ((and base-packages-entry target-packages-entry)
+          (let ((base-derivations (map cdr base-packages-entry))
+                (target-derivations (map cdr target-packages-entry)))
+            (if (equal? base-derivations target-derivations)
+                #f
+                `((name . ,(car name-and-version))
+                  (version . ,(cdr name-and-version))
+                  (base . ,(list->vector
+                            (derivation-system-and-target-list->alist
+                             base-derivations)))
+                  (target . ,(list->vector
+                              (derivation-system-and-target-list->alist
+                               target-derivations)))))))
+         (base-packages-entry
+          (let ((base-derivations (map cdr base-packages-entry)))
+            `((name . ,(car name-and-version))
+              (version . ,(cdr name-and-version))
+              (base . ,(list->vector
+                        (derivation-system-and-target-list->alist
+                         base-derivations)))
+              (target . ,(list->vector '())))))
+         (else
+          (let ((target-derivations (map cdr target-packages-entry)))
+            `((name . ,(car name-and-version))
+              (version . ,(cdr name-and-version))
+              (base . ,(list->vector '()))
+              (target . ,(list->vector
+                          (derivation-system-and-target-list->alist
+                           target-derivations)))))))))
+    names-and-versions)))

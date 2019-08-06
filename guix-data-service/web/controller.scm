@@ -429,30 +429,35 @@
             (systems        (assq-ref query-parameters 'system))
             (targets        (assq-ref query-parameters 'target))
             (build-statuses (assq-ref query-parameters 'build_status)))
-        (let-values
-            (((base-packages-vhash target-packages-vhash)
-              (package-data->package-data-vhashes
-               (package-differences-data conn
-                                         (commit->revision-id conn base-commit)
-                                         (commit->revision-id conn target-commit)))))
-          (let ((derivation-changes
-                 (package-data-derivation-changes base-packages-vhash
-                                                  target-packages-vhash)))
-            (case (most-appropriate-mime-type
-                   '(application/json text/html)
-                   mime-types)
-              ((application/json)
-               (render-json
-                derivation-changes
-                #:extra-headers http-headers-for-unchanging-content))
-              (else
-               (render-html
-                #:sxml (compare/derivations
-                        query-parameters
-                        (valid-systems conn)
-                        build-status-strings
-                        derivation-changes)
-                #:extra-headers http-headers-for-unchanging-content))))))))
+        (let*
+            ((data
+              (package-differences-data conn
+                                        (commit->revision-id conn base-commit)
+                                        (commit->revision-id conn target-commit)))
+             (names-and-versions
+              (package-data->names-and-versions data)))
+          (let-values
+              (((base-packages-vhash target-packages-vhash)
+                (package-data->package-data-vhashes data)))
+            (let ((derivation-changes
+                   (package-data-derivation-changes names-and-versions
+                                                    base-packages-vhash
+                                                    target-packages-vhash)))
+              (case (most-appropriate-mime-type
+                     '(application/json text/html)
+                     mime-types)
+                ((application/json)
+                 (render-json
+                  derivation-changes
+                  #:extra-headers http-headers-for-unchanging-content))
+                (else
+                 (render-html
+                  #:sxml (compare/derivations
+                          query-parameters
+                          (valid-systems conn)
+                          build-status-strings
+                          derivation-changes)
+                  #:extra-headers http-headers-for-unchanging-content)))))))))
 
 (define (render-compare/packages mime-types
                                  conn
