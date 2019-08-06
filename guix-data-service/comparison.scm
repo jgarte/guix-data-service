@@ -90,7 +90,7 @@ WHERE
   target_packages.id IS NULL OR
   base_packages.id != target_packages.id OR
   base_packages.file_name != target_packages.file_name
-ORDER BY base_packages.name DESC, base_packages.version, target_packages.name, target_packages.version"))
+ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.version, target_packages.version"))
 
   (exec-query conn query (list base_guix_revision_id target_guix_revision_id)))
 
