@@ -433,7 +433,9 @@
             ((data
               (package-differences-data conn
                                         (commit->revision-id conn base-commit)
-                                        (commit->revision-id conn target-commit)))
+                                        (commit->revision-id conn target-commit)
+                                        #:systems systems
+                                        #:targets targets))
              (names-and-versions
               (package-data->names-and-versions data)))
           (let-values

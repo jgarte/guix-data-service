@@ -15,9 +15,37 @@
             package-data-version-changes
             package-data-derivation-changes))
 
-(define (package-differences-data conn base_guix_revision_id target_guix_revision_id)
+(define* (package-differences-data conn
+                                   base_guix_revision_id
+                                   target_guix_revision_id
+                                   #:key
+                                   (systems #f)
+                                   (targets #f))
+  (define extra-constraints
+    (string-append
+     (if systems
+         (string-append
+          " AND package_derivations.system IN ("
+          (string-join (map
+                        (lambda (s)
+                          (string-append "'" s "'"))
+                        systems)
+                       ", ")
+          ")")
+         "")
+     (if targets
+         (string-append
+          " AND package_derivations.target IN ("
+          (string-join (map
+                        (lambda (s)
+                          (string-append "'" s "'"))
+                        targets)
+                       ", ")
+          ")")
+         "")))
+
   (define query
-    "
+    (string-append "
 WITH base_packages AS (
   SELECT packages.*, derivations.file_name,
     package_derivations.system, package_derivations.target
@@ -30,8 +58,8 @@ WITH base_packages AS (
     SELECT guix_revision_package_derivations.package_derivation_id
     FROM guix_revision_package_derivations
     WHERE revision_id = $1
-  )
-), target_packages AS (
+  )" extra-constraints
+"), target_packages AS (
   SELECT packages.*, derivations.file_name,
     package_derivations.system, package_derivations.target
   FROM packages
@@ -43,8 +71,8 @@ WITH base_packages AS (
     SELECT guix_revision_package_derivations.package_derivation_id
     FROM guix_revision_package_derivations
     WHERE revision_id = $2
-  )
-)
+  )" extra-constraints
+")
 SELECT base_packages.name, base_packages.version,
   base_packages.package_metadata_id, base_packages.file_name,
   base_packages.system, base_packages.target,
@@ -62,7 +90,7 @@ WHERE
   target_packages.id IS NULL OR
   base_packages.id != target_packages.id OR
   base_packages.file_name != target_packages.file_name
-ORDER BY base_packages.name DESC, base_packages.version, target_packages.name, target_packages.version")
+ORDER BY base_packages.name DESC, base_packages.version, target_packages.name, target_packages.version"))
 
   (exec-query conn query (list base_guix_revision_id target_guix_revision_id)))
 
