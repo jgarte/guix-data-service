@@ -1404,10 +1404,6 @@
             #:options valid-systems
             #:help-text "Only include derivations that are build for this system."
             #:font-family "monospace")
-          ,(form-horizontal-control
-            "Build status" query-parameters
-            #:options valid-build-statuses
-            #:help-text "Only include derivations which have this build status.")
           (div (@ (class "form-group form-group-lg"))
                (div (@ (class "col-sm-offset-2 col-sm-10"))
                     (button (@ (type "submit")
