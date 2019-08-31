@@ -41,6 +41,7 @@
   #:use-module (guix-data-service model derivation)
   #:use-module (guix-data-service model build-status)
   #:use-module (guix-data-service model build)
+  #:use-module (guix-data-service model lint-checker)
   #:use-module (guix-data-service jobs load-new-guix-revision)
   #:use-module (guix-data-service web render)
   #:use-module (guix-data-service web sxml)
@@ -105,7 +106,9 @@
         (derivations-counts
          (count-packages-derivations-in-revision conn commit-hash))
         (jobs-and-events
-         (select-jobs-and-events-for-commit conn commit-hash)))
+         (select-jobs-and-events-for-commit conn commit-hash))
+        (lint-warning-counts
+         (lint-warning-count-by-lint-checker-for-revision conn commit-hash)))
     (case (most-appropriate-mime-type
            '(application/json text/html)
            mime-types)
@@ -118,7 +121,13 @@
                                           `((system . ,system)
                                             (target . ,target)
                                             (derivation_count . ,derivation_count))))
-                                       derivations-counts))))
+                                       derivations-counts)))
+          (lint_warning_counts . ,(map (match-lambda
+                                         ((name description network-dependent count)
+                                          `(,name . ((description       . ,description)
+                                                     (network_dependent . ,(string=? network-dependent "t"))
+                                                     (count             . ,(string->number count))))))
+                                       lint-warning-counts)))
         #:extra-headers http-headers-for-unchanging-content))
       (else
        (render-html
@@ -128,6 +137,7 @@
                 git-repositories-and-branches
                 derivations-counts
                 jobs-and-events
+                lint-warning-counts
                 #:path-base path-base
                 #:header-text header-text)
         #:extra-headers http-headers-for-unchanging-content)))))

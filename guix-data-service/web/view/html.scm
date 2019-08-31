@@ -450,9 +450,29 @@
                          '())))))
              jobs-and-events)))))
 
+(define (view-revision/lint-warning-counts lint-warning-counts)
+  `((h3 "Lint warnings")
+    (table
+     (@ (class "table"))
+     (thead
+      (tr
+       (th "Linter")
+       (th "Count")))
+     (tbody
+      ,@(map (match-lambda
+               ((name description network-dependent count)
+                `(tr
+                  (td (span (@ (style "font-family: monospace; display: block;"))
+                            ,name)
+                      (p (@ (style "margin: 6px 0 0px;"))
+                         ,description))
+                  (td ,count))))
+             lint-warning-counts)))))
+
 (define* (view-revision commit-hash packages-count
                         git-repositories-and-branches derivations-count
                         jobs-and-events
+                        lint-warning-counts
                         #:key (path-base "/revision/")
                         header-text)
   (layout
@@ -481,7 +501,8 @@
               '()
               (view-revision/git-repositories git-repositories-and-branches
                                               commit-hash))
-        ,@(view-revision/jobs-and-events jobs-and-events))
+        ,@(view-revision/jobs-and-events jobs-and-events)
+        ,@(view-revision/lint-warning-counts lint-warning-counts))
        (div
         (@ (class "col-md-6"))
         (h3 "Derivations")
