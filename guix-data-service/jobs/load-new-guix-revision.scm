@@ -9,6 +9,7 @@
   #:use-module (guix channels)
   #:use-module (guix inferior)
   #:use-module (guix profiles)
+  #:use-module (guix utils)
   #:use-module (guix progress)
   #:use-module (guix packages)
   #:use-module (guix derivations)
@@ -21,6 +22,10 @@
   #:use-module (guix-data-service model package-derivation)
   #:use-module (guix-data-service model guix-revision-package-derivation)
   #:use-module (guix-data-service model license-set)
+  #:use-module (guix-data-service model lint-checker)
+  #:use-module (guix-data-service model lint-warning)
+  #:use-module (guix-data-service model lint-warning-message)
+  #:use-module (guix-data-service model location)
   #:use-module (guix-data-service model package-metadata)
   #:use-module (guix-data-service model derivation)
   #:export (log-for-job
@@ -193,6 +198,100 @@ WHERE job_id = $1"
        (simple-format #t "debug: Finished ~A, took ~A seconds\n"
                       action time-taken)))))
 
+(define (all-inferior-lint-warnings inf store)
+  (define checkers
+    (inferior-eval
+     '(begin
+        (use-modules (guix lint))
+        (map (lambda (checker)
+               (list (lint-checker-name checker)
+                     (lint-checker-description checker)
+                     (if (memq checker %network-dependent-checkers)
+                         #t
+                         #f)))
+             %all-checkers))
+     inf))
+
+  (define locales
+    '("cs_CZ.utf8"
+      "da_DK.utf8"
+      "de_DE.utf8"
+      "eo_EO.utf8"
+      "es_ES.utf8"
+      "fr_FR.utf8"
+      "hu_HU.utf8"
+      "pl_PL.utf8"
+      "pt_BR.utf8"
+      ;;"sr_SR.utf8"
+      "sv_SE.utf8"
+      "vi_VN.utf8"
+      "zh_CN.utf8"))
+
+  (define (lint-warnings-for-checker checker-name)
+    `(lambda (store)
+       (let* ((checker (find (lambda (checker)
+                               (eq? (lint-checker-name checker)
+                                    ',checker-name))
+                             %local-checkers))
+              (check (lint-checker-check checker)))
+         (filter
+          (match-lambda
+            ((package-id . warnings)
+             (not (null? warnings))))
+          (hash-map->list
+           (lambda (package-id package)
+             (cons
+              package-id
+              (map
+               (lambda (lint-warning)
+                 (list
+                  (match (lint-warning-location lint-warning)
+                    (($ <location> file line column)
+                     (list (if (string-prefix? "/gnu/store/" file)
+                               ;; Convert a string like
+                               ;; /gnu/store/53xh0mpigin2rffg31s52x5dc08y0qmr-guix-module-union/share/guile/site/2.2/gnu/packages/xdisorg.scm
+                               ;;
+                               ;; This happens when the checker uses
+                               ;; package-field-location.
+                               (string-join (drop (string-split file #\/) 8) "/")
+                               file)
+                           line
+                           column)))
+                  (let* ((source-locale "en_US.utf8")
+                         (source-message
+                          (begin
+                            (setlocale LC_MESSAGES source-locale)
+                            (lint-warning-message lint-warning)))
+                         (messages-by-locale
+                          (filter-map
+                           (lambda (locale)
+                             (setlocale LC_MESSAGES locale)
+                             (let ((message
+                                    (lint-warning-message lint-warning)))
+                               (if (string=? message source-message)
+                                   #f
+                                   (cons locale message))))
+                           (list ,@locales))))
+                    (setlocale LC_MESSAGES "")
+                    (cons (cons source-locale source-message)
+                          messages-by-locale))))
+               (check package))))
+           %package-table)))))
+
+  (map
+   (match-lambda
+     ((name description network-dependent?)
+      (cons
+       (list name description network-dependent?)
+       (if network-dependent?
+           '()
+           (log-time
+            (simple-format #f "getting ~A lint warnings" name)
+            (lambda ()
+              (inferior-eval-with-store inf store (lint-warnings-for-checker
+                                                   name))))))))
+   checkers))
+
 (define (all-inferior-package-derivations store inf packages)
   (define inferior-%supported-systems
     (inferior-eval '(@ (guix packages) %supported-systems) inf))
@@ -332,9 +431,7 @@ WHERE job_id = $1"
                  (string<? a-name
                            b-name)))))))
 
-(define (packages-and-inferior-data->package-derivation-ids conn inf
-                                                            packages
-                                                            inferior-data-4-tuples)
+(define (insert-packages conn inf packages)
   (let* ((package-license-set-ids
           (log-time "fetching inferior package license metadata"
                     (lambda ()
@@ -344,43 +441,81 @@ WHERE job_id = $1"
           (log-time "fetching inferior package metadata"
                     (lambda ()
                       (inferior-packages->package-metadata-ids
-                       conn packages package-license-set-ids))))
-         (package-ids
-          (log-time "getting package-ids"
-                    (lambda ()
-                      (inferior-packages->package-ids
-                       conn packages packages-metadata-ids)))))
+                       conn packages package-license-set-ids)))))
 
-    (simple-format
-     #t "debug: finished loading information from inferior\n")
-    (close-inferior inf)
+    (log-time "getting package-ids"
+              (lambda ()
+                (inferior-packages->package-ids
+                 conn packages packages-metadata-ids)))))
 
-    (let* ((derivation-ids
-            (derivation-file-names->derivation-ids
-             conn
-             (map fourth inferior-data-4-tuples)))
-           (inferior-package-id->package-id-hash-table
-            (alist->hashq-table
-             (map (lambda (package package-id)
-                    (cons (inferior-package-id package)
-                          package-id))
-                  packages
-                  package-ids)))
-           (flat-package-ids-systems-and-targets
+(define (insert-lint-warnings conn inferior-package-id->package-database-id
+                              lint-warnings-data)
+  (let ((lint-checker-ids
+         (lint-checkers->lint-checker-ids
+          conn
+          (map car lint-warnings-data))))
+
+    (lint-warnings-data->lint-warning-ids
+     conn
+     (append-map
+      (lambda (lint-checker-id warnings-by-package-id)
+        (append-map
+         (match-lambda
+           ((package-id . warnings)
             (map
              (match-lambda
-               ((inferior-package-id system target derivation-file-name)
-                (list (hashq-ref inferior-package-id->package-id-hash-table
-                                 inferior-package-id)
-                      system
-                      target)))
-             inferior-data-4-tuples))
-           (package-derivation-ids
-            (insert-package-derivations conn
-                                        flat-package-ids-systems-and-targets
-                                        derivation-ids)))
+               ((location-data messages-by-locale)
+                (let ((location-id
+                       (location->location-id
+                        conn
+                        (apply location location-data)))
+                      (lint-warning-message-set-id
+                       (lint-warning-message-data->lint-warning-message-set-id
+                        conn
+                        messages-by-locale)))
+                  (list lint-checker-id
+                        (inferior-package-id->package-database-id package-id)
+                        location-id
+                        lint-warning-message-set-id))))
+             (fold (lambda (location-and-messages result)
+                     (if (member location-and-messages result)
+                         (begin
+                           (apply
+                            simple-format
+                            (current-error-port)
+                            "warning: skipping duplicate lint warning ~A ~A"
+                            location-and-messages)
+                           result)
+                         (append result
+                                 (list location-and-messages))))
+                   '()
+                   warnings))))
+         warnings-by-package-id))
+      lint-checker-ids
+      (map cdr lint-warnings-data)))))
 
-      package-derivation-ids)))
+(define (inferior-data->package-derivation-ids
+         conn inf
+         inferior-package-id->package-database-id
+         inferior-data-4-tuples)
+  (let ((derivation-ids
+         (derivation-file-names->derivation-ids
+          conn
+          (map fourth inferior-data-4-tuples)))
+        (flat-package-ids-systems-and-targets
+         (map
+          (match-lambda
+            ((inferior-package-id system target derivation-file-name)
+             (list (inferior-package-id->package-database-id
+                    inferior-package-id)
+                   system
+                   target)))
+          inferior-data-4-tuples)))
+
+
+    (insert-package-derivations conn
+                                flat-package-ids-systems-and-targets
+                                derivation-ids)))
 
 (define (inferior-package-transitive-supported-systems package)
   ((@@ (guix inferior) inferior-package-field)
@@ -575,6 +710,11 @@ WHERE job_id = $1"
                    (lambda ()
                      (deduplicate-inferior-packages
                       (inferior-packages inf)))))
+                 (inferior-lint-warnings
+                  (log-time
+                   "fetching inferior lint warnings"
+                   (lambda ()
+                     (all-inferior-lint-warnings inf store))))
                  (inferior-data-4-tuples
                   (log-time
                    "getting inferior derivations"
@@ -586,26 +726,57 @@ WHERE job_id = $1"
             (obtain-advisory-transaction-lock conn
                                               'load-new-guix-revision-inserts)
 
-            (let* ((package-derivation-ids
-                    (packages-and-inferior-data->package-derivation-ids
-                     conn inf packages inferior-data-4-tuples))
-                   (guix-revision-id
-                    (insert-guix-revision conn git-repository-id commit store-path)))
-
-              (insert-guix-revision-package-derivations conn
-                                                        guix-revision-id
-                                                        package-derivation-ids)
+            (let* ((package-ids
+                    (insert-packages conn inf packages))
+                   (inferior-package-id->package-database-id
+                    (let ((lookup-table
+                           (alist->hashq-table
+                            (map (lambda (package package-id)
+                                   (cons (inferior-package-id package)
+                                         package-id))
+                                 packages
+                                 package-ids))))
+                      (lambda (inferior-id)
+                        (hashq-ref lookup-table inferior-id)))))
 
               (simple-format
-               #t "Successfully loaded ~A package/derivation pairs\n"
-               (length package-derivation-ids))))
+               #t "debug: finished loading information from inferior\n")
+              (close-inferior inf)
+
+              (let* ((lint-warning-ids
+                      (insert-lint-warnings
+                       conn
+                       inferior-package-id->package-database-id
+                       inferior-lint-warnings))
+                     (package-derivation-ids
+                      (inferior-data->package-derivation-ids
+                       conn inf inferior-package-id->package-database-id
+                       inferior-data-4-tuples))
+                     (guix-revision-id
+                      (insert-guix-revision conn git-repository-id
+                                            commit store-path)))
+
+                (insert-guix-revision-lint-warnings conn
+                                                    guix-revision-id
+                                                    lint-warning-ids)
+
+                (insert-guix-revision-package-derivations conn
+                                                          guix-revision-id
+                                                          package-derivation-ids)
+
+                (simple-format
+                 #t "Successfully loaded ~A package/derivation pairs\n"
+                 (length package-derivation-ids)))))
           #t)
         (lambda (key . args)
           (simple-format (current-error-port)
                          "Failed extracting information from commit: ~A\n\n" commit)
           (simple-format (current-error-port)
                          "  ~A ~A\n\n" key args)
-          #f)))))
+          #f)
+        (lambda (key . args)
+          (display-backtrace (make-stack #t) (current-error-port)))))))
+
 
 (define (store-item-for-git-repository-id-and-commit
          conn git-repository-id commit)

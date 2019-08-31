@@ -18,3 +18,4 @@ change_load_new_guix_revision_job_logs_contents_to_be_nullable 2019-07-07T20:10:
 fix_duplicated_licenses 2019-07-30T05:48:17Z Christopher Baines <mail@cbaines.net> # Fix duplicated licenses, and add constraints
 change_git_branches_primary_key 2019-08-05T18:57:41Z Christopher Baines <mail@cbaines.net> # Change the git_branches primary key to include the git_repository_id,\nas this will allow having the same branch in different repositories.
 remove_duplicate_load_new_guix_revision_jobs 2019-08-05T19:06:36Z Christopher Baines <mail@cbaines.net> # Remove duplicate load_new_guix_revision_jobs
+lint_warnings 2019-08-18T17:10:12Z Christopher Baines <mail@cbaines.net> # Store lint warnings

@@ -57,8 +57,11 @@ SOURCES =							\
   guix-data-service/model/git-repository.scm			\
   guix-data-service/model/guix-revision-package-derivation.scm	\
   guix-data-service/model/guix-revision.scm			\
-  guix-data-service/model/license.scm				\
   guix-data-service/model/license-set.scm			\
+  guix-data-service/model/license.scm				\
+  guix-data-service/model/lint-checker.scm			\
+  guix-data-service/model/lint-warning-message.scm		\
+  guix-data-service/model/lint-warning.scm			\
   guix-data-service/model/location.scm				\
   guix-data-service/model/package-derivation.scm		\
   guix-data-service/model/package-metadata.scm			\
@@ -84,6 +87,9 @@ TESTS =					\
   tests/model-git-repository.scm		\
   tests/model-license-set.scm			\
   tests/model-license.scm			\
+  tests/model-lint-checker.scm			\
+  tests/model-lint-warning.scm			\
+  tests/model-lint-warning-message.scm		\
   tests/model-package-metadata.scm
 
 AM_TESTS_ENVIRONMENT = abs_top_srcdir="$(abs_top_srcdir)"
