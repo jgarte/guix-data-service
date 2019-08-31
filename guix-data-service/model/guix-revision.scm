@@ -36,7 +36,8 @@
                    store_path "') "
                    "RETURNING id;"))
 
-  (map car (exec-query conn insert)))
+  (match (exec-query conn insert)
+    (((id)) id)))
 
 (define (guix-commit-exists? conn commit)
   (define query
