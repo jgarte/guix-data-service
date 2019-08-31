@@ -11,7 +11,8 @@
             exec-query->vhash
             two-lists->vhash
             deduplicate-strings
-            group-list-by-first-n-fields))
+            group-list-by-first-n-fields
+            insert-missing-data-and-return-all-ids))
 
 (define (quote-string s)
   (string-append "$STR$" s "$STR$"))
@@ -76,3 +77,106 @@
                          (list vals)))))))
         '()
         lists))
+
+(define (insert-missing-data-and-return-all-ids
+         conn
+         table-name
+         fields-and-handlers
+         data)
+  (define fields (map symbol->string
+                      (map first fields-and-handlers)))
+
+  (define handlers (map cdr fields-and-handlers))
+
+  (define select-query
+    (string-append
+     "SELECT id, "
+     (string-join (map (lambda (field)
+                         (string-append table-name "." field))
+                       fields)
+                  ", ")
+     " FROM " table-name
+     " JOIN (VALUES "
+     ;; TODO This doesn't handle NULL values
+     (string-join
+      (map
+       (lambda (field-values)
+         (string-append
+          "("
+          (string-join
+           (map (lambda (value handler)
+                  (handler value))
+                field-values
+                handlers)
+           ",")
+          ")"))
+       data)
+      ", ")
+     ") AS vals (" (string-join fields ", ") ") "
+     "ON "
+     (string-join
+      (map (lambda (field)
+             (string-append
+              table-name "." field " = vals." field))
+           fields)
+      " AND ")))
+
+  (define (insert-sql missing-data)
+    (string-append
+     "INSERT INTO " table-name " ("
+     (string-join fields ", ")
+     ") VALUES "
+     (string-join
+      (map (lambda (field-values)
+             (string-append
+              "("
+              (string-join
+               (map (lambda (value handler)
+                     (handler value))
+                    field-values
+                    handlers)
+               ", ")
+              ")"))
+           missing-data)
+      ", ")
+     " RETURNING id"))
+
+  (define (normalise-database-values data)
+    (map (match-lambda
+           ((? boolean? b)
+            (if b "t" "f"))
+           ((? number? n)
+            (number->string n))
+           ((? symbol? s)
+            (symbol->string s))
+           ((? string? s)
+            s))
+         data))
+
+  (let* ((existing-entries
+          (exec-query->vhash conn
+                             select-query
+                             cdr
+                             first))
+         (missing-entries
+          (filter (lambda (field-values)
+                    (not (vhash-assoc (normalise-database-values field-values)
+                                      existing-entries)))
+                  data))
+         (new-entries
+          (if (null? missing-entries)
+              '()
+              (map first
+                   (exec-query conn (insert-sql missing-entries)))))
+         (new-entries-lookup-vhash
+          (two-lists->vhash missing-entries
+                            new-entries)))
+
+    (map (lambda (field-values)
+           (cdr
+            (or (vhash-assoc (normalise-database-values field-values)
+                             existing-entries)
+                (vhash-assoc field-values
+                             new-entries-lookup-vhash)
+                (error "missing entry" field-values))))
+         data)))
