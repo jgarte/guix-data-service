@@ -14,7 +14,7 @@
             group-list-by-first-n-fields))
 
 (define (quote-string s)
-  (string-append "'" s "'"))
+  (string-append "$STR$" s "$STR$"))
 
 (define (value->quoted-string-or-null value)
   (if (string? value)
