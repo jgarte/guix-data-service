@@ -31,7 +31,23 @@
 (with-postgresql-connection
  "process-branch-updated-email"
  (lambda (conn)
-   (enqueue-job-for-email
-    conn
-    (parse-email
-     (get-string-all (current-input-port))))))
+   (let* ((email-string
+           (get-string-all (current-input-port)))
+          (email
+           (catch
+             #t
+             (lambda ()
+               (parse-email email-string))
+             (lambda (key . args)
+               (display "\nerror: while processing email\n"
+                        (current-error-port))
+               (simple-format (current-error-port)
+                              "~A: ~A\n\n"
+                              key
+                              args)
+               (display email-string (current-error-port))
+               (display "\n\n" (current-error-port))
+               #f))))
+     (when email
+       (enqueue-job-for-email conn email)))))
+
