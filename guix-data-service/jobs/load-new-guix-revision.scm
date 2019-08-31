@@ -40,6 +40,7 @@
     (current-output-port))
 
   (define id 0)
+  (define buffer "")
 
   (define (insert job_id s)
     (exec-query
@@ -50,9 +51,13 @@
      (list (number->string id) job_id s)))
 
   (define (log-string s)
-    (set! id (+ 1 id)) ; increment id
-    (insert job-id s)
-    (display s output-port))
+    (if (string-contains s "\n")
+        (let ((output (string-append buffer s)))
+          (set! id (+ 1 id)) ; increment id
+          (set! buffer "") ; clear the buffer
+          (insert job-id output)
+          (display output output-port))
+        (set! buffer (string-append buffer s))))
 
   ;; TODO, this is useful when re-running jobs, but I'm not sure that should
   ;; be a thing, jobs should probably be only attempted once.
@@ -61,18 +66,21 @@
    "DELETE FROM load_new_guix_revision_job_log_parts WHERE job_id = $1"
    (list job-id))
 
-  (make-soft-port
-   (vector (lambda (c)
-             (log-string (string c)))
-           log-string
-           (lambda ()
-             (force-output output-port))
-           #f ; fetch one character
-           (lambda ()
-             ;; close port
-             #f)
-           #f) ; number of characters that can be read
-   "w"))
+  (let ((port
+         (make-soft-port
+          (vector (lambda (c)
+                    (set! buffer (string-append buffer (string c))))
+                  log-string
+                  (lambda ()
+                    (force-output output-port))
+                  #f ; fetch one character
+                  (lambda ()
+                    ;; close port
+                    #f)
+                  #f) ; number of characters that can be read
+          "w")))
+    (setvbuf port 'line)
+    port))
 
 (define* (log-for-job conn job-id
                       #:key
