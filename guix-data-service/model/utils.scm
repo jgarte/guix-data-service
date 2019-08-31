@@ -1,10 +1,12 @@
 (define-module (guix-data-service model utils)
   #:use-module (srfi srfi-1)
+  #:use-module (ice-9 match)
   #:use-module (ice-9 vlist)
   #:use-module (ice-9 receive)
   #:use-module (squee)
   #:export (quote-string
             value->quoted-string-or-null
+            value->sql-boolean
             non-empty-string-or-false
             exec-query->vhash
             two-lists->vhash
@@ -18,6 +20,16 @@
   (if (string? value)
       (string-append "$STR$" value "$STR$")
       "NULL"))
+
+(define (value->sql-boolean v)
+  (match v
+    ((? boolean? x)
+     (if x "TRUE" "FALSE"))
+    ((? string? x)
+     (if (or (string=? x "t")
+             (string=? x "TRUE"))
+         "TRUE"
+         "FALSE"))))
 
 (define (non-empty-string-or-false s)
   (if (string? s)
