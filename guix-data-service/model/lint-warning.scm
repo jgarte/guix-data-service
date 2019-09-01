@@ -3,7 +3,8 @@
   #:use-module (guix-data-service model utils)
   #:export (lint-warnings-data->lint-warning-ids
             insert-guix-revision-lint-warnings
-            lint-warnings-for-guix-revision))
+            lint-warnings-for-guix-revision
+            select-lint-warnings-by-revision-package-name-and-version))
 
 (define (lint-warnings-data->lint-warning-ids
          conn
@@ -94,3 +95,40 @@ INNER JOIN lint_warning_messages
                            ,@(if message-query
                                  (list message-query)
                                  '()))))
+
+(define (select-lint-warnings-by-revision-package-name-and-version conn
+                                                                   commit-hash
+                                                                   name version)
+  (define query "
+SELECT lint_warnings.id, lint_checkers.name, lint_checkers.description,
+       lint_checkers.network_dependent,
+       locations.file, locations.line, locations.column_number,
+       lint_warning_messages.message
+FROM lint_warnings
+INNER JOIN lint_checkers
+  ON lint_checkers.id = lint_warnings.lint_checker_id
+INNER JOIN packages
+  ON lint_warnings.package_id = packages.id
+LEFT OUTER JOIN locations
+  ON lint_warnings.location_id = locations.id
+INNER JOIN lint_warning_message_sets
+  ON lint_warning_message_sets.id = lint_warning_message_set_id
+INNER JOIN lint_warning_messages
+  ON lint_warning_messages.locale = 'en_US.utf8'
+  AND lint_warning_messages.id = ANY (lint_warning_message_sets.message_ids)
+WHERE packages.id IN (
+  SELECT package_derivations.package_id
+  FROM package_derivations
+  INNER JOIN guix_revision_package_derivations
+    ON package_derivations.id =
+    guix_revision_package_derivations.package_derivation_id
+  INNER JOIN guix_revisions
+    ON guix_revision_package_derivations.revision_id = guix_revisions.id
+  WHERE guix_revisions.commit = $1
+)
+  AND packages.name = $2
+  AND packages.version = $3")
+
+  (exec-query conn
+              query
+              (list commit-hash name version)))

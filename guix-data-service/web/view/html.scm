@@ -290,6 +290,7 @@
 (define* (view-revision-package-and-version revision-commit-hash name version
                                             package-metadata
                                             derivations git-repositories
+                                            lint-warnings
                                             #:key header-text
                                             header-link)
   (layout
@@ -375,7 +376,59 @@
                   (td (a (@ (href ,file-name))
                          ,(display-store-item-short file-name)))
                   (td ,(build-status-span status)))))
-             derivations)))))))))
+             derivations)))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h3 "Lint warnings")
+        (table
+         (@ (class "table"))
+         (thead
+          (tr
+           (th "Linter")
+           (th "Message")
+           (th "Location")))
+         (tbody
+          ,@(map
+             (match-lambda
+               ((id lint-checker-name lint-checker-description
+                    lint-checker-network-dependent
+                    file line-number column-number
+                    message)
+                `(tr
+                  (td (span (@ (style "font-family: monospace; display: block;"))
+                            ,lint-checker-name)
+                      (p (@ (style "font-size: small; margin: 6px 0 0px;"))
+                         ,lint-checker-description))
+                  (td ,message)
+                  (td
+                   ,@(if (and file (not (string-null? file)))
+                         `((ul
+                            ,@(map
+                               (match-lambda
+                                 ((id label url cgit-url-base)
+                                  (let ((output
+                                         `(,file
+                                           " "
+                                           (span
+                                            (@ (style "white-space: nowrap"))
+                                            "(line: " ,line-number
+                                            ", column: " ,column-number ")"))))
+                                    (if
+                                     (and cgit-url-base
+                                          (not (string-null? cgit-url-base)))
+                                     `(li
+                                       (a (@ (href
+                                              ,(string-append
+                                                cgit-url-base "tree/"
+                                                file "?id=" revision-commit-hash
+                                                "#n" line-number)))
+                                          ,@output))
+                                     `(li ,@output)))))
+                               git-repositories)))
+                         '())))))
+             lint-warnings)))))))))
 
 (define (view-revision/git-repositories git-repositories-and-branches
                                          commit-hash)

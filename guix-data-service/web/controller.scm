@@ -301,7 +301,13 @@
           version))
         (git-repositories
          (git-repositories-containing-commit conn
-                                             commit-hash)))
+                                             commit-hash))
+        (lint-warnings
+         (select-lint-warnings-by-revision-package-name-and-version
+          conn
+          commit-hash
+          name
+          version)))
     (case (most-appropriate-mime-type
            '(application/json text/html)
            mime-types)
@@ -330,6 +336,7 @@
                                                   metadata
                                                   derivations
                                                   git-repositories
+                                                  lint-warnings
                                                   #:header-text header-text
                                                   #:header-link header-link)
         #:extra-headers http-headers-for-unchanging-content)))))
