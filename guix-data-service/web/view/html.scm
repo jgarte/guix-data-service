@@ -748,8 +748,8 @@
       ,@(if show-next-page?
             `((div
                (@ (class "row"))
-               (a (@ (href ,(string-append path-base revision-commit-hash
-                                           "/packages?after_name="
+               (a (@ (href ,(string-append path-base
+                                           "?after_name="
                                            (car (last packages)))))
                   "Next page")))
             '())))))
