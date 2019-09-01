@@ -670,6 +670,9 @@ WHERE job_id = $1"
                 (channel->derivation-file-name store channel))))))
          (derivation
           (read-derivation-from-file manifest-store-item-derivation-file-name)))
+    (simple-format (current-error-port)
+                   "debug: channel dervation: ~A\n"
+                   manifest-store-item-derivation-file-name)
     (log-time
      "building the channel derivation"
      (lambda ()
