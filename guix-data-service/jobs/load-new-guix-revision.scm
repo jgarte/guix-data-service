@@ -559,6 +559,9 @@ WHERE job_id = $1"
                     (let ((new-store-path
                            (derivation->output-path derivation)))
                       (set! store-path new-store-path)
+                      (simple-format (current-error-port)
+                                     "debug: guix-store-path: ~A\n"
+                                     new-store-path)
                       new-store-path)))))))))
 
 (define (nss-certs-store-path store)
