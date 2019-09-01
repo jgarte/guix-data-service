@@ -457,50 +457,46 @@ WHERE job_id = $1"
                  conn packages packages-metadata-ids)))))
 
 (define (insert-lint-warnings conn inferior-package-id->package-database-id
+                              lint-checker-ids
                               lint-warnings-data)
-  (let ((lint-checker-ids
-         (lint-checkers->lint-checker-ids
-          conn
-          (map car lint-warnings-data))))
-
-    (lint-warnings-data->lint-warning-ids
-     conn
-     (append-map
-      (lambda (lint-checker-id warnings-by-package-id)
-        (append-map
-         (match-lambda
-           ((package-id . warnings)
-            (map
-             (match-lambda
-               ((location-data messages-by-locale)
-                (let ((location-id
-                       (location->location-id
-                        conn
-                        (apply location location-data)))
-                      (lint-warning-message-set-id
-                       (lint-warning-message-data->lint-warning-message-set-id
-                        conn
-                        messages-by-locale)))
-                  (list lint-checker-id
-                        (inferior-package-id->package-database-id package-id)
-                        location-id
-                        lint-warning-message-set-id))))
-             (fold (lambda (location-and-messages result)
-                     (if (member location-and-messages result)
-                         (begin
-                           (apply
-                            simple-format
-                            (current-error-port)
-                            "warning: skipping duplicate lint warning ~A ~A"
-                            location-and-messages)
-                           result)
-                         (append result
-                                 (list location-and-messages))))
-                   '()
-                   warnings))))
-         warnings-by-package-id))
-      lint-checker-ids
-      (map cdr lint-warnings-data)))))
+  (lint-warnings-data->lint-warning-ids
+   conn
+   (append-map
+    (lambda (lint-checker-id warnings-by-package-id)
+      (append-map
+       (match-lambda
+         ((package-id . warnings)
+          (map
+           (match-lambda
+             ((location-data messages-by-locale)
+              (let ((location-id
+                     (location->location-id
+                      conn
+                      (apply location location-data)))
+                    (lint-warning-message-set-id
+                     (lint-warning-message-data->lint-warning-message-set-id
+                      conn
+                      messages-by-locale)))
+                (list lint-checker-id
+                      (inferior-package-id->package-database-id package-id)
+                      location-id
+                      lint-warning-message-set-id))))
+           (fold (lambda (location-and-messages result)
+                   (if (member location-and-messages result)
+                       (begin
+                         (apply
+                          simple-format
+                          (current-error-port)
+                          "warning: skipping duplicate lint warning ~A ~A"
+                          location-and-messages)
+                         result)
+                       (append result
+                               (list location-and-messages))))
+                 '()
+                 warnings))))
+       warnings-by-package-id))
+    lint-checker-ids
+    (map cdr lint-warnings-data))))
 
 (define (inferior-data->package-derivation-ids
          conn inf
@@ -807,10 +803,15 @@ WHERE job_id = $1"
                #t "debug: finished loading information from inferior\n")
               (close-inferior inf)
 
-              (let* ((lint-warning-ids
+              (let* ((lint-checker-ids
+                      (lint-checkers->lint-checker-ids
+                       conn
+                       (map car inferior-lint-warnings)))
+                     (lint-warning-ids
                       (insert-lint-warnings
                        conn
                        inferior-package-id->package-database-id
+                       lint-checker-ids
                        inferior-lint-warnings))
                      (package-derivation-ids
                       (inferior-data->package-derivation-ids
@@ -819,6 +820,10 @@ WHERE job_id = $1"
                      (guix-revision-id
                       (insert-guix-revision conn git-repository-id
                                             commit store-path)))
+
+                (insert-guix-revision-lint-checkers conn
+                                                    guix-revision-id
+                                                    lint-checker-ids)
 
                 (insert-guix-revision-lint-warnings conn
                                                     guix-revision-id

@@ -19,3 +19,4 @@ fix_duplicated_licenses 2019-07-30T05:48:17Z Christopher Baines <mail@cbaines.ne
 change_git_branches_primary_key 2019-08-05T18:57:41Z Christopher Baines <mail@cbaines.net> # Change the git_branches primary key to include the git_repository_id,\nas this will allow having the same branch in different repositories.
 remove_duplicate_load_new_guix_revision_jobs 2019-08-05T19:06:36Z Christopher Baines <mail@cbaines.net> # Remove duplicate load_new_guix_revision_jobs
 lint_warnings 2019-08-18T17:10:12Z Christopher Baines <mail@cbaines.net> # Store lint warnings
+guix_revision_lint_checkers 2019-09-01T12:17:38Z chris <chris@phact> # Associate lint_checkers to guix_revisions

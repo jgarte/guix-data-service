@@ -4,7 +4,8 @@
   #:use-module (squee)
   #:use-module (guix-data-service model utils)
   #:export (lint-checkers->lint-checker-ids
-            lint-warning-count-by-lint-checker-for-revision))
+            lint-warning-count-by-lint-checker-for-revision
+            insert-guix-revision-lint-checkers))
 
 (define (lint-checkers->lint-checker-ids conn lint-checkers-data)
   (insert-missing-data-and-return-all-ids
@@ -37,3 +38,21 @@ INNER JOIN (
 ORDER BY count DESC")
 
   (exec-query conn query (list commit-hash)))
+
+(define (insert-guix-revision-lint-checkers conn
+                                            guix-revision-id
+                                            lint-checker-ids)
+  (exec-query
+   conn
+   (string-append
+    "INSERT INTO guix_revision_lint_checkers (lint_checker_id, guix_revision_id) "
+    "VALUES "
+    (string-join
+     (map (lambda (lint-checker-id)
+            (simple-format
+             #f
+             "(~A, ~A)"
+             lint-checker-id
+             guix-revision-id))
+          lint-checker-ids)
+     ", "))))
