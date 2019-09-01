@@ -344,6 +344,13 @@
                                          `("Revision " (samp ,commit-hash)))
                                         (header-link
                                          (string-append "/revision/" commit-hash)))
+  (define lint-checker-options
+    (map (match-lambda
+           ((name description network-dependent)
+            (cons (string-append name ": " description )
+                  name)))
+         (lint-checkers-for-revision conn commit-hash)))
+
   (if (any-invalid-query-parameters? query-parameters)
       (case (most-appropriate-mime-type
              '(application/json text/html)
@@ -356,7 +363,7 @@
           #:sxml (view-revision-lint-warnings commit-hash
                                               query-parameters
                                               '()
-                                              '()
+                                              lint-checker-options
                                               #:path-base path-base
                                               #:header-text header-text
                                               #:header-link header-link))))
@@ -406,7 +413,7 @@
                                                 query-parameters
                                                 lint-warnings
                                                 git-repositories
-                                                '()
+                                                lint-checker-options
                                                 #:path-base path-base
                                                 #:header-text header-text
                                                 #:header-link header-link)

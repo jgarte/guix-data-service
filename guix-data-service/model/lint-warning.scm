@@ -59,13 +59,25 @@ INNER JOIN lint_warning_message_sets
 INNER JOIN lint_warning_messages
   ON lint_warning_messages.locale = 'en_US.utf8'
   AND lint_warning_messages.id = ANY (lint_warning_message_sets.message_ids)
-WHERE lint_warnings.id IN (
+"
+                   (if linters
+                       (string-append
+                        "INNER JOIN (VALUES "
+                        (string-join
+                         (map (lambda (lint-checker-name)
+                                (simple-format
+                                 #f "($STR$~A$STR$)" lint-checker-name))
+                              linters)
+                         ",")
+                        ") AS linters (name) ON lint_checkers.name = linters.name ")
+                       "")
+"WHERE lint_warnings.id IN (
   SELECT lint_warning_id
   FROM guix_revision_lint_warnings
   INNER JOIN guix_revisions ON guix_revision_id = guix_revisions.id
   WHERE commit = $1
 )"
-                   (if package-query
+(if package-query
                        " AND to_tsvector(packages.name) @@ plainto_tsquery($2)"
                        "")
                    (if message-query

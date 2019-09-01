@@ -739,12 +739,11 @@
             "Package query" query-parameters
             #:help-text
             "Lint warnings where the package name matches the query.")
-          ;; TODO as there's not an easy way to find all the relevant lint checkers
-          ;; ,(form-horizontal-control
-          ;;   "Linter" query-parameters
-          ;;   #:options lint-checker-options
-          ;;   #:help-text
-          ;;   "Lint warnings for specific lint checkers.")
+          ,(form-horizontal-control
+            "Linter" query-parameters
+            #:options lint-checker-options
+            #:help-text
+            "Lint warnings for specific lint checkers.")
           ,(form-horizontal-control
             "Message query" query-parameters
             #:help-text
