@@ -5,7 +5,8 @@
   #:use-module (guix-data-service model utils)
   #:export (lint-checkers->lint-checker-ids
             lint-warning-count-by-lint-checker-for-revision
-            insert-guix-revision-lint-checkers))
+            insert-guix-revision-lint-checkers
+            lint-checkers-for-revision))
 
 (define (lint-checkers->lint-checker-ids conn lint-checkers-data)
   (insert-missing-data-and-return-all-ids
@@ -56,3 +57,18 @@ ORDER BY count DESC")
              guix-revision-id))
           lint-checker-ids)
      ", "))))
+
+(define (lint-checkers-for-revision conn commit-hash)
+  (exec-query
+   conn
+   "
+SELECT name, description, network_dependent
+FROM lint_checkers
+WHERE id IN (
+  SELECT lint_checker_id
+  FROM guix_revision_lint_checkers
+  INNER JOIN guix_revisions
+    ON guix_revisions.id = guix_revision_lint_checkers.guix_revision_id
+  WHERE commit = $1
+)"
+   (list commit-hash)))
