@@ -451,8 +451,10 @@
                          '())))))
              jobs-and-events)))))
 
-(define (view-revision/lint-warning-counts lint-warning-counts)
+(define (view-revision/lint-warning-counts path-base lint-warning-counts)
   `((h3 "Lint warnings")
+    (a (@ (href ,(string-append path-base "/lint-warnings")))
+       "View lint warnings")
     (table
      (@ (class "table"))
      (thead
@@ -503,7 +505,8 @@
               (view-revision/git-repositories git-repositories-and-branches
                                               commit-hash))
         ,@(view-revision/jobs-and-events jobs-and-events)
-        ,@(view-revision/lint-warning-counts lint-warning-counts))
+        ,@(view-revision/lint-warning-counts path-base
+                                             lint-warning-counts))
        (div
         (@ (class "col-md-6"))
         (h3 "Derivations")
