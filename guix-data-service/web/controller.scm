@@ -686,11 +686,11 @@
 
 (define (controller request method-and-path-components mime-types body)
   (match method-and-path-components
-    ((GET "assets" rest ...)
+    (('GET "assets" rest ...)
      (or (render-static-asset (string-join rest "/")
                               (request-headers request))
          (not-found (request-uri request))))
-    ((GET "healthcheck")
+    (('GET "healthcheck")
      (let ((database-status
             (catch
               #t
