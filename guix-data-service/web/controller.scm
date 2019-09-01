@@ -42,6 +42,7 @@
   #:use-module (guix-data-service model build-status)
   #:use-module (guix-data-service model build)
   #:use-module (guix-data-service model lint-checker)
+  #:use-module (guix-data-service model lint-warning)
   #:use-module (guix-data-service jobs load-new-guix-revision)
   #:use-module (guix-data-service web render)
   #:use-module (guix-data-service web sxml)
@@ -332,6 +333,84 @@
                                                   #:header-text header-text
                                                   #:header-link header-link)
         #:extra-headers http-headers-for-unchanging-content)))))
+
+(define* (render-revision-lint-warnings mime-types
+                                        conn
+                                        commit-hash
+                                        query-parameters
+                                        #:key
+                                        (path-base "/revision/")
+                                        (header-text
+                                         `("Revision " (samp ,commit-hash)))
+                                        (header-link
+                                         (string-append "/revision/" commit-hash)))
+  (if (any-invalid-query-parameters? query-parameters)
+      (case (most-appropriate-mime-type
+             '(application/json text/html)
+             mime-types)
+        ((application/json)
+         (render-json
+          `((error . "invalid query"))))
+        (else
+         (render-html
+          #:sxml (view-revision-lint-warnings commit-hash
+                                              query-parameters
+                                              '()
+                                              '()
+                                              #:path-base path-base
+                                              #:header-text header-text
+                                              #:header-link header-link))))
+
+      (let* ((package-query (assq-ref query-parameters 'package_query))
+             (linters (assq-ref query-parameters 'linter))
+             (message-query (assq-ref query-parameters 'message_query))
+             (fields (assq-ref query-parameters 'field))
+             (git-repositories
+              (git-repositories-containing-commit conn
+                                                  commit-hash))
+             (lint-warnings
+              (lint-warnings-for-guix-revision conn commit-hash
+                                               #:package-query package-query
+                                               #:linters linters
+                                               #:message-query message-query)))
+        (case (most-appropriate-mime-type
+               '(application/json text/html)
+               mime-types)
+          ((application/json)
+           (render-json
+            `((revision
+               . ((commit . ,commit-hash)))
+              (lint_warnings
+               . ,(list->vector
+                   (map (match-lambda
+                          ((id lint-checker-name lint-checker-description
+                               lint-checker-network-dependent
+                               package-name package-version
+                               file line-number column-number
+                               message)
+                           `((package . ((name    . ,package-name)
+                                         (version . ,package-version)))
+                             ,@(if (member "message" fields)
+                                   `((message . ,message))
+                                   '())
+                             ,@(if (member "location" fields)
+                                   `((location . ((file          . ,file)
+                                                  (line-number   . ,line-number)
+                                                  (column-number . ,column-number))))
+                                   '()))))
+                        lint-warnings))))
+            #:extra-headers http-headers-for-unchanging-content))
+          (else
+           (render-html
+            #:sxml (view-revision-lint-warnings commit-hash
+                                                query-parameters
+                                                lint-warnings
+                                                git-repositories
+                                                '()
+                                                #:path-base path-base
+                                                #:header-text header-text
+                                                #:header-link header-link)
+            #:extra-headers http-headers-for-unchanging-content))))))
 
 (define (render-compare-unknown-commit mime-types
                                        conn
@@ -707,6 +786,27 @@
          (render-unknown-revision mime-types
                                   conn
                                   commit-hash)))
+    (('GET "revision" commit-hash "lint-warnings")
+     (if (guix-commit-exists? conn commit-hash)
+         (let ((parsed-query-parameters
+                (parse-query-parameters
+                 request
+                 `((package_query  ,identity)
+                   (linter         ,identity #:multi-value)
+                   (message_query  ,identity)
+                   (field          ,identity #:multi-value
+                                   #:default ("linter"
+                                              "message"
+                                              "location"))))))
+
+           (render-revision-lint-warnings mime-types
+                                          conn
+                                          commit-hash
+                                          parsed-query-parameters
+                                          #:path-base path))
+         (render-unknown-revision mime-types
+                                  conn
+                                  commit-hash)))
     (('GET "repository" id)
      (match (select-git-repository conn id)
        ((label url cgit-url-base)
@@ -794,6 +894,38 @@
                                         "/repository/" repository-id
                                         "/branch/" branch-name
                                         "/latest-processed-revision")))
+           (render-unknown-revision mime-types
+                                    conn
+                                    commit-hash))))
+    (('GET "repository" repository-id "branch" branch-name "latest-processed-revision"
+           "lint-warnings")
+     (let ((commit-hash
+            (latest-processed-commit-for-branch conn repository-id branch-name)))
+       (if commit-hash
+           (let ((parsed-query-parameters
+                  (parse-query-parameters
+                   request
+                   `((package_query  ,identity)
+                     (linter         ,identity #:multi-value)
+                     (message_query  ,identity)
+                     (field          ,identity #:multi-value
+                                     #:default ("linter"
+                                                "message"
+                                                "location"))))))
+
+             (render-revision-lint-warnings mime-types
+                                            conn
+                                            commit-hash
+                                            parsed-query-parameters
+                                            #:path-base path
+                                            #:header-text
+                                            `("Latest processed revision for branch "
+                                              (samp ,branch-name))
+                                            #:header-link
+                                            (string-append
+                                             "/repository/" repository-id
+                                             "/branch/" branch-name
+                                             "/latest-processed-revision")))
            (render-unknown-revision mime-types
                                     conn
                                     commit-hash))))

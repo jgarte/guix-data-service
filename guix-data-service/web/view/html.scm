@@ -35,6 +35,7 @@
             view-revision-package-and-version
             view-revision
             view-revision-packages
+            view-revision-lint-warnings
             view-git-repository
             view-branches
             view-branch
@@ -695,6 +696,148 @@
                                            (car (last packages)))))
                   "Next page")))
             '())))))
+
+(define* (view-revision-lint-warnings revision-commit-hash
+                                      query-parameters
+                                      lint-warnings
+                                      git-repositories
+                                      lint-checker-options
+                                      #:key path-base
+                                      header-text header-link)
+  (define field-options
+    (map
+     (lambda (field)
+       (cons field
+             (hyphenate-words
+              (string-downcase field))))
+     '("Linter" "Message" "Location")))
+
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h3 (a (@ (style "white-space: nowrap;")
+                  (href ,header-link))
+               ,@header-text))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (div
+         (@ (class "well"))
+         (form
+          (@ (method "get")
+             (action "")
+             (style "padding-bottom: 0")
+             (class "form-horizontal"))
+          ,(form-horizontal-control
+            "Package query" query-parameters
+            #:help-text
+            "Lint warnings where the package name matches the query.")
+          ;; TODO as there's not an easy way to find all the relevant lint checkers
+          ;; ,(form-horizontal-control
+          ;;   "Linter" query-parameters
+          ;;   #:options lint-checker-options
+          ;;   #:help-text
+          ;;   "Lint warnings for specific lint checkers.")
+          ,(form-horizontal-control
+            "Message query" query-parameters
+            #:help-text
+            "Lint warnings where the message matches the query.")
+          ,(form-horizontal-control
+            "Fields" query-parameters
+            #:name "field"
+            #:options field-options
+            #:help-text "Fields to return in the response.")
+          (div (@ (class "form-group form-group-lg"))
+               (div (@ (class "col-sm-offset-2 col-sm-10"))
+                    (button (@ (type "submit")
+                               (class "btn btn-lg btn-primary"))
+                            "Update results")))))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (a (@ (class "btn btn-default btn-lg pull-right")
+              (href ,(let ((query-parameter-string
+                            (query-parameters->string query-parameters)))
+                       (string-append
+                        path-base ".json"
+                        (if (string-null? query-parameter-string)
+                            ""
+                            (string-append "?" query-parameter-string))))))
+           "View JSON")))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h1 "Lint warnings")
+        (table
+         (@ (class "table table-responsive"))
+         (thead
+          (tr
+           (th (@ (class "col-md-3")) "Package")
+           ,@(filter-map
+              (match-lambda
+                ((label . value)
+                 (if (member value (assq-ref query-parameters 'field))
+                     `(th (@ (class "col-md-3")) ,label)
+                     #f)))
+              field-options)
+           (th (@ (class "col-md-3")) "")))
+         (tbody
+          ,@(let ((fields (assq-ref query-parameters 'field)))
+              (map
+               (match-lambda
+                 ((id lint-checker-name lint-checker-description
+                      lint-checker-network-dependent
+                      package-name package-version file line-number column-number
+                      message)
+                  `(tr
+                    (td ,package-name " @ " ,package-version)
+                    ,@(if (member "linter" fields)
+                          `((td (span (@ (style "font-family: monospace; display: block;"))
+                                      ,lint-checker-name)
+                                (p (@ (style "font-size: small; margin: 6px 0 0px;"))
+                                   ,lint-checker-description)))
+                          '())
+                    ,@(if (member "message" fields)
+                          `((td ,message))
+                          '())
+                    ,@(if (member "location" fields)
+                          `((td
+                             ,@(if (and file (not (string-null? file)))
+                                   `((ul
+                                      ,@(map
+                                         (match-lambda
+                                           ((id label url cgit-url-base)
+                                            (let ((output
+                                                   `(,file
+                                                     " "
+                                                     (span
+                                                      (@ (style "white-space: nowrap"))
+                                                      "(line: " ,line-number
+                                                      ", column: " ,column-number ")"))))
+                                              (if
+                                               (and cgit-url-base
+                                                    (not (string-null? cgit-url-base)))
+                                               `(li
+                                                 (a (@ (href
+                                                        ,(string-append
+                                                          cgit-url-base "tree/"
+                                                          file "?id=" revision-commit-hash
+                                                          "#n" line-number)))
+                                                    ,@output))
+                                               `(li ,@output)))))
+                                         git-repositories)))
+                                   '())))
+                          '()))))
+               lint-warnings))))))))))
 
 (define (table/branches-with-most-recent-commits
          git-repository-id branches-with-most-recent-commits)
