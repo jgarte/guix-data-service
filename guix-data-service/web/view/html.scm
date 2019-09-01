@@ -801,7 +801,12 @@
                       package-name package-version file line-number column-number
                       message)
                   `(tr
-                    (td ,package-name " @ " ,package-version)
+                    (td (a (@ (href ,(string-append
+                                      (string-join
+                                       (drop-right (string-split path-base #\/) 1)
+                                       "/")
+                                      "/package/" package-name "/" package-version)))
+                           ,package-name " @ " ,package-version))
                     ,@(if (member "linter" fields)
                           `((td (span (@ (style "font-family: monospace; display: block;"))
                                       ,lint-checker-name)
