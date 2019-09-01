@@ -690,21 +690,71 @@ WHERE job_id = $1"
       (simple-format #t "guix-data-service: load-new-guix-revision: error: ~A\n" args)
       #f)))
 
+(define (glibc-locales-for-guix-store-path store store-path)
+  (let ((inf (if (defined?
+                   'open-inferior/container
+                   (resolve-module '(guix inferior)))
+                 (open-inferior/container store store-path
+                                          #:extra-shared-directories
+                                          '("/gnu/store"))
+                 (begin
+                   (simple-format #t "debug: using open-inferior\n")
+                   (open-inferior store-path)))))
+    (inferior-eval '(use-modules (srfi srfi-1)
+                                 (srfi srfi-34)
+                                 (guix grafts)
+                                 (guix derivations))
+                   inf)
+    (inferior-eval '(%graft? #f) inf)
+
+    (let* ((inferior-glibc-locales
+            (first
+             (lookup-inferior-packages inf "glibc-locales")))
+           (derivation (inferior-package-derivation store
+                                                    inferior-glibc-locales))
+           (output (derivation->output-path derivation)))
+      (close-inferior inf)
+      (log-time
+       "building the glibc-locales derivation"
+       (lambda ()
+         (build-derivations store (list derivation))))
+
+      output)))
+
 (define (extract-information-from conn git-repository-id commit store-path)
   (simple-format
    #t "debug: extract-information-from: ~A\n" store-path)
   (with-store store
     (set-build-options store
                        #:fallback? #t)
-    (let ((inf (if (defined?
-                     'open-inferior/container
-                     (resolve-module '(guix inferior)))
-                   (open-inferior/container store store-path
-                                            #:extra-shared-directories
-                                            '("/gnu/store"))
-                   (begin
-                     (simple-format #t "debug: using open-inferior\n")
-                     (open-inferior store-path)))))
+
+    (let* ((guix-locpath (getenv "GUIX_LOCPATH"))
+           (inf (let ((guix-locpath
+                       (string-append
+                        (glibc-locales-for-guix-store-path store store-path)
+                        "/lib/locale"
+                        ":" guix-locpath)))
+                  ;; Augment the GUIX_LOCPATH to include glibc-locales from
+                  ;; the Guix at store-path, this should mean that the
+                  ;; inferior Guix works, even if it's build using a different
+                  ;; glibc version
+                  (setenv "GUIX_LOCPATH" guix-locpath)
+                  (simple-format (current-error-port) "debug: set GUIX_LOCPATH to ~A\n"
+                                 guix-locpath)
+                  (if (defined?
+                      'open-inferior/container
+                      (resolve-module '(guix inferior)))
+                    (open-inferior/container store store-path
+                                             #:extra-shared-directories
+                                             '("/gnu/store"))
+                    (begin
+                      (simple-format #t "debug: using open-inferior\n")
+                      (open-inferior store-path))))))
+      (setenv "GUIX_LOCPATH" guix-locpath) ; restore GUIX_LOCPATH
+
+      ;; Normalise the locale for the inferior process
+      (inferior-eval '(setlocale LC_ALL "en_US.utf8") inf)
+
       (inferior-eval '(use-modules (srfi srfi-1)
                                    (srfi srfi-34)
                                    (guix grafts)
