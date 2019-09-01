@@ -265,14 +265,22 @@ WHERE job_id = $1"
                          (messages-by-locale
                           (filter-map
                            (lambda (locale)
-                             (setlocale LC_MESSAGES locale)
+                             (catch 'system-error
+                               (lambda ()
+                                 (setlocale LC_MESSAGES locale))
+                               (lambda (key . args)
+                                 (error
+                                  (simple-format
+                                   #f
+                                   "error changing locale to ~A: ~A ~A"
+                                   locale key args))))
                              (let ((message
                                     (lint-warning-message lint-warning)))
+                               (setlocale LC_MESSAGES source-locale)
                                (if (string=? message source-message)
                                    #f
                                    (cons locale message))))
                            (list ,@locales))))
-                    (setlocale LC_MESSAGES "")
                     (cons (cons source-locale source-message)
                           messages-by-locale))))
                (check package))))
