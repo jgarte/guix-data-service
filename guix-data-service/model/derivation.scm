@@ -277,12 +277,20 @@ ORDER BY derivations.system DESC,
      (insert-into-derivation-inputs
       (append-map
        (match-lambda
-         (($ <derivation-input> path sub-derivations)
-          (map (lambda (sub-derivation)
-                 (select-derivation-output-id conn
-                                              sub-derivation
-                                              path))
-               sub-derivations)))
+         (($ <derivation-input> derivation-or-path sub-derivations)
+          (let ((path
+                 (match derivation-or-path
+                   ((? derivation? d)
+                    ;; The first field changed to a derivation (from the file
+                    ;; name) in 5cf4b26d52bcea382d98fb4becce89be9ee37b55
+                    (derivation-file-name d))
+                   ((? string? s)
+                    s))))
+            (map (lambda (sub-derivation)
+                   (select-derivation-output-id conn
+                                                sub-derivation
+                                                path))
+                 sub-derivations))))
        derivation-inputs)))))
 
 (define (select-from-derivation-source-files store-paths)
