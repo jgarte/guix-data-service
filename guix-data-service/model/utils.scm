@@ -141,7 +141,7 @@
       ", ")
      " RETURNING id"))
 
-  (define (normalise-database-values data)
+  (define (normalise-values data)
     (map (match-lambda
            ((? boolean? b)
             (if b "t" "f"))
@@ -160,7 +160,7 @@
                              first))
          (missing-entries
           (filter (lambda (field-values)
-                    (not (vhash-assoc (normalise-database-values field-values)
+                    (not (vhash-assoc (normalise-values field-values)
                                       existing-entries)))
                   data))
          (new-entries
@@ -174,7 +174,7 @@
 
     (map (lambda (field-values)
            (cdr
-            (or (vhash-assoc (normalise-database-values field-values)
+            (or (vhash-assoc (normalise-values field-values)
                              existing-entries)
                 (vhash-assoc field-values
                              new-entries-lookup-vhash)
