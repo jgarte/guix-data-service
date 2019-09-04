@@ -26,11 +26,11 @@
 (define (with-mock-inferior-packages f)
   (mock
    ((guix inferior)
-    inferior-package-name
+    %inferior-package-name-procedure    ; TODO This only sometimes works :(
     mock-inferior-package-name)
    (mock
     ((guix inferior)
-     inferior-package-version
+     %inferior-package-version-procedure ; TODO This only sometimes works :(
      mock-inferior-package-version)
     (mock
      ((guix inferior)
