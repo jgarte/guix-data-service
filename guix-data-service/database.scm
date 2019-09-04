@@ -16,12 +16,15 @@
 ;;; <http://www.gnu.org/licenses/>.
 
 (define-module (guix-data-service database)
+  #:use-module (system foreign)
   #:use-module (squee)
   #:export (with-postgresql-connection
             with-postgresql-transaction
 
             with-advisory-session-lock
-            obtain-advisory-transaction-lock))
+            obtain-advisory-transaction-lock
+
+            exec-query-with-null-handling))
 
 ;; TODO This isn't exported for some reason
 (define pg-conn-finish
@@ -80,3 +83,36 @@
     (exec-query conn
                 "SELECT pg_advisory_xact_lock($1)"
                 (list lock-number))))
+
+(define squee/libpq
+  (@@ (squee) libpq))
+
+(define squee/unwrap-result-ptr
+  (@@ (squee) unwrap-result-ptr))
+
+(define %PQgetisnull
+  (pointer->procedure int
+                      (dynamic-func "PQgetisnull" squee/libpq)
+                      (list '* int int)))
+
+(define (result-serializer-simple-list-with-null-handling result-ptr)
+  "Get a simple list of lists representing the result of the query"
+  (let ((rows-range (iota (result-num-rows result-ptr)))
+        (cols-range (iota (result-num-cols result-ptr))))
+    (map
+     (lambda (row-i)
+       (map
+        (lambda (col-i)
+          (let ((val (result-get-value result-ptr row-i col-i)))
+            (if (string-null? val)
+                (if (eq? 1 (%PQgetisnull
+                            (squee/unwrap-result-ptr result-ptr) row-i col-i))
+                    '()
+                    val)
+                val)))
+        cols-range))
+     rows-range)))
+
+(define* (exec-query-with-null-handling pg-conn command #:optional (params '()))
+  (exec-query pg-conn command params
+              #:serializer result-serializer-simple-list-with-null-handling))
