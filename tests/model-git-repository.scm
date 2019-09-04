@@ -1,4 +1,5 @@
 (define-module (test-model-git-repository)
+  #:use-module (ice-9 match)
   #:use-module (srfi srfi-64)
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service model git-repository))
@@ -12,22 +13,21 @@
      (with-postgresql-transaction
       conn
       (lambda (conn)
-        (number?
-         (string->number
-          (git-repository-url->git-repository-id
-           conn
-           "test-non-existent-url"))))
+        (match (git-repository-url->git-repository-id
+                conn
+                "test-non-existent-url")
+          ((? number? x)
+           #t)))
       #:always-rollback? #t))
 
-   (test-assert "returns the right id for an existing URL"
+   (let* ((url "test-url")
+          (id (git-repository-url->git-repository-id conn url)))
      (with-postgresql-transaction
       conn
       (lambda (conn)
-        (let* ((url "test-url")
-               (id (git-repository-url->git-repository-id conn url)))
-          (string=?
-           id
-           (git-repository-url->git-repository-id conn url))))
+        (test-equal "returns the right id for an existing URL"
+          id
+          (git-repository-url->git-repository-id conn url)))
       #:always-rollback? #t))))
 
 (test-end)

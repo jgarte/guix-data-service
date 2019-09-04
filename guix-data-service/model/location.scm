@@ -37,16 +37,17 @@
 (define (location->location-id conn location)
   (match location
     (($ <location> file line column)
-     (match (exec-query conn
-                        select-existing-location
-                        (list file
-                              (number->string line)
-                              (number->string column)))
-       (((id)) id)
-       (()
-        (caar
-         (exec-query conn
-                     insert-location
-                     (list file
-                           (number->string line)
-                           (number->string column)))))))))
+     (string->number
+      (match (exec-query conn
+                         select-existing-location
+                         (list file
+                               (number->string line)
+                               (number->string column)))
+        (((id)) id)
+        (()
+         (caar
+          (exec-query conn
+                      insert-location
+                      (list file
+                            (number->string line)
+                            (number->string column))))))))))

@@ -58,7 +58,7 @@
                 (list mock-inferior-package-foo
                       mock-inferior-package-foo-2)
                 (test-license-set-ids conn))
-             ((x) (string? x))))
+             ((x) (number? x))))
          #:always-rollback? #t))
 
       (with-postgresql-transaction

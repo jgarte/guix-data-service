@@ -26,7 +26,7 @@
            "('{"
            (string-join
             (map number->string
-                 (sort (map string->number lint-message-ids) <))
+                 (sort lint-message-ids <))
             ", ")
            "}')")
           " RETURNING id")))
@@ -47,10 +47,11 @@
            (string-append
             "SELECT id FROM lint_warning_message_sets "
             "WHERE message_ids = ARRAY["
-            (string-join lint-warning-message-ids ", ")
+            (string-join (map number->string lint-warning-message-ids) ", ")
             "]"))))
 
-    (match lint-message-set-id
-      (((id)) id)
-      (()
-       (insert-lint-warning-message-set conn lint-warning-message-ids)))))
+    (string->number
+     (match lint-message-set-id
+       (((id)) id)
+       (()
+        (insert-lint-warning-message-set conn lint-warning-message-ids))))))

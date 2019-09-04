@@ -20,7 +20,7 @@ FROM license_sets")
             "('{"
             (string-join
              (map number->string
-                  (sort (map string->number license-ids) <))
+                  (sort license-ids <))
              ", ")
             "}')"))
          license-id-lists)
@@ -39,12 +39,15 @@ FROM license_sets")
                              (lambda (results)
                                (if (string=? (second results) "{}")
                                    '()
-                                   (string-split
-                                    (string-drop-right
-                                     (string-drop (second results) 1)
-                                     1)
-                                    #\,)))
-                             first)) ;; id
+                                   (map
+                                    string->number
+                                    (string-split
+                                     (string-drop-right
+                                      (string-drop (second results) 1)
+                                      1)
+                                     #\,))))
+                             (lambda (result)
+                               (string->number (first result))))) ;; id
          (missing-license-sets
           (delete-duplicates
            (filter (lambda (license-set-license-ids)
@@ -54,7 +57,8 @@ FROM license_sets")
          (new-license-set-entries
           (if (null? missing-license-sets)
               '()
-              (map first
+              (map (lambda (result)
+                     (string->number (first result)))
                    (exec-query conn
                                (insert-license-sets missing-license-sets)))))
          (new-entries-id-lookup-vhash

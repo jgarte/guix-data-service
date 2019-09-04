@@ -22,7 +22,7 @@
     "ON CONFLICT DO NOTHING")
    (list name
          commit
-         git-repository-id
+         (number->string git-repository-id)
          (date->string datetime "~s"))))
 
 (define (git-branches-for-commit conn commit)
@@ -94,7 +94,8 @@ WHERE git_branches.commit = $1")
    (exec-query
     conn
     query
-    (list branch-name git-repository-id))))
+    (list branch-name
+          (number->string git-repository-id)))))
 
 (define* (latest-processed-commit-for-branch conn repository-id branch-name)
   (define query
@@ -149,5 +150,5 @@ ORDER BY name, datetime DESC"))
    (exec-query
     conn
     query
-    (list git-repository-id))))
+    (list (number->string git-repository-id)))))
 

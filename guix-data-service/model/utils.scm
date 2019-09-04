@@ -165,15 +165,12 @@
             '()))
          data))
 
-  (define (sort-ids ids)
-    (map number->string
-         (sort (map string->number ids) <)))
-
   (let* ((existing-entries
           (exec-query->vhash conn
                              select-query
                              cdr
-                             first))
+                             (lambda (result)
+                               (string->number (first result)))))
          (missing-entries
           (filter (lambda (field-values)
                     (not (vhash-assoc
@@ -187,7 +184,8 @@
          (new-entries
           (if (null? missing-entries)
               '()
-              (map first
+              (map (lambda (result)
+                     (string->number (first result)))
                    (exec-query conn (insert-sql missing-entries)))))
          (new-entries-lookup-vhash
           (two-lists->vhash missing-entries
@@ -197,7 +195,7 @@
         (map (lambda (field-value-lists)
                ;; Normalise the result at this point, ensuring that the id's
                ;; in the set are sorted
-               (sort-ids
+               (sort
                 (map (lambda (field-values)
                        (cdr
                         (or (vhash-assoc (normalise-values field-values)
@@ -205,7 +203,8 @@
                             (vhash-assoc field-values
                                          new-entries-lookup-vhash)
                             (error "missing entry" field-values))))
-                     field-value-lists)))
+                     field-value-lists)
+                <))
              data)
         (map (lambda (field-values)
                (cdr

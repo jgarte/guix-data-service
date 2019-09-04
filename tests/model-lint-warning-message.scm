@@ -18,7 +18,7 @@
       conn
       (lambda (conn)
         (match (lint-warning-message-data->lint-warning-message-ids conn data)
-          (((? string? id1) (? string? id2))
+          (((? number? id1) (? number? id2))
            #t)))
       #:always-rollback? #t))
 
@@ -27,11 +27,11 @@
       conn
       (lambda (conn)
         (match (lint-warning-message-data->lint-warning-message-ids conn data)
-          (((? string? id1) (? string? id2))
+          (((? number? id1) (? number? id2))
            (match (lint-warning-message-data->lint-warning-message-ids conn data)
-             (((? string? second-id1) (? string? second-id2))
-              (and (string=? id1 second-id1)
-                   (string=? id2 second-id2)))))))
+             (((? number? second-id1) (? number? second-id2))
+              (and (eq? id1 second-id1)
+                   (eq? id2 second-id2)))))))
       #:always-rollback? #t))
 
    (test-assert "single set insert"
@@ -39,7 +39,7 @@
       conn
       (lambda (conn)
         (match (lint-warning-message-data->lint-warning-message-set-id conn data)
-          ((? string? id1)
+          ((? number? id1)
            #t)))
       #:always-rollback? #t))
 
@@ -48,10 +48,10 @@
       conn
       (lambda (conn)
         (match (lint-warning-message-data->lint-warning-message-set-id conn data)
-          ((? string? id)
+          ((? number? id)
            (match (lint-warning-message-data->lint-warning-message-set-id conn data)
-             ((? string? second-id)
-              (string=? id second-id))))))
+             ((? number? second-id)
+              (eq? id second-id))))))
       #:always-rollback? #t))))
 
 (test-end)

@@ -41,17 +41,18 @@
           conn
           (string-append
            "SELECT id FROM git_repositories WHERE url = '" url "'"))))
-    (match existing-id
-      (((id)) id)
-      (()
-       (caar
-        (exec-query conn
-                    (string-append
-                     "INSERT INTO git_repositories "
-                     "(url) "
-                     "VALUES "
-                     "('" url "') "
-                     "RETURNING id")))))))
+    (string->number
+     (match existing-id
+       (((id)) id)
+       (()
+        (caar
+         (exec-query conn
+                     (string-append
+                      "INSERT INTO git_repositories "
+                      "(url) "
+                      "VALUES "
+                      "('" url "') "
+                      "RETURNING id"))))))))
 
 (define (guix-revisions-and-jobs-for-git-repository conn git-repository-id)
   (define query
