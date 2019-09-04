@@ -169,34 +169,8 @@ WHERE packages.id IN (
          packages
          metadata-ids))
 
-  (let* ((existing-package-entry-ids
-          (exec-query->vhash conn
-                             (select-existing-package-entries package-entries)
-                             ;; name, version and package_metadata_id
-                             cdr
-                             first)) ;;id
-         (missing-package-entries
-          (filter (lambda (package-entry)
-                    (not (vhash-assoc package-entry
-                                      existing-package-entry-ids)))
-                  (delete-duplicates package-entries)))
-         (new-package-entry-ids
-          (if (null? missing-package-entries)
-              '()
-              (map car
-                   (exec-query
-                    conn
-                    (insert-into-package-entries
-                     missing-package-entries)))))
-         (new-entries-id-lookup-vhash
-          (two-lists->vhash missing-package-entries
-                            new-package-entry-ids)))
-
-    (map (lambda (package-entry)
-           (cdr
-            (or (vhash-assoc package-entry
-                             existing-package-entry-ids)
-                (vhash-assoc package-entry
-                             new-entries-id-lookup-vhash)
-                (error "missing package entry"))))
-         package-entries)))
+  (insert-missing-data-and-return-all-ids
+   conn
+   "packages"
+   '(name version package_metadata_id)
+   package-entries))
