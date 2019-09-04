@@ -9,7 +9,6 @@
             select-packages-in-revision
             search-packages-in-revision
             count-packages-in-revision
-            insert-into-package-entries
             inferior-packages->package-ids))
 
 (define (select-existing-package-entries package-entries)
@@ -160,15 +159,7 @@ WHERE packages.id IN (
                  " RETURNING id"
                  ";"))
 
-(define (inferior-packages->package-ids conn packages metadata-ids)
-  (define package-entries
-    (map (lambda (package metadata-id)
-           (list (inferior-package-name package)
-                 (inferior-package-version package)
-                 metadata-id))
-         packages
-         metadata-ids))
-
+(define (inferior-packages->package-ids conn package-entries)
   (insert-missing-data-and-return-all-ids
    conn
    "packages"

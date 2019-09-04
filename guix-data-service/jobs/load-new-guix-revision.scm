@@ -454,7 +454,10 @@ WHERE job_id = $1"
     (log-time "getting package-ids"
               (lambda ()
                 (inferior-packages->package-ids
-                 conn packages packages-metadata-ids)))))
+                 conn
+                 (zip (map inferior-package-name packages)
+                      (map inferior-package-version packages)
+                      packages-metadata-ids))))))
 
 (define (insert-lint-warnings conn inferior-package-id->package-database-id
                               lint-checker-ids
@@ -883,7 +886,9 @@ RETURNING id;")
 
   (match (exec-query conn
                      query
-                     (list git-repository-id commit source))
+                     (list (number->string git-repository-id)
+                           commit
+                           source))
     ((result)
      result)
     (() #f)))

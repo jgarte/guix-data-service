@@ -90,6 +90,7 @@ TESTS =					\
   tests/model-lint-checker.scm			\
   tests/model-lint-warning.scm			\
   tests/model-lint-warning-message.scm		\
+  tests/model-package.scm			\
   tests/model-package-metadata.scm
 
 AM_TESTS_ENVIRONMENT = abs_top_srcdir="$(abs_top_srcdir)"

@@ -144,42 +144,9 @@ WHERE packages.id IN (
          packages
          license-set-ids))
 
-  (let* ((existing-package-metadata-entries
-          (exec-query->vhash conn
-                             (select-package-metadata package-metadata)
-                             (match-lambda
-                               ((id synopsis description home-page
-                                    location-id license-set-id)
-                                (list synopsis
-                                      description
-                                      (non-empty-string-or-false home-page)
-                                      location-id
-                                      license-set-id)))
-                             first)) ;; id))
-         (missing-package-metadata-entries
-          (delete-duplicates
-           (filter (lambda (metadata)
-                     (not (vhash-assoc metadata
-                                       existing-package-metadata-entries)))
-                   package-metadata)))
-         (new-package-metadata-entries
-          (if (null? missing-package-metadata-entries)
-              '()
-              (map first
-                   (exec-query conn
-                               (insert-package-metadata
-                                missing-package-metadata-entries)))))
-         (new-entries-id-lookup-vhash
-          (two-lists->vhash missing-package-metadata-entries
-                            new-package-metadata-entries)))
+  (insert-missing-data-and-return-all-ids
+   conn
+   "package_metadata"
+   '(synopsis description home_page location_id license_set_id)
+   package-metadata))
 
-    (map (lambda (package-metadata-values)
-           (cdr
-            (or (vhash-assoc package-metadata-values
-                             existing-package-metadata-entries)
-                (vhash-assoc package-metadata-values
-                             new-entries-id-lookup-vhash)
-                (begin
-                  (error "missing package-metadata entry"
-                         package-metadata-values)))))
-         package-metadata)))
