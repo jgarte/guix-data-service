@@ -13,10 +13,7 @@
   (insert-missing-data-and-return-all-ids
    conn
    "lint_warnings"
-   `((lint_checker_id             . ,identity)
-     (package_id                  . ,identity)
-     (location_id                 . ,identity)
-     (lint_warning_message_set_id . ,identity))
+   '(lint_checker_id package_id location_id lint_warning_message_set_id)
    lint-warnings-data))
 
 (define (insert-guix-revision-lint-warnings conn

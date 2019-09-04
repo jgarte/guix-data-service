@@ -12,10 +12,7 @@
   (insert-missing-data-and-return-all-ids
    conn
    "lint_checkers"
-   `((name              . ,(lambda (value)
-                             (quote-string (symbol->string value))))
-     (description       . ,quote-string)
-     (network_dependent . ,value->sql-boolean))
+   '(name description network_dependent)
    lint-checkers-data))
 
 (define (lint-warning-count-by-lint-checker-for-revision conn commit-hash)

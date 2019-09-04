@@ -12,8 +12,7 @@
   (insert-missing-data-and-return-all-ids
    conn
    "lint_warning_messages"
-   `((locale   . ,quote-string)
-     (message  . ,quote-string))
+   '(locale message)
    (map (match-lambda
           ((locale . message)
            (list locale message)))
