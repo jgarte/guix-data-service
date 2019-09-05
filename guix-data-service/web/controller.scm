@@ -829,7 +829,8 @@
          (view-git-repository
           id
           label url cgit-url-base
-          (all-branches-with-most-recent-commit conn id))))
+          (all-branches-with-most-recent-commit conn
+                                                (string->number id)))))
        (#f
         (render-html
          #:sxml (general-not-found
@@ -853,7 +854,7 @@
                     parsed-query-parameters
                     (most-recent-commits-for-branch
                      conn
-                     repository-id
+                     (string->number repository-id)
                      branch-name
                      #:limit (assq-ref parsed-query-parameters 'limit_results)
                      #:after-date (assq-ref parsed-query-parameters

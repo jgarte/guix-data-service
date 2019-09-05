@@ -11,10 +11,17 @@
             guix-revisions-and-jobs-for-git-repository))
 
 (define (all-git-repositories conn)
-  (exec-query
-   conn
-   (string-append
-    "SELECT id, label, url, cgit_url_base FROM git_repositories ORDER BY id ASC")))
+  (map
+   (match-lambda
+     ((id label url cgit-base-url)
+      (list (string->number id)
+            label
+            url
+            cgit-base-url)))
+   (exec-query
+    conn
+    (string-append
+     "SELECT id, label, url, cgit_url_base FROM git_repositories ORDER BY id ASC"))))
 
 (define (select-git-repository conn id)
   (match (exec-query

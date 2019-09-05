@@ -916,7 +916,7 @@
            `(tr
              (td
               (a (@ (href ,(string-append
-                            "/repository/" git-repository-id
+                            "/repository/" (number->string git-repository-id)
                             "/branch/" name)))
                  ,name))
              (td ,date)
