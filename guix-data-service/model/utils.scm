@@ -161,9 +161,11 @@
             (symbol->string s))
            ((? string? s)
             s)
-           ((? null? s)
+           ((? null? n)
             ;; exec-query-with-null-handling specifies NULL values as '()
-            '()))
+            n)
+           (unknown
+            (error (simple-format #f "normalise-values: error: ~A\n" unknown))))
          data))
 
   (let* ((existing-entries
