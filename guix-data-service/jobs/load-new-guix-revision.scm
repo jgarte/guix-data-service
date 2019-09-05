@@ -490,7 +490,7 @@ WHERE job_id = $1"
                          (apply
                           simple-format
                           (current-error-port)
-                          "warning: skipping duplicate lint warning ~A ~A"
+                          "warning: skipping duplicate lint warning ~A ~A\n"
                           location-and-messages)
                          result)
                        (append result
