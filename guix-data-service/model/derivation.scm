@@ -419,7 +419,9 @@ ORDER BY derivations.system DESC,
    #t "debug: insert-missing-derivations: inserting ~A derivations\n"
    (length derivations))
   (let ((derivation-ids
-         (map car (exec-query conn (insert-into-derivations)))))
+         (map (lambda (result)
+                (string->number (car result)))
+              (exec-query conn (insert-into-derivations)))))
 
     (simple-format
      #t "debug: insert-missing-derivations: updating hash table\n")
@@ -580,7 +582,8 @@ WHERE " criteria ";"))
              conn
              (select-existing-derivations missing-file-names)
              second ;; file_name
-             first))) ;; id
+             (lambda (result)
+               (string->number (first result)))))) ;; id
        (simple-format
         #t "debug: derivation-file-names->vhash: adding ~A entries to the cache\n"
         (vlist-length result-for-missing-file-names))
