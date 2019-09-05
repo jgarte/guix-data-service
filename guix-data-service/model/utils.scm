@@ -77,7 +77,8 @@
           fields
           data
           #:key
-          sets-of-data?)
+          sets-of-data?
+          delete-duplicates?)
   (define field-strings
     (map symbol->string fields))
 
@@ -180,7 +181,9 @@
                           existing-entries)))
                   (if sets-of-data?
                       (delete-duplicates (concatenate data))
-                      data)))
+                      (if delete-duplicates?
+                          (delete-duplicates data)
+                          data))))
          (new-entries
           (if (null? missing-entries)
               '()
