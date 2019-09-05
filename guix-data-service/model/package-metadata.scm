@@ -148,5 +148,18 @@ WHERE packages.id IN (
    conn
    "package_metadata"
    '(synopsis description home_page location_id license_set_id)
-   package-metadata))
-
+   (map (match-lambda
+          ((synopsis description home-page location-id license-set-id)
+           (list synopsis
+                 description
+                 (if (string? home-page)
+                     home-page
+                     NULL)
+                 location-id
+                 license-set-id)))
+        package-metadata)
+   ;; There can be duplicated entires in package-metadata, for example where
+   ;; you have one package definition which interits from another, and just
+   ;; overrides the version and the source, the package_metadata entries for
+   ;; both definitions will be the same.
+   #:delete-duplicates? #t))
