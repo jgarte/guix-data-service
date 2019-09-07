@@ -13,7 +13,9 @@
             package-data-vhashes->new-packages
             package-data-vhashes->removed-packages
             package-data-version-changes
-            package-data-derivation-changes))
+            package-data-derivation-changes
+
+            lint-warning-differences-data))
 
 (define* (package-differences-data conn
                                    base_guix_revision_id
@@ -317,3 +319,127 @@ ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.v
                           (derivation-system-and-target-list->alist
                            target-derivations)))))))))
     names-and-versions)))
+
+(define (lint-warning-differences-data conn
+                                       base-guix-revision-id
+                                       target-guix-revision-id)
+  (define query
+    (string-append "
+WITH base_lint_warnings AS (
+  SELECT lint_warnings.id,
+         packages.name, packages.version,
+         lint_checkers.name AS lint_checker_name,
+         lint_checkers.description AS lint_checker_description,
+         lint_checkers.network_dependent AS lint_checker_network_dependent,
+         locations.file, locations.line, locations.column_number,
+         lint_warning_messages.message
+  FROM lint_warnings
+  INNER JOIN packages
+    ON lint_warnings.package_id = packages.id
+  INNER JOIN lint_checkers
+    ON lint_warnings.lint_checker_id = lint_checkers.id
+  INNER JOIN locations
+    ON lint_warnings.location_id = locations.id
+  INNER JOIN lint_warning_message_sets
+    ON lint_warnings.lint_warning_message_set_id = lint_warning_message_sets.id
+  INNER JOIN lint_warning_messages
+    ON lint_warning_messages.id = ANY (lint_warning_message_sets.message_ids) AND
+       lint_warning_messages.locale = 'en_US.utf8'
+  WHERE lint_warnings.id IN (
+    SELECT lint_warning_id
+    FROM guix_revision_lint_warnings
+    WHERE guix_revision_id = $1
+  )
+), target_lint_warnings AS (
+  SELECT lint_warnings.id,
+         packages.name, packages.version,
+         lint_checkers.name AS lint_checker_name,
+         lint_checkers.description AS lint_checker_description,
+         lint_checkers.network_dependent AS lint_checker_network_dependent,
+         locations.file, locations.line, locations.column_number,
+         lint_warning_messages.message
+  FROM lint_warnings
+  INNER JOIN packages
+    ON lint_warnings.package_id = packages.id
+  INNER JOIN lint_checkers
+    ON lint_warnings.lint_checker_id = lint_checkers.id
+  INNER JOIN locations
+    ON lint_warnings.location_id = locations.id
+  INNER JOIN lint_warning_message_sets
+    ON lint_warnings.lint_warning_message_set_id = lint_warning_message_sets.id
+  INNER JOIN lint_warning_messages
+    ON lint_warning_messages.id = ANY (lint_warning_message_sets.message_ids) AND
+       lint_warning_messages.locale = 'en_US.utf8'
+  WHERE lint_warnings.id IN (
+    SELECT lint_warning_id
+    FROM guix_revision_lint_warnings
+    WHERE guix_revision_id = $2
+  )
+)
+SELECT coalesce(
+         base_lint_warnings.name,
+         target_lint_warnings.name
+       ) AS package_name,
+       coalesce(
+         base_lint_warnings.version,
+         target_lint_warnings.version
+       ) AS package_version,
+       coalesce(
+         base_lint_warnings.lint_checker_name,
+         target_lint_warnings.lint_checker_name
+       ) AS lint_checker_name,
+       coalesce(
+         base_lint_warnings.message,
+         target_lint_warnings.message
+       ) AS message,
+       coalesce(
+         base_lint_warnings.lint_checker_description,
+         target_lint_warnings.lint_checker_description
+       ) AS lint_checker_description,
+       coalesce(
+         base_lint_warnings.lint_checker_network_dependent,
+         target_lint_warnings.lint_checker_network_dependent
+       ) AS lint_checker_network_dependent,
+       coalesce(
+         base_lint_warnings.file,
+         target_lint_warnings.file
+       ) AS file,
+       coalesce(
+         base_lint_warnings.line,
+         target_lint_warnings.line
+       ) AS line,
+       coalesce(
+         base_lint_warnings.column_number,
+         target_lint_warnings.column_number
+       ) AS column_number,
+       CASE
+         WHEN base_lint_warnings.name IS NULL THEN 'new'
+         WHEN target_lint_warnings.name IS NULL THEN 'removed'
+         ELSE 'moved'
+       END AS change
+FROM base_lint_warnings
+FULL OUTER JOIN target_lint_warnings
+  ON base_lint_warnings.name = target_lint_warnings.name
+  AND base_lint_warnings.lint_checker_name = target_lint_warnings.lint_checker_name
+  AND (
+    base_lint_warnings.message = target_lint_warnings.message OR
+    -- TODO Some lint warnings include the line number in the message, so
+    -- they'll appear to be altered if the package definition moves within the
+    -- file, therefore try replacing the line number to see if the message matches
+    -- that way as well
+    replace(base_lint_warnings.message,base_lint_warnings.line::varchar,target_lint_warnings.line::varchar) = target_lint_warnings.message
+  )
+WHERE
+  (
+    base_lint_warnings.id IS NULL OR
+    target_lint_warnings.id IS NULL OR
+    base_lint_warnings.id != target_lint_warnings.id
+  ) AND (
+    base_lint_warnings.name IS NULL OR
+    target_lint_warnings.name IS NULL
+  )
+ORDER BY coalesce(base_lint_warnings.name, target_lint_warnings.name) ASC, base_lint_warnings.version, target_lint_warnings.version, change"))
+
+  (exec-query conn query
+              (list base-guix-revision-id
+                    target-guix-revision-id)))

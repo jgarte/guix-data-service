@@ -1429,7 +1429,8 @@
                  cgit-url-bases
                  new-packages
                  removed-packages
-                 version-changes)
+                 version-changes
+                 lint-warnings-data)
   (define query-params
     (string-append "?base_commit=" base-commit
                    "&target_commit=" target-commit))
@@ -1573,12 +1574,52 @@
                                                       "/package/"
                                                       name "/" version)))
                                                 ,version)))
-                                        (vector->list versions)))
-                                   ,(if (eq? type 'base)
-                                        " (old)"
-                                        " (new)"))))
-                            versions))))))
-                  version-changes))))))))))
+                                      (vector->list versions)))
+                                  ,(if (eq? type 'base)
+                                       " (old)"
+                                       " (new)"))))
+                          versions))))))
+                version-changes))))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h2 "Lint warnings")
+        ,@(map
+           (match-lambda
+             (((package-name package-version) . warnings)
+              `((h4 ,package-name " (version: " ,package-version ")")
+                (table
+                 (@ (class "table"))
+                 (thead
+                  (tr
+                   (th "")
+                   (th "Linter")
+                   (th "Message")))
+                 (tbody
+                  ,@(map (match-lambda
+                           ((lint-checker-name
+                             message
+                             lint-checker-description
+                             lint-checker-network-dependent
+                             file line column-number ;; TODO Maybe use the location?
+                             change)
+
+                            `(tr
+                              (td (@ (class ,(if (string=? change "new")
+                                                 "text-danger"
+                                                 "text-success"))
+                                     (style "font-weight: bold"))
+                                  ,(if (string=? change "new")
+                                       "New warning"
+                                       "Resolved warning"))
+                              (td (span (@ (style "font-family: monospace; display: block;"))
+                                        ,lint-checker-name)
+                                  (p (@ (style "font-size: small; margin: 6px 0 0px;"))
+                                     ,lint-checker-description))
+                              (td ,message))))
+                         warnings))))))
+           lint-warnings-data)))))))
 
 (define (compare/derivations query-parameters
                              valid-systems

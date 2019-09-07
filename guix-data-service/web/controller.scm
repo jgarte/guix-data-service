@@ -43,6 +43,7 @@
   #:use-module (guix-data-service model build)
   #:use-module (guix-data-service model lint-checker)
   #:use-module (guix-data-service model lint-warning)
+  #:use-module (guix-data-service model utils)
   #:use-module (guix-data-service jobs load-new-guix-revision)
   #:use-module (guix-data-service web render)
   #:use-module (guix-data-service web sxml)
@@ -469,7 +470,13 @@
                                                     target-packages-vhash))
            (version-changes
             (package-data-version-changes base-packages-vhash
-                                          target-packages-vhash)))
+                                          target-packages-vhash))
+           (lint-warnings-data
+            (group-list-by-first-n-fields
+             2
+             (lint-warning-differences-data conn
+                                            base-revision-id
+                                            target-revision-id))))
       (case (most-appropriate-mime-type
              '(application/json text/html)
              mime-types)
@@ -495,7 +502,8 @@
                                  target-revision-id))
                           new-packages
                           removed-packages
-                          version-changes)
+                          version-changes
+                          lint-warnings-data)
           #:extra-headers http-headers-for-unchanging-content))))))
 
 (define (render-compare/derivations mime-types
