@@ -97,7 +97,7 @@
                (br)
                "Now with even more " (span (@ (class "lambda")) "λ") "! ")
             (p "This is free software.  Download the "
-               (a (@ (href "https://git.cbaines.net/guix/data-service/"))
+               (a (@ (href "https://git.savannah.gnu.org/cgit/guix/data-service.git/"))
                   "source code here") "."))))))
 
 (define* (form-horizontal-control label query-parameters
