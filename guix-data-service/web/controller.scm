@@ -835,7 +835,7 @@
         (render-html
          #:sxml
          (view-git-repository
-          id
+          (string->number id)
           label url cgit-url-base
           (all-branches-with-most-recent-commit conn
                                                 (string->number id)))))
