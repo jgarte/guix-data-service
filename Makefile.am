@@ -28,7 +28,7 @@ bin_SCRIPTS =							\
   scripts/guix-data-service-query-build-servers
 
 moddir = $(prefix)/share/guile/site/$(GUILE_EFFECTIVE_VERSION)
-godir  = $(moddir)
+godir  = $(prefix)/lib/guile/$(GUILE_EFFECTIVE_VERSION)/site-ccache
 assetsdir = $(datadir)/@PACKAGE@
 
 install-data-local:
