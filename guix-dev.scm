@@ -34,6 +34,7 @@
              (gnu packages databases)
              (gnu packages guile)
              (gnu packages guile-xyz)
+	     (gnu packages package-management)
              (gnu packages pkg-config)
              (gnu packages texinfo)
              (gnu packages ruby)
@@ -45,7 +46,8 @@
   (source #f)
   (build-system gnu-build-system)
   (inputs
-   `(("guile-email" ,guile-email)
+   `(("guix" ,guix)
+     ("guile-email" ,guile-email)
      ("guile-json" ,guile-json-3)
      ("guile-squee" ,guile-squee)
      ("guile-fibers" ,guile-fibers)
