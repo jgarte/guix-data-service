@@ -20,6 +20,7 @@ scripts/guix-data-service-process-job
 scripts/guix-data-service-process-jobs
 scripts/guix-data-service-query-build-servers
 scripts/guix-data-service-process-branch-updated-email
+test-env
 pre-inst-env
 
 .local.envrc
