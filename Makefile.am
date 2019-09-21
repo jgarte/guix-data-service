@@ -31,10 +31,17 @@ moddir = $(prefix)/share/guile/site/$(GUILE_EFFECTIVE_VERSION)
 godir  = $(prefix)/lib/guile/$(GUILE_EFFECTIVE_VERSION)/site-ccache
 assetsdir = $(datadir)/@PACKAGE@
 
-install-data-local:
+README.html: README
+	emacs -q --no-splash -batch -visit README \
+		-eval "(progn (require 'org) (let ((org-export-htmlize-output-type 'css)) (org-html-export-to-html nil nil nil t nil)))"
+
+install-data-local: README.html
 	mkdir -p "$(DESTDIR)$(pkgdatadir)" || exit 1;
 	cp -r assets "$(DESTDIR)$(pkgdatadir)/" || exit 1;
 	cp -r sqitch "$(DESTDIR)$(pkgdatadir)/" || exit 1;
+	mkdir -p "$(DESTDIR)$(docdir)";
+	cp README "$(DESTDIR)$(docdir)/README"
+	cp README.html "$(DESTDIR)$(docdir)/README.html"
 
 install-data-hook:
 # These files shouldn't be installed, but I have no idea how to specify that

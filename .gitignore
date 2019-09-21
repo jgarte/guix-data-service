@@ -14,6 +14,9 @@ build-aux/missing
 tests/*.log
 tests/*.trs
 
+README.html
+README.html~
+
 guix-data-service/config.scm
 scripts/guix-data-service
 scripts/guix-data-service-process-job
