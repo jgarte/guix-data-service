@@ -63,13 +63,13 @@ ul.blocks li + li:before {
     content: ", ";
 }
 
-p {
-    max-width: 70rem;
+ul {
+    list-style: unset;
+    padding-left: 40px;
 }
 
-p + p {
-    text-indent: 0.5rem;
-    margin-top: 1.0rem;
+p {
+    max-width: 70rem;
 }
 
 
