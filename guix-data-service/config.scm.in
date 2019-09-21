@@ -30,6 +30,13 @@
                              (if (file-exists? install-dir)
                                  install-dir
                                  dev-dir)))
+           (doc-dir     . ,(let ((install-dir
+                                  "@prefix@/share/doc/guix-data-service")
+                                 (dev-dir
+                                  (getcwd)))
+                             (if (file-exists? install-dir)
+                                 install-dir
+                                 dev-dir)))
            (host        . "localhost")
            (port        . 8765)
 

@@ -23,12 +23,14 @@
   #:use-module (guix-data-service web util)
   #:use-module (ice-9 vlist)
   #:use-module (ice-9 match)
+  #:use-module (ice-9 textual-ports)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-19)
   #:use-module (texinfo)
   #:use-module (texinfo html)
   #:use-module (json)
   #:export (index
+            readme
             general-not-found
             unknown-revision
             view-statistics
@@ -220,6 +222,25 @@
                            (list help-text)
                            '())))
              '())))))
+
+(define (readme)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h1 "The README document")))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (raw  ,(call-with-input-file
+                   (string-append (%config 'doc-dir) "/README.html")
+                 get-string-all))))))))
 
 (define (index git-repositories-and-revisions)
   (layout

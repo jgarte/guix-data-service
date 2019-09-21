@@ -720,6 +720,9 @@
                         #t)
                    200
                    500))))
+    (('GET "README")
+     (render-html
+      #:sxml (readme)))
     (_
      (with-postgresql-connection
       "web"
