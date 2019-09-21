@@ -1,0 +1,125 @@
+-*- mode: org -*-
+
+The Guix Data Service processes, stores and provides data about Guix over
+time.
+
+It's written in Guile, stores data in a PostgreSQL database, and provides a
+web interface and API to browse and access the data.
+
+* Local Development
+
+There's no one right way of doing local development, but outlined here is a
+recommended approach.
+
+You will need to have:
+ - The Guix package manager, either installed on any GNU/Linux distribution,
+   or be using Guix as a system.
+ - A running PostgreSQL service, version 10 or above is recommended
+ - Git, so you can clone the repository
+ - direnv, to manage environment variables
+
+If you have any problems with the instructions here, you can ask for help on
+the #guix IRC channel on Freenode. You can also email help-guix@gnu.org, please
+include the step you got to, and the problem you encountered (with the error
+message if applicable).
+
+** Setup the database
+
+Dumps of the database behind data.guix.gnu.org are available at
+http://data.guix.gnu.org/dumps, use the following URL to download the latest
+small dump.
+
+http://data.guix.gnu.org/dumps/latest/guix_data_service_small.dump
+
+There are multiple ways you can setup the database, the instructions here
+involve creating a =guix_data_service= user with a password, then connecting
+to the database over the local network interface.
+
+To create the user and database use the scripts from PostgreSQL. The
+=createuser= command will prompt for a password for the database user, you'll
+need this at multiple points so it might be useful to keep it simple.
+
+#+BEGIN_SRC shell
+createuser guix_data_service --pwprompt
+createdb guix_data_service --owner=guix_data_service
+#+END_SRC
+
+You may need to run these commands as the postgres user.
+
+To restore the downloaded dump, run =pg_restore=. This command should prompt
+for a password, at which point enter the password for the database user that
+you set earlier.
+
+#+BEGIN_SRC shell
+pg_restore --jobs=4 --user=guix_data_service --host=127.0.0.1 --dbname=guix_data_service guix_data_service_small.dump
+#+END_SRC
+
+** Cloning the repository
+
+To clone the Git repository, run the following command:
+
+#+BEGIN_SRC shell
+git clone https://git.savannah.gnu.org/git/guix/data-service.git guix-data-service
+#+END_SRC
+
+** Getting direnv working
+
+direnv is used to update the environment within the shell to contain the
+dependencies of the Guix Data Service. If you've just installed direnv, check
+you've hooked it in to your shell https://direnv.net/docs/hook.html .
+
+Change in to the =guix-data-service= directory. You should see direnv
+prompting to trust the =.envrc= file contained within the repository.
+
+Check the contents of the =.envrc= file, and if you trust it, run =direnv
+allow=.
+
+To setup the configuration for your local environment, create a file called
+.local.envrc. To provide the password you've set for the =guix_data_service=
+user, you'll need to set the =GUIX_DATA_SERVICE_DATABASE_PARAMSTRING=
+environment variable in this file. Add the following line, replacing
+THEPASSWORD with the password you set earlier.
+
+#+BEGIN_SRC shell
+export GUIX_DATA_SERVICE_DATABASE_PARAMSTRING="dbname=guix_data_service user=guix_data_service password=THEPASSWORD host=127.0.0.1"
+#+END_SRC
+
+After, run =direnv reload= to update the environment in your shell.
+
+** Building the source files
+
+The following three commands will compile the =.go= files and generate the
+scripts used as entry points to the Guix Data Service.
+
+#+BEGIN_SRC shell
+./bootstrap.sh
+./configure
+make
+#+END_SRC
+
+** Run the web server
+
+The =guix-data-service= script is the main entry point in to the service, run
+it from the shell.
+
+#+BEGIN_SRC shell
+guix-data-service
+#+END_SRC
+
+You should now be able to access the Guix Data Service web interface through a
+web browser using the URL http://localhost:8765/
+
+To automatically restart the Guix Data Service when a change to the code is
+made, you can use the rerun command:
+
+#+BEGIN_SRC shell
+rerun -d guix-data-service -p "**/*.scm" guix-data-service
+#+END_SRC
+
+** Checking the setup
+
+You now should be ready to do local development. To double check that you can
+change the code and see those changes, try chaging the "Guix Data Service"
+text within the index function, in the =(guix-data-service web view html)=
+module (contained in the =guix-data-service/web/view/html.scm= file). That
+text appears towards the top of the index page (the page with the path =/=).
