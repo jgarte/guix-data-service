@@ -123,3 +123,19 @@ change the code and see those changes, try chaging the "Guix Data Service"
 text within the index function, in the =(guix-data-service web view html)=
 module (contained in the =guix-data-service/web/view/html.scm= file). That
 text appears towards the top of the index page (the page with the path =/=).
+
+* Roadmap
+
+Ideas for future enhancements to the Guix Data Service, in no particular
+order.
+
+** WebSub support for subscribing to branches and other changable state
+** Support for viewing the history of a package on a branch
+** Link to other sites (Free Software Directory, Wikidata, Debian, ...)
+** Track package replacements (grafts)
+** Load in derivations related to =guix pull=
+** Load in the derivations for system tests within Guix
+** Provide data in RDF formats (TTL, XML, ...)
+** Provide statistics about Guix over time (including graphs)
+** Pull in data from build servers about derivation builds
+** Provide a way to compare two derivations
