@@ -20,6 +20,7 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 vlist)
   #:use-module (ice-9 pretty-print)
+  #:use-module (ice-9 textual-ports)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-26)
@@ -30,6 +31,7 @@
   #:use-module (texinfo plain-text)
   #:use-module (squee)
   #:use-module (json)
+  #:use-module (guix-data-service config)
   #:use-module (guix-data-service comparison)
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service model git-branch)
@@ -721,8 +723,16 @@
                    200
                    500))))
     (('GET "README")
-     (render-html
-      #:sxml (readme)))
+     (let ((filename (string-append (%config 'doc-dir) "/README.html")))
+       (if (file-exists? filename)
+           (render-html
+            #:sxml (readme (call-with-input-file filename
+                             get-string-all)))
+           (render-html
+            #:sxml (general-not-found
+                    "README not found"
+                    "The README.html file does not exist")
+            #:code 404))))
     (_
      (with-postgresql-connection
       "web"

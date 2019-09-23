@@ -23,7 +23,6 @@
   #:use-module (guix-data-service web util)
   #:use-module (ice-9 vlist)
   #:use-module (ice-9 match)
-  #:use-module (ice-9 textual-ports)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-19)
   #:use-module (texinfo)
@@ -223,7 +222,7 @@
                            '())))
              '())))))
 
-(define (readme)
+(define (readme contents)
   (layout
    #:body
    `(,(header)
@@ -238,9 +237,7 @@
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
-        (raw  ,(call-with-input-file
-                   (string-append (%config 'doc-dir) "/README.html")
-                 get-string-all))))))))
+        (raw ,contents)))))))
 
 (define (index git-repositories-and-revisions)
   (layout
