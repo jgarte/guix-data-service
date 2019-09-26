@@ -40,6 +40,7 @@
             view-git-repository
             view-branches
             view-branch
+            view-branch-package
             view-builds
             view-derivation
             view-store-item
@@ -1088,6 +1089,68 @@
                           (cdr branch-commits))
                      '((#f #f))))))))))))
 
+(define (view-branch-package git-repository-id
+                             branch-name
+                             package-name
+                             versions-by-revision-range)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (a (@ (href ,(string-append "/repository/" git-repository-id)))
+           (h3 "Repository"))
+        (a (@ (href ,(string-append "/repository/" git-repository-id
+                                    "/branch/" branch-name)))
+           (h3 ,(string-append branch-name " branch")))
+        (h1 (@ (style "white-space: nowrap;"))
+            (samp ,package-name))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (table
+         (@ (class "table")
+            (style "table-layout: fixed;"))
+         (thead
+          (tr
+           (th (@ (class "col-sm-4")) "Version")
+           (th (@ (class "col-sm-4")) "From")
+           (th (@ (class "col-sm-4")) "To")))
+         (tbody
+          ,@(map
+             (match-lambda
+               ((package-version first-guix-revision-commit
+                                 first-datetime
+                                 last-guix-revision-commit
+                                 last-datetime)
+                `(tr
+                  (td ,package-version)
+                  (td (a (@ (href ,(string-append
+                                    "/revision/" first-guix-revision-commit)))
+                         ,first-datetime)
+                      (br)
+                      (a (@ (href ,(string-append
+                                    "/revision/"
+                                    first-guix-revision-commit
+                                    "/package/"
+                                    package-name "/" package-version)))
+                         "(More information)"))
+                  (td (a (@ (href ,(string-append
+                                    "/revision/" last-guix-revision-commit)))
+                         ,last-datetime)
+                      (br)
+                      (a (@ (href ,(string-append
+                                    "/revision/"
+                                    last-guix-revision-commit
+                                    "/package/"
+                                    package-name "/" package-version)))
+                         "(More information)")))))
+             versions-by-revision-range)))))))))
 
 (define (view-builds stats builds)
   (layout

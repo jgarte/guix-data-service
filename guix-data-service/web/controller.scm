@@ -882,6 +882,17 @@
                                             'after_date)
                      #:before-date (assq-ref parsed-query-parameters
                                              'before_date)))))))
+    (('GET "repository" repository-id "branch" branch-name "package" package-name)
+     (render-html
+      #:sxml (view-branch-package
+              repository-id
+              branch-name
+              package-name
+              (package-versions-for-branch
+               conn
+               (string->number repository-id)
+               branch-name
+               package-name))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision")
      (let ((commit-hash
             (latest-processed-commit-for-branch conn repository-id branch-name)))

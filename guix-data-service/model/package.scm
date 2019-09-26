@@ -9,7 +9,9 @@
             select-packages-in-revision
             search-packages-in-revision
             count-packages-in-revision
-            inferior-packages->package-ids))
+            inferior-packages->package-ids
+
+            package-versions-for-branch))
 
 (define (select-existing-package-entries package-entries)
   (string-append "SELECT id, packages.name, packages.version, "
@@ -181,3 +183,33 @@ WHERE packages.id IN (
    "packages"
    '(name version package_metadata_id)
    package-entries))
+
+(define (package-versions-for-branch conn
+                                     git-repository-id
+                                     branch-name
+                                     package-name)
+  (exec-query
+   conn
+   "
+SELECT package_version,
+       first_guix_revisions.commit AS first_guix_revision_commit,
+       first_git_branches.datetime AS first_datetime,
+       last_guix_revisions.commit AS last_guix_revision_commit,
+       last_git_branches.datetime AS last_datetime
+FROM package_versions_by_guix_revision_range
+INNER JOIN guix_revisions AS first_guix_revisions
+  ON first_guix_revision_id = first_guix_revisions.id
+INNER JOIN git_branches AS first_git_branches
+  ON first_guix_revisions.git_repository_id = first_git_branches.git_repository_id AND first_guix_revisions.commit = first_git_branches.commit
+INNER JOIN guix_revisions AS last_guix_revisions
+  ON last_guix_revision_id = last_guix_revisions.id
+INNER JOIN git_branches AS last_git_branches
+  ON last_guix_revisions.git_repository_id = last_git_branches.git_repository_id AND last_guix_revisions.commit = last_git_branches.commit
+WHERE package_name = $1
+AND package_versions_by_guix_revision_range.git_repository_id = $2
+AND package_versions_by_guix_revision_range.branch_name = $3
+ORDER BY first_datetime DESC"
+   (list package-name
+         (number->string git-repository-id)
+         branch-name)))
+
