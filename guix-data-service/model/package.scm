@@ -118,7 +118,23 @@ WHERE packages.id IN (
  WHERE guix_revisions.commit = $1
 )
 AND to_tsvector(name || ' ' || synopsis) @@ plainto_tsquery($2)
-ORDER BY ts_rank_cd(to_tsvector(name || ' ' || synopsis), plainto_tsquery($2)) DESC"
+ORDER BY (
+           ts_rank_cd(
+             to_tsvector(name),
+             plainto_tsquery($2),
+             2 -- divide rank by the document length
+           )
+           * 4 -- as the name is more important
+         ) +
+         ts_rank_cd(
+           to_tsvector(synopsis),
+           plainto_tsquery($2),
+           32 -- divide the rank by itself + 1
+         ) DESC,
+          -- to make the order stable
+         name,
+         version
+"
      (if limit-results
          (string-append "\nLIMIT " (number->string limit-results))
          "")))
