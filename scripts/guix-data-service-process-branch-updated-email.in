@@ -23,6 +23,8 @@
 (use-modules (srfi srfi-1)
              (srfi srfi-37)
              (ice-9 textual-ports)
+             (ice-9 binary-ports)
+             (rnrs bytevectors)
              (squee)
              (email email)
              (guix-data-service database)
@@ -31,23 +33,22 @@
 (with-postgresql-connection
  "process-branch-updated-email"
  (lambda (conn)
-   (let* ((email-string
-           (get-string-all (current-input-port)))
-          (email
-           (catch
-             #t
-             (lambda ()
-               (parse-email email-string))
-             (lambda (key . args)
-               (display "\nerror: while processing email\n"
-                        (current-error-port))
-               (simple-format (current-error-port)
-                              "~A: ~A\n\n"
-                              key
-                              args)
-               (display email-string (current-error-port))
-               (display "\n\n" (current-error-port))
-               #f))))
-     (when email
-       (enqueue-job-for-email conn email)))))
-
+   (let* ((email-bytevector
+           (get-bytevector-all (current-input-port))))
+     (catch
+       #t
+       (lambda ()
+         (with-throw-handler #t
+           (lambda ()
+             (enqueue-job-for-email
+              conn
+              (parse-email email-bytevector)))
+           (lambda (key . args)
+             (display "\nerror: while parsing email\n"
+                      (current-error-port))
+             (simple-format (current-error-port)
+                            "~A: ~A\n\n"
+                            key
+                            args)
+             (display-backtrace (make-stack #t) (current-error-port)))))
+       (lambda (key . args) #f)))))
