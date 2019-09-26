@@ -864,13 +864,78 @@ WHERE job_id = $1"
                     git-repository-id))
               (commit commit)))))
 
+(define (update-package-versions-table conn git-repository-id commit)
+  ;; Lock the table to wait for other transactions to commit before updating
+  ;; the table
+  (exec-query
+   conn
+   "
+LOCK TABLE ONLY package_versions_by_guix_revision_range
+  IN SHARE ROW EXCLUSIVE MODE")
+
+  (for-each
+   (match-lambda
+     ((branch-name)
+      (log-time
+       (simple-format #f "deleting package version entries for ~A" branch-name)
+       (lambda ()
+         (exec-query
+          conn
+          "
+DELETE FROM package_versions_by_guix_revision_range
+WHERE git_repository_id = $1 AND branch_name = $2"
+          (list git-repository-id
+                branch-name))))
+      (log-time
+       (simple-format #f "inserting package version entries for ~A" branch-name)
+       (lambda ()
+         (exec-query
+          conn
+          "
+INSERT INTO package_versions_by_guix_revision_range
+SELECT DISTINCT
+       $1::integer AS git_repository_id,
+       $2 AS branch_name,
+       packages.name AS package_name,
+       packages.version AS package_version,
+       first_value(guix_revisions.id)
+         OVER package_version AS first_guix_revision_id,
+       last_value(guix_revisions.id)
+         OVER package_version AS last_guix_revision_id
+FROM packages
+INNER JOIN (
+  SELECT DISTINCT package_derivations.package_id,
+                  guix_revision_package_derivations.revision_id
+  FROM package_derivations
+  INNER JOIN guix_revision_package_derivations
+    ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+) AS revision_packages ON packages.id = revision_packages.package_id
+INNER JOIN guix_revisions ON revision_packages.revision_id = guix_revisions.id
+INNER JOIN git_branches ON guix_revisions.commit = git_branches.commit
+WHERE git_branches.name = $2
+WINDOW package_version AS (
+  PARTITION BY packages.name, packages.version
+  ORDER BY git_branches.datetime
+  RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+)
+ORDER BY packages.name, packages.version"
+          (list git-repository-id branch-name))))))
+   (exec-query
+    conn
+    "SELECT name FROM git_branches WHERE commit = $1 AND git_repository_id = $2"
+    (list commit git-repository-id)))
+
+  #t)
+
 (define (load-new-guix-revision conn git-repository-id commit)
   (let ((store-item
          (store-item-for-git-repository-id-and-commit
           conn git-repository-id commit)))
     (if store-item
-        (extract-information-from conn git-repository-id
-                                  commit store-item)
+        (and
+         (extract-information-from conn git-repository-id
+                                   commit store-item)
+         (update-package-versions-table conn git-repository-id commit))
         (begin
           (simple-format #t "Failed to generate store item for ~A\n"
                          commit)
