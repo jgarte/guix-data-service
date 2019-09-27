@@ -883,16 +883,37 @@
                      #:before-date (assq-ref parsed-query-parameters
                                              'before_date)))))))
     (('GET "repository" repository-id "branch" branch-name "package" package-name)
-     (render-html
-      #:sxml (view-branch-package
-              repository-id
-              branch-name
-              package-name
-              (package-versions-for-branch
-               conn
-               (string->number repository-id)
-               branch-name
-               package-name))))
+     (let ((package-versions
+            (package-versions-for-branch conn
+                                         (string->number repository-id)
+                                         branch-name
+                                         package-name)))
+       (case (most-appropriate-mime-type
+              '(application/json text/html)
+              mime-types)
+         ((application/json)
+          (render-json
+           `((versions . ,(list->vector
+                           (map (match-lambda
+                                  ((package-version first-guix-revision-commit
+                                                    first-datetime
+                                                    last-guix-revision-commit
+                                                    last-datetime)
+                                   `((version . ,package-version)
+                                     (first_revision
+                                      . ((commit . ,first-guix-revision-commit)
+                                         (datetime . ,first-datetime)))
+                                     (last_revision
+                                      . ((commit . ,last-guix-revision-commit)
+                                         (datetime . ,last-datetime))))))
+                                package-versions))))))
+         (else
+          (render-html
+           #:sxml (view-branch-package
+                   repository-id
+                   branch-name
+                   package-name
+                   package-versions))))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision")
      (let ((commit-hash
             (latest-processed-commit-for-branch conn repository-id branch-name)))

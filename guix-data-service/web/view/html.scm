@@ -1107,6 +1107,13 @@
         (a (@ (href ,(string-append "/repository/" git-repository-id
                                     "/branch/" branch-name)))
            (h3 ,(string-append branch-name " branch")))
+        (a (@ (class "btn btn-default btn-lg pull-right")
+              (href ,(string-append
+                      "/repository/" git-repository-id
+                      "/branch/" branch-name
+                      "/package/" package-name
+                      ".json")))
+           "View JSON")
         (h1 (@ (style "white-space: nowrap;"))
             (samp ,package-name))))
       (div
