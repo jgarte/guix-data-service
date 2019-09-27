@@ -1122,35 +1122,87 @@
            (th (@ (class "col-sm-4")) "From")
            (th (@ (class "col-sm-4")) "To")))
          (tbody
-          ,@(map
-             (match-lambda
-               ((package-version first-guix-revision-commit
-                                 first-datetime
-                                 last-guix-revision-commit
-                                 last-datetime)
-                `(tr
-                  (td ,package-version)
-                  (td (a (@ (href ,(string-append
-                                    "/revision/" first-guix-revision-commit)))
-                         ,first-datetime)
-                      (br)
-                      (a (@ (href ,(string-append
-                                    "/revision/"
-                                    first-guix-revision-commit
-                                    "/package/"
-                                    package-name "/" package-version)))
-                         "(More information)"))
-                  (td (a (@ (href ,(string-append
-                                    "/revision/" last-guix-revision-commit)))
-                         ,last-datetime)
-                      (br)
-                      (a (@ (href ,(string-append
-                                    "/revision/"
-                                    last-guix-revision-commit
-                                    "/package/"
-                                    package-name "/" package-version)))
-                         "(More information)")))))
-             versions-by-revision-range)))))))))
+          ,@(let* ((times-in-seconds
+                    (map (lambda (d)
+                           (time-second
+                            (date->time-monotonic
+                             (string->date d "~Y-~m-~d ~H:~M:~S"))))
+                         (append (map third versions-by-revision-range)
+                                 (map fifth versions-by-revision-range))))
+                   (earliest-date-seconds
+                    (apply min
+                           times-in-seconds))
+                   (latest-date-seconds
+                    (apply max
+                           times-in-seconds))
+                   (min-to-max-seconds
+                    (- latest-date-seconds
+                       earliest-date-seconds)))
+              (map
+               (match-lambda
+                 ((package-version first-guix-revision-commit
+                                   first-datetime
+                                   last-guix-revision-commit
+                                   last-datetime)
+                  `((tr
+                     (@ (style "border-bottom: 0;"))
+                     (td ,package-version)
+                     (td (a (@ (href ,(string-append
+                                       "/revision/" first-guix-revision-commit)))
+                            ,first-datetime)
+                         (br)
+                         (a (@ (href ,(string-append
+                                       "/revision/"
+                                       first-guix-revision-commit
+                                       "/package/"
+                                       package-name "/" package-version)))
+                            "(More information)"))
+                     (td (a (@ (href ,(string-append
+                                       "/revision/" last-guix-revision-commit)))
+                            ,last-datetime)
+                         (br)
+                         (a (@ (href ,(string-append
+                                       "/revision/"
+                                       last-guix-revision-commit
+                                       "/package/"
+                                       package-name "/" package-version)))
+                            "(More information)")))
+                    (tr
+                     (td
+                      (@ (colspan 3)
+                         (style "border-top: 0; padding-top: 0;"))
+                      (div
+                       (@
+                        (style
+                            ,(let* ((start-seconds
+                                     (time-second
+                                      (date->time-monotonic
+                                       (string->date first-datetime
+                                                     "~Y-~m-~d ~H:~M:~S"))))
+                                    (end-seconds
+                                     (time-second
+                                      (date->time-monotonic
+                                       (string->date last-datetime
+                                                     "~Y-~m-~d ~H:~M:~S"))))
+                                    (margin-left
+                                     (min
+                                      (* (/ (- start-seconds earliest-date-seconds)
+                                            min-to-max-seconds)
+                                         100)
+                                      98))
+                                    (width
+                                     (max
+                                      (- (* (/ (- end-seconds earliest-date-seconds)
+                                               min-to-max-seconds)
+                                            100)
+                                         margin-left)
+                                      2)))
+                               (simple-format
+                                #f
+                                "margin-left: ~A%; width: ~A%; height: 10px; background: #DCDCDC;"
+                                (rationalize margin-left 1)
+                                (rationalize width 1)))))))))))
+               versions-by-revision-range))))))))))
 
 (define (view-builds stats builds)
   (layout
