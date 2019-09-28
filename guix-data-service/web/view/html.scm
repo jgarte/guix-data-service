@@ -505,7 +505,8 @@
                            ((member "start" event-names)
                             "info")
                            (else
-                            "")))))
+                            ""))))
+                     (title ,(simple-format #f "Job id: ~A" id)))
                   (td ,source)
                   (td
                    (dl
