@@ -47,6 +47,7 @@ AC_CONFIG_FILES([scripts/guix-data-service], [chmod +x scripts/guix-data-service
 AC_CONFIG_FILES([scripts/guix-data-service-process-job], [chmod +x scripts/guix-data-service-process-job])
 AC_CONFIG_FILES([scripts/guix-data-service-process-jobs], [chmod +x scripts/guix-data-service-process-jobs])
 AC_CONFIG_FILES([scripts/guix-data-service-process-branch-updated-email], [chmod +x scripts/guix-data-service-process-branch-updated-email])
+AC_CONFIG_FILES([scripts/guix-data-service-process-branch-updated-mbox], [chmod +x scripts/guix-data-service-process-branch-updated-mbox])
 AC_CONFIG_FILES([scripts/guix-data-service-query-build-servers], [chmod +x scripts/guix-data-service-query-build-servers])
 AC_CONFIG_FILES([test-env:build-aux/test-env.in], [chmod +x test-env])
 AC_CONFIG_FILES([pre-inst-env], [chmod +x pre-inst-env])

@@ -1,0 +1,65 @@
+#!@GUILE@ --no-auto-compile
+-*- scheme -*-
+-*- geiser-scheme-implementation: guile -*-
+!#
+;;; Guix Data Service -- Information about Guix over time
+;;; Copyright © 2019 Christopher Baines <mail@cbaines.net>
+;;;
+;;; This file is part of guix-data-service.
+;;;
+;;; guix-data-service is free software; you can redistribute it and/or modify it
+;;; under the terms of the GNU General Public License as published by
+;;; the Free Software Foundation; either version 3 of the License, or
+;;; (at your option) any later version.
+;;;
+;;; guix-data-service is distributed in the hope that it will be useful, but
+;;; WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;;; General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU General Public License
+;;; along with the guix-data-service.  If not, see <http://www.gnu.org/licenses/>.
+
+(use-modules (srfi srfi-1)
+             (srfi srfi-37)
+             (ice-9 textual-ports)
+             (ice-9 binary-ports)
+             (rnrs bytevectors)
+             (squee)
+             (email email)
+             (guix-data-service database)
+             (guix-data-service branch-updated-emails))
+
+(with-postgresql-connection
+ "process-branch-updated-mbox"
+ (lambda (conn)
+   (for-each
+    (lambda (file)
+      (simple-format (current-error-port)
+                     "reading: ~A\n"
+                     file)
+      (for-each
+       (lambda (email-bytevector)
+         (display "." (current-error-port))
+         (catch
+           #t
+           (lambda ()
+             (with-throw-handler #t
+               (lambda ()
+                 (enqueue-job-for-email
+                  conn
+                  (parse-email email-bytevector)))
+               (lambda (key . args)
+                 (display "\nerror: while parsing email\n"
+                          (current-error-port))
+                 (simple-format (current-error-port)
+                                "~A: ~A\n\n"
+                                key
+                                args)
+                 (display-backtrace (make-stack #t) (current-error-port)))))
+           (lambda (key . args) #f)))
+       (call-with-input-file file
+         mbox->emails))
+
+      (display "\n" (current-error-port)))
+    (cdr (command-line)))))
