@@ -199,19 +199,6 @@ WHERE job_id = $1"
                       action time-taken)))))
 
 (define (all-inferior-lint-warnings inf store)
-  (define checkers
-    (inferior-eval
-     '(begin
-        (use-modules (guix lint))
-        (map (lambda (checker)
-               (list (lint-checker-name checker)
-                     (lint-checker-description checker)
-                     (if (memq checker %network-dependent-checkers)
-                         #t
-                         #f)))
-             %all-checkers))
-     inf))
-
   (define locales
     '("cs_CZ.utf8"
       "da_DK.utf8"
@@ -286,19 +273,41 @@ WHERE job_id = $1"
                (check package))))
            %package-table)))))
 
-  (map
-   (match-lambda
-     ((name description network-dependent?)
-      (cons
-       (list name description network-dependent?)
-       (if network-dependent?
-           '()
-           (log-time
-            (simple-format #f "getting ~A lint warnings" name)
-            (lambda ()
-              (inferior-eval-with-store inf store (lint-warnings-for-checker
-                                                   name))))))))
-   checkers))
+  (and
+   (catch
+     'misc-error
+     (lambda ()
+       (inferior-eval '(use-modules (guix lint)) inf)
+       #t)
+     (lambda (key . args)
+       (simple-format (current-error-port)
+                      "warning: failed to load the (guix lint) module: ~A ~A\n"
+                      key args)
+       #f))
+   (let ((checkers
+          (inferior-eval
+           '(begin
+              (map (lambda (checker)
+                     (list (lint-checker-name checker)
+                           (lint-checker-description checker)
+                           (if (memq checker %network-dependent-checkers)
+                               #t
+                               #f)))
+                   %all-checkers))
+           inf)))
+     (map
+      (match-lambda
+        ((name description network-dependent?)
+         (cons
+          (list name description network-dependent?)
+          (if network-dependent?
+              '()
+              (log-time
+               (simple-format #f "getting ~A lint warnings" name)
+               (lambda ()
+                 (inferior-eval-with-store inf store (lint-warnings-for-checker
+                                                      name))))))))
+      checkers))))
 
 (define (all-inferior-package-derivations store inf packages)
   (define inferior-%supported-systems
@@ -815,39 +824,39 @@ WHERE job_id = $1"
                #t "debug: finished loading information from inferior\n")
               (close-inferior inf)
 
-              (let* ((lint-checker-ids
-                      (lint-checkers->lint-checker-ids
-                       conn
-                       (map car inferior-lint-warnings)))
-                     (lint-warning-ids
-                      (insert-lint-warnings
-                       conn
-                       inferior-package-id->package-database-id
-                       lint-checker-ids
-                       inferior-lint-warnings))
-                     (package-derivation-ids
-                      (inferior-data->package-derivation-ids
-                       conn inf inferior-package-id->package-database-id
-                       inferior-data-4-tuples))
-                     (guix-revision-id
-                      (insert-guix-revision conn git-repository-id
-                                            commit store-path)))
+              (let ((guix-revision-id
+                     (insert-guix-revision conn git-repository-id
+                                           commit store-path)))
 
-                (insert-guix-revision-lint-checkers conn
-                                                    guix-revision-id
-                                                    lint-checker-ids)
+                (when inferior-lint-warnings
+                  (let* ((lint-checker-ids
+                          (lint-checkers->lint-checker-ids
+                           conn
+                           (map car inferior-lint-warnings)))
+                         (lint-warning-ids
+                          (insert-lint-warnings
+                           conn
+                           inferior-package-id->package-database-id
+                           lint-checker-ids
+                           inferior-lint-warnings)))
+                    (insert-guix-revision-lint-checkers conn
+                                                        guix-revision-id
+                                                        lint-checker-ids)
 
-                (insert-guix-revision-lint-warnings conn
-                                                    guix-revision-id
-                                                    lint-warning-ids)
+                    (insert-guix-revision-lint-warnings conn
+                                                        guix-revision-id
+                                                        lint-warning-ids)))
+                (let ((package-derivation-ids
+                       (inferior-data->package-derivation-ids
+                        conn inf inferior-package-id->package-database-id
+                        inferior-data-4-tuples)))
 
-                (insert-guix-revision-package-derivations conn
-                                                          guix-revision-id
-                                                          package-derivation-ids)
-
-                (simple-format
-                 #t "Successfully loaded ~A package/derivation pairs\n"
-                 (length package-derivation-ids)))))
+                  (insert-guix-revision-package-derivations conn
+                                                            guix-revision-id
+                                                            package-derivation-ids)
+                  (simple-format
+                   #t "Successfully loaded ~A package/derivation pairs\n"
+                   (length package-derivation-ids))))))
           #t)
         (lambda (key . args)
           (simple-format (current-error-port)
