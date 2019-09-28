@@ -736,6 +736,15 @@ WHERE job_id = $1"
                         (glibc-locales-for-guix-store-path store store-path)
                         "/lib/locale"
                         ":" guix-locpath)))
+                  ;; Unset the GUILE_LOAD_PATH and GUILE_LOAD_COMPILED_PATH to
+                  ;; avoid the values for these being used in the
+                  ;; inferior. Even though the inferior %load-path and
+                  ;; %load-compiled-path has the inferior modules first, this
+                  ;; can cause issues when there are modules present outside
+                  ;; of the inferior Guix which aren't present in the inferior
+                  ;; Guix (like the new (guix lint) module
+                  (unsetenv "GUILE_LOAD_PATH")
+                  (unsetenv "GUILE_LOAD_COMPILED_PATH")
                   ;; Augment the GUIX_LOCPATH to include glibc-locales from
                   ;; the Guix at store-path, this should mean that the
                   ;; inferior Guix works, even if it's build using a different
