@@ -50,7 +50,7 @@
                                  branch-name
                                  (if (string=? "0000000000000000000000000000000000000000"
                                                x-git-newrev)
-                                     "NULL"
+                                     ""
                                      x-git-newrev)
                                  git-repository-id
                                  date)

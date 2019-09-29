@@ -940,7 +940,7 @@
                             "/branch/" name)))
                  ,name))
              (td ,date)
-             (td ,@(if (string=? commit "NULL")
+             (td ,@(if (string=? commit "")
                        '((samp "branch deleted"))
                        `((a (@ (href ,(string-append
                                        "/revision/" commit)))
@@ -1048,7 +1048,7 @@
                  (previous-commit previous-revision-exists?))
                 `(tr
                   (td ,date)
-                  (td ,@(if (string=? commit "NULL")
+                  (td ,@(if (string=? commit "")
                             '((samp "branch deleted"))
                             `((a (@ (href ,(string-append
                                             "/revision/" commit)))

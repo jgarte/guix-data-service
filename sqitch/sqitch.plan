@@ -22,3 +22,4 @@ lint_warnings 2019-08-18T17:10:12Z Christopher Baines <mail@cbaines.net> # Store
 guix_revision_lint_checkers 2019-09-01T12:17:38Z chris <chris@phact> # Associate lint_checkers to guix_revisions
 package_versions_by_guix_revision_range 2019-09-26T20:23:15Z Christopher Baines <mail@cbaines.net> # Add package_versions_by_guix_revision_range table
 index_on_load_new_guix_revision_job_events_job_id 2019-09-29T10:39:04Z Christopher Baines <mail@cbaines.net> # Add index on load_new_guix_revision_job_events.job_id
+fix_null_values_in_git_branches 2019-09-29T11:06:12Z Christopher Baines <mail@cbaines.net> # Fix the NULL values in git_branches
