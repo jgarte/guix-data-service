@@ -2,6 +2,7 @@
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 match)
   #:use-module (ice-9 hash-table)
+  #:use-module (rnrs exceptions)
   #:use-module (json)
   #:use-module (squee)
   #:use-module (guix monads)
@@ -773,7 +774,24 @@ WHERE job_id = $1"
       (setenv "GUIX_LOCPATH" guix-locpath) ; restore GUIX_LOCPATH
 
       ;; Normalise the locale for the inferior process
-      (inferior-eval '(setlocale LC_ALL "en_US.utf8") inf)
+      (catch
+        'system-error
+        (lambda ()
+          (inferior-eval '(setlocale LC_ALL "en_US.utf8") inf))
+        (lambda (key . args)
+          (simple-format (current-error-port)
+                         "warning: failed to set locale to en_US.utf8: ~A ~A\n"
+                         key args)
+          (display "trying to setlocale to en_US.UTF-8 instead\n"
+                   (current-error-port))
+          (with-exception-handler
+            (lambda (key . args)
+              (simple-format
+               (current-error-port)
+               "warning: failed to set locale to en_US.UTF-8: ~A ~A\n"
+               key args))
+            (lambda ()
+              (inferior-eval '(setlocale LC_ALL "en_US.UTF-8") inf)))))
 
       (inferior-eval '(use-modules (srfi srfi-1)
                                    (srfi srfi-34)
