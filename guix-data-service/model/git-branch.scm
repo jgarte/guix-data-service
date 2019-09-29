@@ -134,7 +134,7 @@ SELECT DISTINCT ON (name)
   ) AS job_events
 FROM git_branches
 LEFT OUTER JOIN guix_revisions ON git_branches.commit = guix_revisions.commit
-WHERE git_branches.commit IS NOT NULL AND git_branches.git_repository_id = $1
+WHERE git_branches.git_repository_id = $1
 ORDER BY name, datetime DESC"))
 
   (map
