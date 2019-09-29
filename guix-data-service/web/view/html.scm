@@ -282,7 +282,9 @@
                     '(p "No branches")
                     (table/branches-with-most-recent-commits
                      repository-id
-                     branches-with-most-recent-commits))))))
+                     (filter (lambda (data)
+                               (not (string-null? (second data))))
+                             branches-with-most-recent-commits)))))))
          git-repositories-and-revisions)))))
 
 (define (view-statistics guix-revisions-count derivations-count)
