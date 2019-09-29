@@ -773,6 +773,9 @@ WHERE job_id = $1"
                       (open-inferior store-path))))))
       (setenv "GUIX_LOCPATH" guix-locpath) ; restore GUIX_LOCPATH
 
+      (when (eq? inf #f)
+        (error "error: inferior is #f"))
+
       ;; Normalise the locale for the inferior process
       (catch
         'system-error
