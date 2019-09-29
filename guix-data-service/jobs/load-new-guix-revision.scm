@@ -716,7 +716,7 @@ WHERE job_id = $1"
                                  (guix grafts)
                                  (guix derivations))
                    inf)
-    (inferior-eval '(%graft? #f) inf)
+    (inferior-eval '(when (defined? '%graft?) (%graft? #f)) inf)
 
     (let* ((inferior-glibc-locales
             (first
@@ -780,7 +780,7 @@ WHERE job_id = $1"
                                    (guix grafts)
                                    (guix derivations))
                      inf)
-      (inferior-eval '(%graft? #f) inf)
+      (inferior-eval '(when (defined? '%graft?) (%graft? #f)) inf)
 
       (catch
         #t
