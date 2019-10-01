@@ -96,7 +96,6 @@ TESTS =					\
   tests/model-license-set.scm			\
   tests/model-license.scm			\
   tests/model-lint-checker.scm			\
-  tests/model-lint-warning.scm			\
   tests/model-lint-warning-message.scm		\
   tests/model-package.scm			\
   tests/model-package-metadata.scm
