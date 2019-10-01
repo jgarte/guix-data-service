@@ -98,7 +98,11 @@
                  (string-append "db:pg://"
                                 (%config 'database-user)
                                 "@"
-                                (%config 'database-host)
+                                (if (string=? (%config 'database-host)
+                                              "localhost")
+                                    ""  ; This means the unix socket
+                                        ; connection will be used
+                                    (%config 'database-host))
                                 "/"
                                 (%config 'database-name)))))
       (simple-format #t "running command: ~A\n"
