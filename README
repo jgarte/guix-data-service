@@ -130,7 +130,6 @@ Ideas for future enhancements to the Guix Data Service, in no particular
 order.
 
 ** WebSub support for subscribing to branches and other changable state
-** Support for viewing the history of a package on a branch
 ** Link to other sites (Free Software Directory, Wikidata, Debian, ...)
 ** Track package replacements (grafts)
 ** Load in derivations related to =guix pull=
