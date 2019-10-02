@@ -1130,10 +1130,13 @@ SELECT
 FROM load_new_guix_revision_jobs
 WHERE
   succeeded_at IS NULL AND
-  NOT EXISTS (
-    SELECT 1
+  (
+    SELECT COUNT(*)
     FROM load_new_guix_revision_job_events
-    -- Skip jobs that have failed, to avoid trying them over and over again
+    WHERE job_id = load_new_guix_revision_jobs.id AND event = 'retry'
+  ) >= (
+    SELECT COUNT(*)
+    FROM load_new_guix_revision_job_events
     WHERE job_id = load_new_guix_revision_jobs.id AND event = 'failure'
   )
 ORDER BY latest_branch_commit DESC, id DESC
