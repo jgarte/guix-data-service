@@ -293,7 +293,10 @@
   (let ((package-versions
          (select-package-versions-for-revision conn
                                                commit-hash
-                                               name)))
+                                               name))
+        (git-repositories-and-branches
+         (git-branches-with-repository-details-for-commit conn
+                                                          commit-hash)))
     (case (most-appropriate-mime-type
            '(application/json text/html)
            mime-types)
@@ -306,6 +309,7 @@
         #:sxml (view-revision-package commit-hash
                                       name
                                       package-versions
+                                      git-repositories-and-branches
                                       #:path-base path-base
                                       #:header-text header-text
                                       #:header-link header-link)

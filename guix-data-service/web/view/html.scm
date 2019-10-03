@@ -312,6 +312,7 @@
 (define* (view-revision-package revision-commit-hash
                                 name
                                 versions
+                                git-repositories-and-branches
                                 #:key path-base
                                 header-text
                                 header-link)
@@ -330,6 +331,19 @@
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
+        ,(append-map
+          (match-lambda
+            (((id label url cgit-url-base) . branches)
+             (map (match-lambda
+                    ((branch-name datetime)
+                     `(a (@ (class "btn btn-default btn-lg pull-right")
+                            (href ,(simple-format
+                                    #f "/repository/~A/branch/~A/package/~A"
+                                    id branch-name name)))
+                         ,(simple-format #f "View ~A branch version history"
+                                         branch-name))))
+                  branches)))
+          git-repositories-and-branches)
         (h1 "Package " ,name)))
       (div
        (@ (class "row"))
