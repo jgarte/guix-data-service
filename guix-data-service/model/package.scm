@@ -11,6 +11,7 @@
             count-packages-in-revision
             inferior-packages->package-ids
 
+            select-package-versions-for-revision
             package-versions-for-branch))
 
 (define (select-existing-package-entries package-entries)
@@ -183,6 +184,24 @@ WHERE packages.id IN (
    "packages"
    '(name version package_metadata_id)
    package-entries))
+
+(define (select-package-versions-for-revision conn
+                                              commit
+                                              package-name)
+  (define query "
+SELECT DISTINCT version FROM packages
+INNER JOIN package_derivations
+  ON packages.id = package_derivations.package_id
+INNER JOIN guix_revision_package_derivations
+  ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+INNER JOIN guix_revisions
+  ON guix_revision_package_derivations.revision_id = guix_revisions.id
+WHERE guix_revisions.commit = $1 AND packages.name = $2
+ORDER BY version")
+
+  (map
+   car
+   (exec-query conn query (list commit package-name))))
 
 (define (package-versions-for-branch conn
                                      git-repository-id

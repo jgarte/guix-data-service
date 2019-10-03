@@ -33,6 +33,7 @@
             general-not-found
             unknown-revision
             view-statistics
+            view-revision-package
             view-revision-package-and-version
             view-revision
             view-revision-packages
@@ -307,6 +308,52 @@
         (strong (@ (class "text-center")
                    (style "font-size: 2em; display: block;"))
                 ,derivations-count)))))))
+
+(define* (view-revision-package revision-commit-hash
+                                name
+                                versions
+                                #:key path-base
+                                header-text
+                                header-link)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h3 (a (@ (href ,header-link))
+               ,@header-text))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h1 "Package " ,name)))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h3 "Versions")
+        (table
+         (@ (class "table"))
+         (thead
+          (tr
+           (th (@ (class "col-sm-10")) "Version")
+           (th (@ (class "col-sm-2")) "")))
+         (tbody
+          ,@(map
+             (lambda (version)
+               `(tr
+                 (td (samp ,version))
+                 (td
+                  (a (@ (href ,(string-append
+                                path-base
+                                revision-commit-hash
+                                "/package/" name "/" version)))
+                     "More information"))))
+             versions)))))))))
 
 (define* (view-revision-package-and-version revision-commit-hash name version
                                             package-metadata

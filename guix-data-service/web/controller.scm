@@ -278,6 +278,39 @@
                                            #:header-link header-link)
             #:extra-headers http-headers-for-unchanging-content))))))
 
+(define* (render-revision-package mime-types
+                                  conn
+                                  commit-hash
+                                  name
+                                  #:key
+                                  (path-base "/revision/")
+                                  (header-text
+                                   `("Revision "
+                                     (samp ,commit-hash)))
+                                  (header-link
+                                   (string-append
+                                    "/revision/" commit-hash)))
+  (let ((package-versions
+         (select-package-versions-for-revision conn
+                                               commit-hash
+                                               name)))
+    (case (most-appropriate-mime-type
+           '(application/json text/html)
+           mime-types)
+      ((application/json)
+       (render-json
+        `((versions . ,(list->vector package-versions)))
+        #:extra-headers http-headers-for-unchanging-content))
+      (else
+       (render-html
+        #:sxml (view-revision-package commit-hash
+                                      name
+                                      package-versions
+                                      #:path-base path-base
+                                      #:header-text header-text
+                                      #:header-link header-link)
+        #:extra-headers http-headers-for-unchanging-content)))))
+
 (define* (render-revision-package-version mime-types
                                           conn
                                           commit-hash
@@ -808,6 +841,15 @@
                                      commit-hash
                                      parsed-query-parameters
                                      #:path-base path))
+         (render-unknown-revision mime-types
+                                  conn
+                                  commit-hash)))
+    (('GET "revision" commit-hash "package" name)
+     (if (guix-commit-exists? conn commit-hash)
+         (render-revision-package mime-types
+                                  conn
+                                  commit-hash
+                                  name)
          (render-unknown-revision mime-types
                                   conn
                                   commit-hash)))
