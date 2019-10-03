@@ -278,18 +278,18 @@
                                            #:header-link header-link)
             #:extra-headers http-headers-for-unchanging-content))))))
 
-(define* (render-revision-package mime-types
-                                  conn
-                                  commit-hash
-                                  name
-                                  version
-                                  #:key
-                                  (header-text
-                                   `("Revision "
-                                     (samp ,commit-hash)))
-                                  (header-link
-                                   (string-append
-                                    "/revision/" commit-hash)))
+(define* (render-revision-package-version mime-types
+                                          conn
+                                          commit-hash
+                                          name
+                                          version
+                                          #:key
+                                          (header-text
+                                           `("Revision "
+                                             (samp ,commit-hash)))
+                                          (header-link
+                                           (string-append
+                                            "/revision/" commit-hash)))
   (let ((metadata
          (select-package-metadata-by-revision-name-and-version
           conn
@@ -813,11 +813,11 @@
                                   commit-hash)))
     (('GET "revision" commit-hash "package" name version)
      (if (guix-commit-exists? conn commit-hash)
-         (render-revision-package mime-types
-                                  conn
-                                  commit-hash
-                                  name
-                                  version)
+         (render-revision-package-version mime-types
+                                          conn
+                                          commit-hash
+                                          name
+                                          version)
          (render-unknown-revision mime-types
                                   conn
                                   commit-hash)))
@@ -1001,19 +1001,19 @@
      (let ((commit-hash
             (latest-processed-commit-for-branch conn repository-id branch-name)))
        (if commit-hash
-           (render-revision-package mime-types
-                                    conn
-                                    commit-hash
-                                    name
-                                    version
-                                    #:header-text
-                                    `("Latest processed revision for branch "
-                                      (samp ,branch-name))
-                                    #:header-link
-                                    (string-append
-                                     "/repository/" repository-id
-                                     "/branch/" branch-name
-                                     "/latest-processed-revision"))
+           (render-revision-package-version mime-types
+                                            conn
+                                            commit-hash
+                                            name
+                                            version
+                                            #:header-text
+                                            `("Latest processed revision for branch "
+                                              (samp ,branch-name))
+                                            #:header-link
+                                            (string-append
+                                             "/repository/" repository-id
+                                             "/branch/" branch-name
+                                             "/latest-processed-revision"))
            (render-unknown-revision mime-types
                                     conn
                                     commit-hash))))
