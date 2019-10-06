@@ -731,11 +731,16 @@
 (define (parse-build-status s)
   s)
 
+(define handle-static-assets
+  (if assets-dir-in-store?
+      (static-asset-from-store-renderer)
+      render-static-asset))
+
 (define (controller request method-and-path-components mime-types body)
   (match method-and-path-components
     (('GET "assets" rest ...)
-     (or (render-static-asset (string-join rest "/")
-                              (request-headers request))
+     (or (handle-static-assets (string-join rest "/")
+                               (request-headers request))
          (not-found (request-uri request))))
     (('GET "healthcheck")
      (let ((database-status
