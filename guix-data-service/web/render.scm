@@ -23,6 +23,7 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-19)
   #:use-module (srfi srfi-26)
+  #:use-module (ice-9 ftw)
   #:use-module (ice-9 binary-ports)
   #:use-module (web request)
   #:use-module (web response)
@@ -31,7 +32,8 @@
   #:use-module (guix-data-service config)
   #:use-module (guix-data-service web sxml)
   #:use-module (guix-data-service web util)
-  #:export (render-static-asset
+  #:export (static-asset-from-store-renderer
+            render-static-asset
             render-html
             render-json
             not-found
@@ -48,6 +50,57 @@
     ("woff" . (application/font-woff))
     ("ttf"  . (application/octet-stream))
     ("html" . (text/html))))
+
+(define (static-asset-from-store-renderer)
+  (define last-modified
+    ;; Use the process start time as the last modified time, as the file
+    ;; metadata in the store is normalised.
+    (current-time))
+
+  (define files
+    (file-system-fold
+     (const #t)                         ; enter
+     (lambda (filename stat result)
+       (let ((relative-filename (string-drop filename
+                                             (+ 1 ; to account for the /
+                                                (string-length
+                                                 (%config 'assets-dir))))))
+         (cons (cons relative-filename
+                     (call-with-input-file filename
+                       get-bytevector-all))
+               result)))
+     (lambda (name stat result) result) ; down
+     (lambda (name stat result) result) ; up
+     (lambda (name stat result) result) ; skip
+     (lambda (name stat errno result)
+       (error name))
+     '()
+     (%config 'assets-dir)))
+
+  (define (send-file path contents)
+    (list `((content-type
+             . ,(assoc-ref file-mime-types
+                           (file-extension path)))
+            (last-modified . ,(time-utc->date last-modified))
+            (cache-control . (public
+                              ;; Set the max-age at 5 minutes, as the files
+                              ;; could change when the code changes
+                              (max-age . ,(* 60 5)))))
+          contents))
+
+  (lambda (path headers)
+    (and=> (assoc-ref files path)
+           (lambda (contents)
+             (cond ((assoc-ref headers 'if-modified-since)
+                    =>
+                    (lambda (client-date)
+                      (if (time>? last-modified
+                                  (date->time-utc client-date))
+                          (send-file path contents)
+                          (list (build-response #:code 304) ; "Not Modified"
+                                #f))))
+                   (else
+                    (send-file path contents)))))))
 
 (define (render-static-asset path headers)
   (render-static-file (%config 'assets-dir) path headers))
