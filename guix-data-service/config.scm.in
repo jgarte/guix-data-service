@@ -17,7 +17,10 @@
 ;;; <http://www.gnu.org/licenses/>.
 
 (define-module (guix-data-service config)
-  #:export (%config))
+  #:use-module (guix store)
+  #:export (%config
+
+            assets-dir-in-store?))
 
 (define %config
   (let ((config
@@ -57,3 +60,7 @@
            (database-name . "guix_data_service"))))
     (lambda (key)
       (assoc-ref config key))))
+
+(define assets-dir-in-store?
+  (string-prefix? (%store-prefix)
+                  (%config 'assets-dir)))
