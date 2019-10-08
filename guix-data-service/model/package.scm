@@ -227,7 +227,7 @@ INNER JOIN git_branches AS last_git_branches
 WHERE package_name = $1
 AND package_versions_by_guix_revision_range.git_repository_id = $2
 AND package_versions_by_guix_revision_range.branch_name = $3
-ORDER BY first_datetime DESC"
+ORDER BY first_datetime DESC, package_version DESC"
    (list package-name
          (number->string git-repository-id)
          branch-name)))
