@@ -49,6 +49,14 @@ install-data-hook:
 # :(
 	rm -r "$(DESTDIR)$(moddir)/tests"
 
+check-with-tmp-database:
+	$(eval URI := $(shell pg_tmp))
+	$(eval GUIX_DATA_SERVICE_DATABASE_URI := $(patsubst postgresql:///test%,postgresql://guix_data_service@localhost/guix_data_service_test%,$(URI)))
+	psql "$(URI)" --command="CREATE USER guix_data_service"
+	psql "$(URI)" --command="CREATE DATABASE guix_data_service_test WITH OWNER guix_data_service"
+	sqitch deploy --target="$(GUIX_DATA_SERVICE_DATABASE_URI)"
+	GUIX_DATA_SERVICE_DATABASE_URI="$(GUIX_DATA_SERVICE_DATABASE_URI)" make check
+
 SOURCES =							\
   guix-data-service/branch-updated-emails.scm			\
   guix-data-service/builds.scm					\
