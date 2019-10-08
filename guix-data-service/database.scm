@@ -37,7 +37,9 @@
          "dbname=guix_data_service user=guix_data_service")
      " application_name='guix-data-service " name "'"))
 
-  (let* ((conn (connect-to-postgres-paramstring paramstring)))
+  (let* ((conn (connect-to-postgres-paramstring
+                (or (getenv "GUIX_DATA_SERVICE_DATABASE_URI")
+                    paramstring))))
     (with-throw-handler
       #t
       (lambda ()
