@@ -51,7 +51,9 @@ install-data-hook:
 
 check-with-tmp-database:
 	$(eval TMP_DATABASE := $(shell mktemp -d -t guix-data-service-database-XXXX))
-	$(eval URI := $(shell pg_tmp -d "$(TMP_DATABASE)"))
+# -w 0 means that the database won't be automatically shutdown, and needs to
+# -be stopped by running pg_tmp stop
+	$(eval URI := $(shell pg_tmp -w 0 -d "$(TMP_DATABASE)"))
 	$(eval GUIX_DATA_SERVICE_DATABASE_URI := $(patsubst postgresql:///test%,postgresql://guix_data_service@localhost/guix_data_service_test%,$(URI)))
 	psql --no-psqlrc "$(URI)" --command="CREATE USER guix_data_service"
 	psql --no-psqlrc "$(URI)" --command="CREATE DATABASE guix_data_service_test WITH OWNER guix_data_service"
