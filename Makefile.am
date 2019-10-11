@@ -55,10 +55,10 @@ check-with-tmp-database:
 	$(eval GUIX_DATA_SERVICE_DATABASE_URI := $(patsubst postgresql:///test%,postgresql://guix_data_service@localhost/guix_data_service_test%,$(URI)))
 	psql --no-psqlrc "$(URI)" --command="CREATE USER guix_data_service"
 	psql --no-psqlrc "$(URI)" --command="CREATE DATABASE guix_data_service_test WITH OWNER guix_data_service"
-	sqitch deploy --target="$(GUIX_DATA_SERVICE_DATABASE_URI)"
 # Set TZ and SQITCH_USER_CONFIG to avoid Sqitch tripping up in a minimal
 # environment, like a Guix package
-	TZ=UTC SQITCH_USER_CONFIG=/dev/null GUIX_DATA_SERVICE_DATABASE_URI="$(GUIX_DATA_SERVICE_DATABASE_URI)" make check
+	TZ=UTC SQITCH_USER_CONFIG=/dev/null sqitch deploy --target="$(GUIX_DATA_SERVICE_DATABASE_URI)"
+	GUIX_DATA_SERVICE_DATABASE_URI="$(GUIX_DATA_SERVICE_DATABASE_URI)" make check
 	pg_tmp stop -w 1 -d "$(TMP_DATABASE)"
 
 SOURCES =							\
