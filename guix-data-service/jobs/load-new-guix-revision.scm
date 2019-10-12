@@ -36,6 +36,7 @@
             process-load-new-guix-revision-job
             select-job-for-commit
             select-jobs-and-events
+            select-unprocessed-jobs-and-events
             select-jobs-and-events-for-commit
             record-job-event
             enqueue-load-new-guix-revision-job
@@ -1039,6 +1040,62 @@ ORDER BY load_new_guix_revision_jobs.id DESC")
                 #()
                 (json-string->scm events-json))
             (string=? log-exists? "t"))))
+   (exec-query conn query)))
+
+(define (select-unprocessed-jobs-and-events conn)
+  (define query
+    "
+SELECT
+  load_new_guix_revision_jobs.id,
+  load_new_guix_revision_jobs.commit,
+  load_new_guix_revision_jobs.source,
+  load_new_guix_revision_jobs.git_repository_id,
+  load_new_guix_revision_jobs.created_at,
+  (
+    SELECT JSON_AGG(
+      json_build_object('event', event, 'occurred_at', occurred_at) ORDER BY occurred_at ASC
+    )
+    FROM load_new_guix_revision_job_events
+    WHERE job_id = load_new_guix_revision_jobs.id
+  ),
+  EXISTS (
+    SELECT 1 FROM load_new_guix_revision_job_logs WHERE job_id = load_new_guix_revision_jobs.id
+  ) AS log_exists,
+  commit IN (
+    SELECT commit FROM (
+      SELECT DISTINCT ON (name)
+        name, git_branches.commit
+      FROM git_branches
+      WHERE
+        git_branches.git_repository_id = load_new_guix_revision_jobs.git_repository_id AND
+        git_branches.commit IS NOT NULL
+      ORDER BY name, datetime DESC
+    ) branches_and_latest_commits
+  ) AS latest_branch_commit
+FROM load_new_guix_revision_jobs
+WHERE
+  succeeded_at IS NULL AND
+  (
+    SELECT COUNT(*)
+    FROM load_new_guix_revision_job_events
+    WHERE job_id = load_new_guix_revision_jobs.id AND event = 'retry'
+  ) >= (
+    SELECT COUNT(*)
+    FROM load_new_guix_revision_job_events
+    WHERE job_id = load_new_guix_revision_jobs.id AND event = 'failure'
+  )
+ORDER BY latest_branch_commit DESC, id DESC")
+
+  (map
+   (match-lambda
+     ((id commit source git-repository-id created-at
+          events-json log-exists? latest-branch-commit)
+      (list id commit source git-repository-id created-at
+            (if (string-null? events-json)
+                #()
+                (json-string->scm events-json))
+            (string=? log-exists? "t")
+            (string=? latest-branch-commit "t"))))
    (exec-query conn query)))
 
 (define (select-jobs-and-events-for-commit conn commit)

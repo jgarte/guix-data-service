@@ -731,6 +731,11 @@
    #:sxml (view-jobs
            (select-jobs-and-events conn))))
 
+(define (render-job-queue mime-types conn)
+  (render-html
+   #:sxml (view-job-queue
+           (select-unprocessed-jobs-and-events conn))))
+
 (define (render-job mime-types conn job-id query-parameters)
   (render-html
    #:sxml (view-job
@@ -1132,6 +1137,9 @@
     (('GET "jobs")
      (render-jobs mime-types
                   conn))
+    (('GET "jobs" "queue")
+     (render-job-queue mime-types
+                       conn))
     (('GET "job" job-id)
      (let ((parsed-query-parameters
             (parse-query-parameters

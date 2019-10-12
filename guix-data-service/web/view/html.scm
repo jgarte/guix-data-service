@@ -46,6 +46,7 @@
             view-derivation
             view-store-item
             view-jobs
+            view-job-queue
             view-job
             compare
             compare/derivations
@@ -1472,6 +1473,78 @@
                                  ,(string-append
                                    "/revision/" commit)))
                              (samp ,commit)))
+                      (td ,source)
+                      (td
+                       (dl
+                        (@ (class "dl-horizontal"))
+                        ,@(map
+                           (lambda (event)
+                             `((dt ,(assoc-ref event "event"))
+                               (dd ,(assoc-ref event "occurred_at"))))
+                           (cons
+                            `(("event" . "created")
+                              ("occurred_at" . ,created-at))
+                            (vector->list events)))))
+                      (td
+                       ,@(if log-exists?
+                             `((a (@ (href ,(string-append "/job/" id)))
+                                  "View log"))
+                             '())))))
+                 jobs-and-events)))))))))
+
+(define (view-job-queue jobs-and-events)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h1 "Queued jobs ("
+            ,(length jobs-and-events)
+            ")")))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (table
+         (@ (class "table"))
+         (thead
+          (tr
+           (th "Commit")
+           (th "Source")
+           (th "Events")
+           (th "")))
+         (tdata
+          ,@(map (match-lambda
+                   ((id commit source git-repository-id created-at
+                        events log-exists? latest-branch-commit?)
+                    `(tr
+                      (@ (class
+                           ,(let ((event-names
+                                   (map (lambda (event)
+                                          (assoc-ref event "event"))
+                                        (vector->list events))))
+                              (cond
+                               ((member "success" event-names)
+                                "success")
+                               ((member "failure" event-names)
+                                "danger")
+                               ((member "start" event-names)
+                                "info")
+                               (else
+                                "")))))
+                      (td (a (@ (href
+                                 ,(string-append
+                                   "/revision/" commit)))
+                             (samp ,commit)
+                             ,@(if latest-branch-commit?
+                                   '((br)
+                                     (span (@ (class "text-danger"))
+                                           "(latest branch commit)"))
+                                   '())))
                       (td ,source)
                       (td
                        (dl
