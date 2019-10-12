@@ -1437,7 +1437,16 @@
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
-        (h1 "Jobs")))
+        (h1 (@ (style "display: inline-block;"))
+            "Jobs")
+        (div
+         (@ (class "btn-group pull-right")
+            (style "margin-top: 1.3rem;")
+            (role "group"))
+         (a (@ (class "btn btn-lg btn-default")
+               (href "/jobs/queue")
+               (role "button"))
+            "Queue"))))
       (div
        (@ (class "row"))
        (div
@@ -1502,6 +1511,8 @@
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
+        (a (@ (href "/jobs"))
+           (h3 "Jobs"))
         (h1 "Queued jobs ("
             ,(length jobs-and-events)
             ")")))
