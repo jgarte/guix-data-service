@@ -491,59 +491,77 @@
 
 (define (render-compare mime-types
                         conn
-                        base-commit
-                        base-revision-id
-                        target-commit
-                        target-revision-id)
-  (let-values
-      (((base-packages-vhash target-packages-vhash)
-        (package-data->package-data-vhashes
-         (package-differences-data conn
-                                   base-revision-id
-                                   target-revision-id))))
-    (let* ((new-packages
-            (package-data-vhashes->new-packages base-packages-vhash
-                                                target-packages-vhash))
-           (removed-packages
-            (package-data-vhashes->removed-packages base-packages-vhash
-                                                    target-packages-vhash))
-           (version-changes
-            (package-data-version-changes base-packages-vhash
-                                          target-packages-vhash))
-           (lint-warnings-data
-            (group-list-by-first-n-fields
-             2
-             (lint-warning-differences-data conn
-                                            base-revision-id
-                                            target-revision-id))))
+                        query-parameters)
+  (if (any-invalid-query-parameters? query-parameters)
       (case (most-appropriate-mime-type
              '(application/json text/html)
              mime-types)
         ((application/json)
          (render-json
-          `((new-packages . ,(list->vector new-packages))
-            (removed-packages . ,(list->vector removed-packages))
-            (version-changes . ,(list->vector
-                                 (map
-                                  (match-lambda
-                                    ((name data ...)
-                                     `((name . ,name)
-                                       ,@data)))
-                                  version-changes))))
-          #:extra-headers http-headers-for-unchanging-content))
+          '((error . "invalid query"))))
         (else
          (render-html
-          #:sxml (compare base-commit
-                          target-commit
-                          (guix-revisions-cgit-url-bases
-                           conn
-                           (list base-revision-id
-                                 target-revision-id))
-                          new-packages
-                          removed-packages
-                          version-changes
-                          lint-warnings-data)
-          #:extra-headers http-headers-for-unchanging-content))))))
+          #:sxml (compare
+                  query-parameters
+                  #f
+                  #f
+                  #f
+                  #f
+                  #f))))
+      (let ((base-revision-id (commit->revision-id
+                               conn
+                               (assq-ref query-parameters 'base_commit)))
+            (target-revision-id (commit->revision-id
+                                 conn
+                                 (assq-ref query-parameters 'target_commit))))
+        (let-values
+            (((base-packages-vhash target-packages-vhash)
+              (package-data->package-data-vhashes
+               (package-differences-data conn
+                                         base-revision-id
+                                         target-revision-id))))
+          (let* ((new-packages
+                  (package-data-vhashes->new-packages base-packages-vhash
+                                                      target-packages-vhash))
+                 (removed-packages
+                  (package-data-vhashes->removed-packages base-packages-vhash
+                                                          target-packages-vhash))
+                 (version-changes
+                  (package-data-version-changes base-packages-vhash
+                                                target-packages-vhash))
+                 (lint-warnings-data
+                  (group-list-by-first-n-fields
+                   2
+                   (lint-warning-differences-data conn
+                                                  base-revision-id
+                                                  target-revision-id))))
+            (case (most-appropriate-mime-type
+                   '(application/json text/html)
+                   mime-types)
+              ((application/json)
+               (render-json
+                `((new-packages . ,(list->vector new-packages))
+                  (removed-packages . ,(list->vector removed-packages))
+                  (version-changes . ,(list->vector
+                                       (map
+                                        (match-lambda
+                                          ((name data ...)
+                                           `((name . ,name)
+                                             ,@data)))
+                                        version-changes))))
+                #:extra-headers http-headers-for-unchanging-content))
+              (else
+               (render-html
+                #:sxml (compare query-parameters
+                                (guix-revisions-cgit-url-bases
+                                 conn
+                                 (list base-revision-id
+                                       target-revision-id))
+                                new-packages
+                                removed-packages
+                                version-changes
+                                lint-warnings-data)
+                #:extra-headers http-headers-for-unchanging-content))))))))
 
 (define (render-compare/derivations mime-types
                                     conn
@@ -1091,22 +1109,14 @@
            (render-derivation conn path)
            (render-store-item conn path))))
     (('GET "compare")
-     (with-base-and-target-commits
-      query-parameters conn
-      (lambda (base-commit base-revision-id target-commit target-revision-id)
-        (if (not (and base-revision-id target-revision-id))
-            (render-compare-unknown-commit mime-types
-                                           conn
-                                           base-commit
-                                           base-revision-id
-                                           target-commit
-                                           target-revision-id)
-            (render-compare mime-types
-                            conn
-                            base-commit
-                            base-revision-id
-                            target-commit
-                            target-revision-id)))))
+     (let* ((parsed-query-parameters
+             (parse-query-parameters
+              request
+              `((base_commit   ,(parse-commit conn) #:required)
+                (target_commit ,(parse-commit conn) #:required)))))
+       (render-compare mime-types
+                       conn
+                       parsed-query-parameters)))
     (('GET "compare" "derivations")
      (let* ((parsed-query-parameters
              (parse-query-parameters

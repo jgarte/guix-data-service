@@ -1628,13 +1628,18 @@
                              ,(display-store-item-short path))))))
                  derivation-outputs)))))))))
 
-(define (compare base-commit
-                 target-commit
+(define (compare query-parameters
                  cgit-url-bases
                  new-packages
                  removed-packages
                  version-changes
                  lint-warnings-data)
+  (define base-commit
+    (assq-ref query-parameters 'base_commit))
+
+  (define target-commit
+    (assq-ref query-parameters 'target_commit))
+
   (define query-params
     (string-append "?base_commit=" base-commit
                    "&target_commit=" target-commit))
