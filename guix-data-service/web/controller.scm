@@ -88,15 +88,6 @@
            value)))
    alist))
 
-(define (with-base-and-target-commits query-parameters conn f)
-  (let* ((base-commit (assoc-ref query-parameters "base_commit"))
-         (target-commit (assoc-ref query-parameters "target_commit")))
-
-    (f base-commit
-       (commit->revision-id conn base-commit)
-       target-commit
-       (commit->revision-id conn target-commit))))
-
 (define* (render-view-revision mime-types
                                conn
                                commit-hash
