@@ -51,7 +51,7 @@
             compare
             compare/derivations
             compare/packages
-            compare-unknown-commit
+            compare-invalid-parameters
             error-page))
 
 (define* (header)
@@ -2193,28 +2193,34 @@
                           (style "font-size: 2em; display: block;"))
                        "Unknown"))))))))))
 
-(define (compare-unknown-commit base-commit target-commit
-                                base-exists? target-exists?
-                                base-job target-job)
+(define (compare-invalid-parameters query-parameters
+                                    base-job
+                                    target-job)
+  (define base-commit
+    (assq-ref query-parameters 'base_commit))
+
+  (define target-commit
+    (peek (assq-ref query-parameters 'target_commit)))
+
   (layout
    #:body
    `(,(header)
      (div (@ (class "container"))
           (h1 "Unknown commit")
-          ,(if base-exists?
-               '()
+          ,(if (invalid-query-parameter? base-commit)
                `(p "No known revision with commit "
-                   (strong (samp ,base-commit))
+                   (strong (samp ,(invalid-query-parameter-value base-commit)))
                    ,(if (null? base-job)
                         " and it is not currently queued for processing"
-                        " but it is queued for processing")))
-          ,(if target-exists?
-               '()
+                        " but it is queued for processing"))
+               '())
+          ,(if (invalid-query-parameter? target-commit)
                `(p "No known revision with commit "
-                   (strong (samp ,target-commit))
+                   (strong (samp ,(invalid-query-parameter-value target-commit)))
                    ,(if (null? target-job)
                         " and it is not currently queued for processing"
-                        " but it is queued for processing")))))))
+                        " but it is queued for processing"))
+               '())))))
 
 (define (error-page message)
   (layout

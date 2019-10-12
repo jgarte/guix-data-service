@@ -457,29 +457,6 @@
                                                 #:header-link header-link)
             #:extra-headers http-headers-for-unchanging-content))))))
 
-(define (render-compare-unknown-commit mime-types
-                                       conn
-                                       base-commit
-                                       base-revision-id
-                                       target-commit
-                                       target-revision-id)
-  (case (most-appropriate-mime-type
-         '(application/json text/html)
-         mime-types)
-    ((application/json)
-     (render-json
-      '((unknown_commit . #t))))
-    (else
-     (render-html
-      #:sxml (compare-unknown-commit base-commit
-                                     target-commit
-                                     (if base-revision-id #t #f)
-                                     (if target-revision-id #t #f)
-                                     (select-job-for-commit conn
-                                                            base-commit)
-                                     (select-job-for-commit conn
-                                                            target-commit))))))
-
 (define (render-compare mime-types
                         conn
                         query-parameters)
@@ -492,13 +469,17 @@
           '((error . "invalid query"))))
         (else
          (render-html
-          #:sxml (compare
+          #:sxml (compare-invalid-parameters
                   query-parameters
-                  #f
-                  #f
-                  #f
-                  #f
-                  #f))))
+                  (match (assq-ref query-parameters 'base_commit)
+                    (($ <invalid-query-parameter> value)
+                     (select-job-for-commit conn value))
+                    (_ #f))
+                  (match (assq-ref query-parameters 'target_commit)
+                    (($ <invalid-query-parameter> value)
+                     (select-job-for-commit conn value))
+                    (_ #f))))))
+
       (let ((base-revision-id (commit->revision-id
                                conn
                                (assq-ref query-parameters 'base_commit)))
@@ -641,10 +622,16 @@
           '((error . "invalid query"))))
         (else
          (render-html
-          #:sxml (compare/packages
+          #:sxml (compare-invalid-parameters
                   query-parameters
-                  #f
-                  #f))))
+                  (match (assq-ref query-parameters 'base_commit)
+                    (($ <invalid-query-parameter> value)
+                     (select-job-for-commit conn value))
+                    (_ #f))
+                  (match (assq-ref query-parameters 'target_commit)
+                    (($ <invalid-query-parameter> value)
+                     (select-job-for-commit conn value))
+                    (_ #f))))))
 
       (let ((base-commit    (assq-ref query-parameters 'base_commit))
             (target-commit  (assq-ref query-parameters 'target_commit)))
