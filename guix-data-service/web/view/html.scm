@@ -1972,10 +1972,15 @@
                               (cdr data-columns))))))
                 (vector->list derivation-changes)))))))))))
 
-(define (compare/packages base-commit
-                          target-commit
+(define (compare/packages query-parameters
                           base-packages-vhash
                           target-packages-vhash)
+  (define base-commit
+    (assq-ref query-parameters 'base_commit))
+
+  (define target-commit
+    (assq-ref query-parameters 'target_commit))
+
   (define query-params
     (string-append "?base_commit=" base-commit
                    "&target_commit=" target-commit))

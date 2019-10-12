@@ -613,10 +613,7 @@
 
 (define (render-compare/packages mime-types
                                  conn
-                                 base-commit
-                                 base-revision-id
-                                 target-commit
-                                 target-revision-id)
+                                 query-parameters)
   (define (package-data-vhash->json vh)
     (delete-duplicates
      (vhash-fold (lambda (name data result)
@@ -626,34 +623,52 @@
                  '()
                  vh)))
 
-  (let-values
-      (((base-packages-vhash target-packages-vhash)
-        (package-data->package-data-vhashes
-         (package-differences-data conn
-                                   base-revision-id
-                                   target-revision-id))))
-    (case (most-appropriate-mime-type
-           '(application/json text/html)
-           mime-types)
-      ((application/json)
-       (render-json
-        `((base
-           . ((commit . ,base-commit)
-              (packages . ,(list->vector
-                            (package-data-vhash->json base-packages-vhash)))))
-          (target
-           . ((commit . ,target-commit)
-              (packages . ,(list->vector
-                            (package-data-vhash->json target-packages-vhash))))))
-        #:extra-headers http-headers-for-unchanging-content))
-      (else
-       (render-html
-        #:sxml (compare/packages
-                base-commit
-                target-commit
-                base-packages-vhash
-                target-packages-vhash)
-        #:extra-headers http-headers-for-unchanging-content)))))
+  (if (any-invalid-query-parameters? query-parameters)
+      (case (most-appropriate-mime-type
+             '(application/json text/html)
+             mime-types)
+        ((application/json)
+         (render-json
+          '((error . "invalid query"))))
+        (else
+         (render-html
+          #:sxml (compare/packages
+                  query-parameters
+                  #f
+                  #f))))
+
+      (let ((base-commit    (assq-ref query-parameters 'base_commit))
+            (target-commit  (assq-ref query-parameters 'target_commit)))
+        (let ((base-revision-id (commit->revision-id conn base-commit))
+              (target-revision-id (commit->revision-id conn target-commit)))
+
+          (let-values
+              (((base-packages-vhash target-packages-vhash)
+                (package-data->package-data-vhashes
+                 (package-differences-data conn
+                                           base-revision-id
+                                           target-revision-id))))
+            (case (most-appropriate-mime-type
+                   '(application/json text/html)
+                   mime-types)
+              ((application/json)
+               (render-json
+                `((base
+                   . ((commit . ,base-commit)
+                      (packages . ,(list->vector
+                                    (package-data-vhash->json base-packages-vhash)))))
+                  (target
+                   . ((commit . ,target-commit)
+                      (packages . ,(list->vector
+                                    (package-data-vhash->json target-packages-vhash))))))
+                #:extra-headers http-headers-for-unchanging-content))
+              (else
+               (render-html
+                #:sxml (compare/packages
+                        query-parameters
+                        base-packages-vhash
+                        target-packages-vhash)
+                #:extra-headers http-headers-for-unchanging-content))))))))
 
 (define (render-derivation conn derivation-file-name)
   (let ((derivation (select-derivation-by-file-name conn
@@ -1105,22 +1120,14 @@
                                    conn
                                    parsed-query-parameters)))
     (('GET "compare" "packages")
-     (with-base-and-target-commits
-      query-parameters conn
-      (lambda (base-commit base-revision-id target-commit target-revision-id)
-        (if (not (and base-revision-id target-revision-id))
-            (render-compare-unknown-commit mime-types
-                                           conn
-                                           base-commit
-                                           base-revision-id
-                                           target-commit
-                                           target-revision-id)
-            (render-compare/packages mime-types
-                                     conn
-                                     base-commit
-                                     base-revision-id
-                                     target-commit
-                                     target-revision-id)))))
+     (let* ((parsed-query-parameters
+             (parse-query-parameters
+              request
+              `((base_commit   ,(parse-commit conn) #:required)
+                (target_commit ,(parse-commit conn) #:required)))))
+       (render-compare/packages mime-types
+                                conn
+                                parsed-query-parameters)))
     (('GET "jobs")
      (render-jobs mime-types
                   conn))
