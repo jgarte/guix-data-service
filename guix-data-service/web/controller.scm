@@ -535,6 +535,96 @@
                                 lint-warnings-data)
                 #:extra-headers http-headers-for-unchanging-content))))))))
 
+(define (render-compare-by-datetime mime-types
+                                    conn
+                                    query-parameters)
+  (if (any-invalid-query-parameters? query-parameters)
+      (case (most-appropriate-mime-type
+             '(application/json text/html)
+             mime-types)
+        ((application/json)
+         (render-json
+          '((error . "invalid query"))))
+        (else
+         (render-html
+          #:sxml (compare-invalid-parameters
+                  query-parameters
+                  (match (assq-ref query-parameters 'base_commit)
+                    (($ <invalid-query-parameter> value)
+                     (select-job-for-commit conn value))
+                    (_ #f))
+                  (match (assq-ref query-parameters 'target_commit)
+                    (($ <invalid-query-parameter> value)
+                     (select-job-for-commit conn value))
+                    (_ #f))))))
+
+      (let ((base-branch     (assq-ref query-parameters 'base_branch))
+            (base-datetime   (assq-ref query-parameters 'base_datetime))
+            (target-branch   (assq-ref query-parameters 'target_branch))
+            (target-datetime (assq-ref query-parameters 'target_datetime)))
+        (let* ((base-revision-details
+                (select-guix-revision-for-branch-and-datetime conn
+                                                              base-branch
+                                                              base-datetime))
+               (base-revision-id
+                (first base-revision-details))
+               (target-revision-details
+                (select-guix-revision-for-branch-and-datetime conn
+                                                              target-branch
+                                                              target-datetime))
+               (target-revision-id
+                (first target-revision-details)))
+          (let-values
+              (((base-packages-vhash target-packages-vhash)
+                (package-data->package-data-vhashes
+                 (package-differences-data conn
+                                           base-revision-id
+                                           target-revision-id))))
+            (let* ((new-packages
+                    (package-data-vhashes->new-packages base-packages-vhash
+                                                        target-packages-vhash))
+                   (removed-packages
+                    (package-data-vhashes->removed-packages base-packages-vhash
+                                                            target-packages-vhash))
+                   (version-changes
+                    (package-data-version-changes base-packages-vhash
+                                                  target-packages-vhash))
+                   (lint-warnings-data
+                    (group-list-by-first-n-fields
+                     2
+                     (lint-warning-differences-data conn
+                                                    base-revision-id
+                                                    target-revision-id))))
+              (case (most-appropriate-mime-type
+                     '(application/json text/html)
+                     mime-types)
+                ((application/json)
+                 (render-json
+                  `((new-packages . ,(list->vector new-packages))
+                    (removed-packages . ,(list->vector removed-packages))
+                    (version-changes . ,(list->vector
+                                         (map
+                                          (match-lambda
+                                            ((name data ...)
+                                             `((name . ,name)
+                                               ,@data)))
+                                          version-changes))))
+                  #:extra-headers http-headers-for-unchanging-content))
+                (else
+                 (render-html
+                  #:sxml (compare `(,@query-parameters
+                                    (base_commit . ,(second base-revision-details))
+                                    (target_commit . ,(second target-revision-details)))
+                                  (guix-revisions-cgit-url-bases
+                                   conn
+                                   (list base-revision-id
+                                         target-revision-id))
+                                  new-packages
+                                  removed-packages
+                                  version-changes
+                                  lint-warnings-data)
+                  #:extra-headers http-headers-for-unchanging-content)))))))))
+
 (define (render-compare/derivations mime-types
                                     conn
                                     query-parameters)
@@ -1178,6 +1268,17 @@
        (render-compare mime-types
                        conn
                        parsed-query-parameters)))
+    (('GET "compare-by-datetime")
+     (let* ((parsed-query-parameters
+             (parse-query-parameters
+              request
+              `((base_branch     ,identity #:required)
+                (base_datetime   ,parse-datetime #:required)
+                (target_branch   ,identity #:required)
+                (target_datetime ,parse-datetime #:required)))))
+       (render-compare-by-datetime mime-types
+                                   conn
+                                   parsed-query-parameters)))
     (('GET "compare" "derivations")
      (let* ((parsed-query-parameters
              (parse-query-parameters
