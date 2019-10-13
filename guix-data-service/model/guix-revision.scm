@@ -1,5 +1,6 @@
 (define-module (guix-data-service model guix-revision)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-19)
   #:use-module (ice-9 match)
   #:use-module (squee)
   #:export (count-guix-revisions
@@ -8,6 +9,7 @@
             insert-guix-revision
             guix-commit-exists?
             guix-revision-exists?
+            select-guix-revision-for-branch-and-datetime
             guix-revisions-cgit-url-bases))
 
 (define (count-guix-revisions conn)
@@ -58,6 +60,25 @@
   (let ((result (caar
                  (exec-query conn query))))
     (string=? result "t")))
+
+(define (select-guix-revision-for-branch-and-datetime conn branch datetime)
+  (define query
+    "
+SELECT guix_revisions.id,
+       guix_revisions.commit,
+       guix_revisions.store_path,
+       guix_revisions.git_repository_id
+FROM guix_revisions
+INNER JOIN git_branches
+  ON git_branches.commit = guix_revisions.commit
+ AND git_branches.git_repository_id = guix_revisions.git_repository_id
+WHERE git_branches.name = $1 AND git_branches.datetime >= $2
+ORDER BY git_branches.datetime ASC
+LIMIT 1")
+
+  (car
+   (exec-query conn query (list branch
+                                (date->string datetime "~1 ~3")))))
 
 (define (guix-revisions-cgit-url-bases conn guix-revision-ids)
   (map
