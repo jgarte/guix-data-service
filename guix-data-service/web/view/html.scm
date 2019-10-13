@@ -28,7 +28,11 @@
   #:use-module (texinfo)
   #:use-module (texinfo html)
   #:use-module (json)
-  #:export (index
+  #:export (layout
+            header
+            form-horizontal-control
+
+            index
             readme
             general-not-found
             unknown-revision
@@ -45,9 +49,6 @@
             view-builds
             view-derivation
             view-store-item
-            view-jobs
-            view-job-queue
-            view-job
             compare
             compare/derivations
             compare-by-datetime/derivations
@@ -1427,207 +1428,6 @@
                       derivations-using-store-item))))))
              derivations
              derivations-using-store-item-list)))))
-
-(define (view-jobs jobs-and-events)
-  (layout
-   #:body
-   `(,(header)
-     (div
-      (@ (class "container"))
-      (div
-       (@ (class "row"))
-       (div
-        (@ (class "col-sm-12"))
-        (h1 (@ (style "display: inline-block;"))
-            "Jobs")
-        (div
-         (@ (class "btn-group pull-right")
-            (style "margin-top: 1.3rem;")
-            (role "group"))
-         (a (@ (class "btn btn-lg btn-default")
-               (href "/jobs/queue")
-               (role "button"))
-            "Queue"))))
-      (div
-       (@ (class "row"))
-       (div
-        (@ (class "col-sm-12"))
-        (table
-         (@ (class "table"))
-         (thead
-          (tr
-           (th "Commit")
-           (th "Source")
-           (th "Events")
-           (th "")))
-         (tdata
-          ,@(map (match-lambda
-                   ((id commit source git-repository-id created-at succeeded-at
-                        events log-exists?)
-                    `(tr
-                      (@ (class
-                           ,(let ((event-names
-                                   (map (lambda (event)
-                                          (assoc-ref event "event"))
-                                        (vector->list events))))
-                              (cond
-                               ((member "success" event-names)
-                                "success")
-                               ((member "failure" event-names)
-                                "danger")
-                               ((member "start" event-names)
-                                "info")
-                               (else
-                                "")))))
-                      (td (a (@ (href
-                                 ,(string-append
-                                   "/revision/" commit)))
-                             (samp ,commit)))
-                      (td ,source)
-                      (td
-                       (dl
-                        (@ (class "dl-horizontal"))
-                        ,@(map
-                           (lambda (event)
-                             `((dt ,(assoc-ref event "event"))
-                               (dd ,(assoc-ref event "occurred_at"))))
-                           (cons
-                            `(("event" . "created")
-                              ("occurred_at" . ,created-at))
-                            (vector->list events)))))
-                      (td
-                       ,@(if log-exists?
-                             `((a (@ (href ,(string-append "/job/" id)))
-                                  "View log"))
-                             '())))))
-                 jobs-and-events)))))))))
-
-(define (view-job-queue jobs-and-events)
-  (layout
-   #:body
-   `(,(header)
-     (div
-      (@ (class "container"))
-      (div
-       (@ (class "row"))
-       (div
-        (@ (class "col-sm-12"))
-        (a (@ (href "/jobs"))
-           (h3 "Jobs"))
-        (h1 "Queued jobs ("
-            ,(length jobs-and-events)
-            ")")))
-      (div
-       (@ (class "row"))
-       (div
-        (@ (class "col-sm-12"))
-        (table
-         (@ (class "table"))
-         (thead
-          (tr
-           (th "Commit")
-           (th "Source")
-           (th "Events")
-           (th "")))
-         (tdata
-          ,@(map (match-lambda
-                   ((id commit source git-repository-id created-at
-                        events log-exists? latest-branch-commit?)
-                    `(tr
-                      (@ (class
-                           ,(let ((event-names
-                                   (map (lambda (event)
-                                          (assoc-ref event "event"))
-                                        (vector->list events))))
-                              (cond
-                               ((member "success" event-names)
-                                "success")
-                               ((member "failure" event-names)
-                                "danger")
-                               ((member "start" event-names)
-                                "info")
-                               (else
-                                "")))))
-                      (td (a (@ (href
-                                 ,(string-append
-                                   "/revision/" commit)))
-                             (samp ,commit)
-                             ,@(if latest-branch-commit?
-                                   '((br)
-                                     (span (@ (class "text-danger"))
-                                           "(latest branch commit)"))
-                                   '())))
-                      (td ,source)
-                      (td
-                       (dl
-                        (@ (class "dl-horizontal"))
-                        ,@(map
-                           (lambda (event)
-                             `((dt ,(assoc-ref event "event"))
-                               (dd ,(assoc-ref event "occurred_at"))))
-                           (cons
-                            `(("event" . "created")
-                              ("occurred_at" . ,created-at))
-                            (vector->list events)))))
-                      (td
-                       ,@(if log-exists?
-                             `((a (@ (href ,(string-append "/job/" id)))
-                                  "View log"))
-                             '())))))
-                 jobs-and-events)))))))))
-
-(define (view-job job-id query-parameters log)
-  (layout
-   #:body
-   `(,(header)
-     (div
-      (@ (class "container"))
-      (div
-       (@ (class "row"))
-       (div
-        (@ (class "col-sm-12"))
-        (h1 "Job " ,job-id)))
-      (div
-       (@ (class "row"))
-       (div
-        (@ (class "col-md-12"))
-        (div
-         (@ (class "well"))
-         (form
-          (@ (method "get")
-             (action "")
-             (class "form-horizontal"))
-          ,(form-horizontal-control
-            "Characters" query-parameters
-            #:help-text "Return at most this many characters.")
-          ,(form-horizontal-control
-            "Start character" query-parameters
-            #:help-text "Start reading the log from this character.")
-          (div (@ (class "form-group form-group-lg"))
-               (div (@ (class "col-sm-offset-2 col-sm-10"))
-                    (button (@ (type "submit")
-                               (class "btn btn-lg btn-primary"))
-                            "Update log")))))))
-      (div
-       (@ (class "row"))
-       (div
-        (@ (class "col-sm-12"))
-        (a (@ (class "btn btn-default btn-lg pull-right")
-              (style "margin-bottom: 20px;")
-              (href "#bottom"))
-           "Scroll to the bottom of the page")))
-      (div
-       (@ (class "row"))
-       (div
-        (pre (raw ,log))
-        (a (@ (id "bottom")))))
-      (div
-       (@ (class "row"))
-       (div
-        (@ (class "col-sm-12"))
-        (a (@ (class "btn btn-default btn-lg pull-right")
-              (href "#top"))
-           "Scroll to the top of the page")))))))
 
 (define (view-derivation derivation derivation-inputs derivation-outputs
                          builds)

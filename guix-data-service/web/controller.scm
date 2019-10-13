@@ -51,6 +51,7 @@
   #:use-module (guix-data-service web sxml)
   #:use-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service web util)
+  #:use-module (guix-data-service web jobs controller)
   #:use-module (guix-data-service web view html)
   #:export (controller))
 
@@ -881,27 +882,6 @@
                                      derivations))
         #:extra-headers http-headers-for-unchanging-content)))))
 
-(define (render-jobs mime-types conn)
-  (render-html
-   #:sxml (view-jobs
-           (select-jobs-and-events conn))))
-
-(define (render-job-queue mime-types conn)
-  (render-html
-   #:sxml (view-job-queue
-           (select-unprocessed-jobs-and-events conn))))
-
-(define (render-job mime-types conn job-id query-parameters)
-  (render-html
-   #:sxml (view-job
-           job-id
-           query-parameters
-           (log-for-job conn job-id
-                        #:character-limit
-                        (assq-ref query-parameters 'characters)
-                        #:start-character
-                        (assq-ref query-parameters 'start_character)))))
-
 (define (parse-commit conn)
   (lambda (s)
     (if (guix-commit-exists? conn s)
@@ -982,6 +962,13 @@
 
   (define path
     (uri-path (request-uri request)))
+
+  (define (delegate-to f)
+    (f request
+       method-and-path-components
+       mime-types
+       body
+       conn))
 
   (match method-and-path-components
     (('GET)
@@ -1317,21 +1304,8 @@
        (render-compare/packages mime-types
                                 conn
                                 parsed-query-parameters)))
-    (('GET "jobs")
-     (render-jobs mime-types
-                  conn))
-    (('GET "jobs" "queue")
-     (render-job-queue mime-types
-                       conn))
-    (('GET "job" job-id)
-     (let ((parsed-query-parameters
-            (parse-query-parameters
-             request
-             `((start_character ,parse-number)
-               (characters ,parse-number #:default 1000000)))))
-       (render-job mime-types
-                   conn
-                   job-id
-                   parsed-query-parameters)))
+    (('GET "jobs")         (delegate-to jobs-controller))
+    (('GET "jobs" "queue") (delegate-to jobs-controller))
+    (('GET "job" job-id)   (delegate-to jobs-controller))
     (('GET path ...)
      (not-found (request-uri request)))))
