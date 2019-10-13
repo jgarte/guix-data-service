@@ -50,6 +50,7 @@
             view-job
             compare
             compare/derivations
+            compare-by-datetime/derivations
             compare/packages
             compare-invalid-parameters
             error-page))
@@ -1984,6 +1985,168 @@
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
+        (h3 "Package derivation changes")
+        ,(if
+          (null? derivation-changes)
+          '(p "No derivation changes")
+          `(table
+            (@ (class "table")
+               (style "table-layout: fixed;"))
+            (thead
+             (tr
+              (th "Name")
+              (th "Version")
+              (th "System")
+              (th "Target")
+              (th (@ (class "col-xs-5")) "Derivations")))
+            (tbody
+             ,@(append-map
+                (match-lambda
+                  ((('name . name)
+                    ('version . version)
+                    ('base . base-derivations)
+                    ('target . target-derivations))
+                   (let* ((system-and-versions
+                           (delete-duplicates
+                            (append (map (lambda (details)
+                                           (cons (assq-ref details 'system)
+                                                 (assq-ref details 'target)))
+                                         (vector->list base-derivations))
+                                    (map (lambda (details)
+                                           (cons (assq-ref details 'system)
+                                                 (assq-ref details 'target)))
+                                         (vector->list target-derivations)))))
+                          (data-columns
+                           (map
+                            (match-lambda
+                              ((system . target)
+                               (let ((base-derivation-file-name
+                                      (assq-ref (find (lambda (details)
+                                                        (and (string=? (assq-ref details 'system) system)
+                                                             (string=? (assq-ref details 'target) target)))
+                                                      (vector->list base-derivations))
+                                                'derivation-file-name))
+                                     (target-derivation-file-name
+                                      (assq-ref (find (lambda (details)
+                                                        (and (string=? (assq-ref details 'system) system)
+                                                             (string=? (assq-ref details 'target) target)))
+                                                      (vector->list target-derivations))
+                                                'derivation-file-name)))
+                                 `((td (samp (@ (style "white-space: nowrap;"))
+                                             ,system))
+                                   (td (samp (@ (style "white-space: nowrap;"))
+                                             ,target))
+                                   (td ,@(if base-derivation-file-name
+                                             `((a (@ (style "display: block;")
+                                                     (href ,base-derivation-file-name))
+                                                  (span (@ (class "text-danger glyphicon glyphicon-minus pull-left")
+                                                           (style "font-size: 1.5em; padding-right: 0.4em;")))
+                                                  ,(display-store-item-short base-derivation-file-name)))
+                                             '())
+                                       ,@(if target-derivation-file-name
+                                             `((a (@ (style "display: block; clear: left;")
+                                                     (href ,target-derivation-file-name))
+                                                  (span (@ (class "text-success glyphicon glyphicon-plus pull-left")
+                                                           (style "font-size: 1.5em; padding-right: 0.4em;")))
+                                                  ,(and=> target-derivation-file-name display-store-item-short)))
+                                             '()))))))
+                            system-and-versions)))
+
+                     `((tr (td (@ (rowspan , (length system-and-versions)))
+                               ,name)
+                           (td (@ (rowspan , (length system-and-versions)))
+                               ,version)
+                           ,@(car data-columns))
+                       ,@(map (lambda (data-row)
+                                `(tr ,data-row))
+                              (cdr data-columns))))))
+                (vector->list derivation-changes)))))))))))
+
+(define (compare-by-datetime/derivations query-parameters
+                                         valid-systems
+                                         valid-build-statuses
+                                         base-revision-details
+                                         target-revision-details
+                                         derivation-changes)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (h1 ,@(let ((base-commit (assq-ref query-parameters 'base_commit))
+                   (target-commit (assq-ref query-parameters 'target_commit)))
+               (if (every string? (list base-commit target-commit))
+                   `("Comparing "
+                     (samp ,(string-take base-commit 8) "…")
+                     " and "
+                     (samp ,(string-take target-commit 8) "…"))
+                   '("Comparing derivations")))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (div
+         (@ (class "well"))
+         (form
+          (@ (method "get")
+             (action "")
+             (class "form-horizontal"))
+          ,(form-horizontal-control
+            "Base branch" query-parameters
+            #:required? #t
+            #:help-text "The branch to compare from."
+            #:font-family "monospace")
+          ,(form-horizontal-control
+            "Base datetime" query-parameters
+            #:required? #t
+            #:help-text "The date and time to compare from."
+            #:font-family "monospace")
+          ,(form-horizontal-control
+            "Target branch" query-parameters
+            #:required? #t
+            #:help-text "The branch to compare to."
+            #:font-family "monospace")
+          ,(form-horizontal-control
+            "Target datetime" query-parameters
+            #:required? #t
+            #:help-text "The date and time to compare to."
+            #:font-family "monospace")
+          ,(form-horizontal-control
+            "System" query-parameters
+            #:options valid-systems
+            #:help-text "Only include derivations for this system."
+            #:font-family "monospace")
+          ,(form-horizontal-control
+            "Target" query-parameters
+            #:options valid-systems
+            #:help-text "Only include derivations that are build for this system."
+            #:font-family "monospace")
+          (div (@ (class "form-group form-group-lg"))
+               (div (@ (class "col-sm-offset-2 col-sm-10"))
+                    (button (@ (type "submit")
+                               (class "btn btn-lg btn-primary"))
+                            "Update results")))
+          (a (@ (class "btn btn-default btn-lg pull-right")
+                (href ,(let ((query-parameter-string
+                              (query-parameters->string query-parameters)))
+                         (string-append
+                          "/compare/derivations.json"
+                          (if (string-null? query-parameter-string)
+                              ""
+                              (string-append "?" query-parameter-string))))))
+             "View JSON")))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (div
+         (a (@ (href ,(string-append "/revision/" (second base-revision-details))))
+            "Base revision: " ,(second base-revision-details)))
+        (div
+         (a (@ (href ,(string-append "/revision/" (second target-revision-details))))
+            "Target revision: " ,(second target-revision-details)))
         (h3 "Package derivation changes")
         ,(if
           (null? derivation-changes)

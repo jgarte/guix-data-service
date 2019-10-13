@@ -601,6 +601,84 @@
                           derivation-changes)
                   #:extra-headers http-headers-for-unchanging-content)))))))))
 
+(define (render-compare-by-datetime/derivations mime-types
+                                                conn
+                                                query-parameters)
+  (define (derivations->alist derivations)
+    (map (match-lambda
+           ((file-name system target buildstatus)
+            `((file_name . ,file-name)
+              (system . ,system)
+              (target . ,target)
+              (build_status . ,(if (string=? buildstatus "")
+                                   "unknown"
+                                   buildstatus)))))
+         derivations))
+
+  (if (any-invalid-query-parameters? query-parameters)
+      (case (most-appropriate-mime-type
+             '(application/json text/html)
+             mime-types)
+        ((application/json)
+         (render-json
+          '((error . "invalid query"))))
+        (else
+         (render-html
+          #:sxml (compare-by-datetime/derivations
+                  query-parameters
+                  (valid-systems conn)
+                  build-status-strings
+                  '()))))
+
+      (let ((base-branch     (assq-ref query-parameters 'base_branch))
+            (base-datetime   (assq-ref query-parameters 'base_datetime))
+            (target-branch   (assq-ref query-parameters 'target_branch))
+            (target-datetime (assq-ref query-parameters 'target_datetime))
+            (systems         (assq-ref query-parameters 'system))
+            (targets         (assq-ref query-parameters 'target))
+            (build-statuses  (assq-ref query-parameters 'build_status)))
+        (let*
+            ((base-revision-details
+              (select-guix-revision-for-branch-and-datetime conn
+                                                            base-branch
+                                                            base-datetime))
+             (target-revision-details
+              (select-guix-revision-for-branch-and-datetime conn
+                                                            target-branch
+                                                            target-datetime))
+             (data
+              (package-differences-data conn
+                                        (first base-revision-details)
+                                        (first target-revision-details)
+                                        #:systems systems
+                                        #:targets targets))
+             (names-and-versions
+              (package-data->names-and-versions data)))
+          (let-values
+              (((base-packages-vhash target-packages-vhash)
+                (package-data->package-data-vhashes data)))
+            (let ((derivation-changes
+                   (package-data-derivation-changes names-and-versions
+                                                    base-packages-vhash
+                                                    target-packages-vhash)))
+              (case (most-appropriate-mime-type
+                     '(application/json text/html)
+                     mime-types)
+                ((application/json)
+                 (render-json
+                  derivation-changes
+                  #:extra-headers http-headers-for-unchanging-content))
+                (else
+                 (render-html
+                  #:sxml (compare-by-datetime/derivations
+                          query-parameters
+                          (valid-systems conn)
+                          build-status-strings
+                          base-revision-details
+                          target-revision-details
+                          derivation-changes)
+                  #:extra-headers http-headers-for-unchanging-content)))))))))
+
 (define (render-compare/packages mime-types
                                  conn
                                  query-parameters)
@@ -1112,6 +1190,23 @@
        (render-compare/derivations mime-types
                                    conn
                                    parsed-query-parameters)))
+    (('GET "compare-by-datetime" "derivations")
+     (let* ((parsed-query-parameters
+             (guard-against-mutually-exclusive-query-parameters
+              (parse-query-parameters
+               request
+               `((base_branch     ,identity #:required)
+                 (base_datetime   ,parse-datetime #:required)
+                 (target_branch   ,identity #:required)
+                 (target_datetime ,parse-datetime #:required)
+                 (system          ,parse-system #:multi-value)
+                 (target          ,parse-system #:multi-value)
+                 (build_status    ,parse-build-status #:multi-value)))
+              '((base_commit base_datetime)
+                (target_commit target_datetime)))))
+       (render-compare-by-datetime/derivations mime-types
+                                               conn
+                                               parsed-query-parameters)))
     (('GET "compare" "packages")
      (let* ((parsed-query-parameters
              (parse-query-parameters
