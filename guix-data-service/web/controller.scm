@@ -954,12 +954,6 @@
                                              mime-types
                                              body
                                              conn)
-  (define query-parameters
-    (-> request
-        request-uri
-        uri-query
-        parse-query-string))
-
   (define path
     (uri-path (request-uri request)))
 
