@@ -40,7 +40,6 @@
             index
             readme
             general-not-found
-            unknown-revision
             view-statistics
             view-builds
             view-derivation
@@ -1194,47 +1193,6 @@
       (@ (class "container"))
       (h1 ,header-text)
       (p ,body)))))
-
-(define (unknown-revision commit-hash job git-repositories-and-branches
-                          jobs-and-events)
-  (layout
-   #:body
-   `(,(header)
-     (div
-      (@ (class "container"))
-      ,@(match job
-          (()
-           `((h1 "Unknown revision")
-             (p "No known revision with commit "
-                (strong (samp ,commit-hash)))))
-          ((jobs ...)
-           `((div
-              (@ (class "row"))
-              (div
-               (@ (class "col-md-12"))
-               (h1 (@ (style "white-space: nowrap;"))
-                   "Revision " (samp ,commit-hash))))
-             (div
-              (@ (class "row"))
-              (div
-               (@ (class "col-md-6"))
-               (h2 "Packages")
-               (strong (@ (class "text-center")
-                          (style "font-size: 2em; display: block;"))
-                       "Unknown")
-
-               ,@(if (null? git-repositories-and-branches)
-                     '()
-                     (view-revision/git-repositories
-                      git-repositories-and-branches
-                      commit-hash))
-               ,@(view-revision/jobs-and-events jobs-and-events))
-              (div
-               (@ (class "col-md-6"))
-               (h3 "Derivations")
-               (strong (@ (class "text-center")
-                          (style "font-size: 2em; display: block;"))
-                       "Unknown"))))))))))
 
 (define (compare-invalid-parameters query-parameters
                                     base-job
