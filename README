@@ -23,37 +23,6 @@ the #guix IRC channel on Freenode. You can also email help-guix@gnu.org, please
 include the step you got to, and the problem you encountered (with the error
 message if applicable).
 
-** Setup the database
-
-Dumps of the database behind data.guix.gnu.org are available at
-http://data.guix.gnu.org/dumps, use the following URL to download the latest
-small dump.
-
-http://data.guix.gnu.org/dumps/latest/guix_data_service_small.dump
-
-There are multiple ways you can setup the database, the instructions here
-involve creating a =guix_data_service= user with a password, then connecting
-to the database over the local network interface.
-
-To create the user and database use the scripts from PostgreSQL. The
-=createuser= command will prompt for a password for the database user, you'll
-need this at multiple points so it might be useful to keep it simple.
-
-#+BEGIN_SRC shell
-createuser guix_data_service --pwprompt
-createdb guix_data_service --owner=guix_data_service
-#+END_SRC
-
-You may need to run these commands as the postgres user.
-
-To restore the downloaded dump, run =pg_restore=. This command should prompt
-for a password, at which point enter the password for the database user that
-you set earlier.
-
-#+BEGIN_SRC shell
-pg_restore --jobs=4 --user=guix_data_service --host=127.0.0.1 --dbname=guix_data_service guix_data_service_small.dump
-#+END_SRC
-
 ** Cloning the repository
 
 To clone the Git repository, run the following command:
@@ -85,6 +54,37 @@ export GUIX_DATA_SERVICE_DATABASE_PARAMSTRING="dbname=guix_data_service user=gui
 #+END_SRC
 
 After, run =direnv reload= to update the environment in your shell.
+
+** Setup the database
+
+Dumps of the database behind data.guix.gnu.org are available at
+http://data.guix.gnu.org/dumps, use the following URL to download the latest
+small dump.
+
+http://data.guix.gnu.org/dumps/latest/guix_data_service_small.dump
+
+There are multiple ways you can setup the database, the instructions here
+involve creating a =guix_data_service= user with a password, then connecting
+to the database over the local network interface.
+
+To create the user and database use the scripts from PostgreSQL. The
+=createuser= command will prompt for a password for the database user, you'll
+need this at multiple points so it might be useful to keep it simple.
+
+#+BEGIN_SRC shell
+createuser guix_data_service --pwprompt
+createdb guix_data_service --owner=guix_data_service
+#+END_SRC
+
+You may need to run these commands as the postgres user.
+
+To restore the downloaded dump, run =pg_restore=. This command should prompt
+for a password, at which point enter the password for the database user that
+you set earlier.
+
+#+BEGIN_SRC shell
+pg_restore --jobs=4 --user=guix_data_service --host=127.0.0.1 --dbname=guix_data_service guix_data_service_small.dump
+#+END_SRC
 
 ** Building the source files
 
