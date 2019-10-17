@@ -219,11 +219,13 @@ FROM package_versions_by_guix_revision_range
 INNER JOIN guix_revisions AS first_guix_revisions
   ON first_guix_revision_id = first_guix_revisions.id
 INNER JOIN git_branches AS first_git_branches
-  ON first_guix_revisions.git_repository_id = first_git_branches.git_repository_id AND first_guix_revisions.commit = first_git_branches.commit
+  ON first_guix_revisions.git_repository_id = first_git_branches.git_repository_id
+ AND first_guix_revisions.commit = first_git_branches.commit
 INNER JOIN guix_revisions AS last_guix_revisions
   ON last_guix_revision_id = last_guix_revisions.id
 INNER JOIN git_branches AS last_git_branches
-  ON last_guix_revisions.git_repository_id = last_git_branches.git_repository_id AND last_guix_revisions.commit = last_git_branches.commit
+  ON last_guix_revisions.git_repository_id = last_git_branches.git_repository_id
+ AND last_guix_revisions.commit = last_git_branches.commit
 WHERE package_name = $1
 AND package_versions_by_guix_revision_range.git_repository_id = $2
 AND package_versions_by_guix_revision_range.branch_name = $3
