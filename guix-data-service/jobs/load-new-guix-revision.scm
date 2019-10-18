@@ -535,11 +535,6 @@ WHERE job_id = $1"
                                 flat-package-ids-systems-and-targets
                                 derivation-ids)))
 
-(define (inferior-package-transitive-supported-systems package)
-  ((@@ (guix inferior) inferior-package-field)
-   package
-   'package-transitive-supported-systems))
-
 (define guix-store-path
   (let ((store-path #f))
     (lambda (store)
