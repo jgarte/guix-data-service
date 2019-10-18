@@ -89,9 +89,17 @@ SOURCES =							\
   guix-data-service/model/package-metadata.scm			\
   guix-data-service/model/package.scm				\
   guix-data-service/model/utils.scm				\
+  guix-data-service/web/compare/controller.scm			\
+  guix-data-service/web/compare/html.scm			\
   guix-data-service/web/controller.scm				\
+  guix-data-service/web/jobs/controller.scm			\
+  guix-data-service/web/jobs/html.scm				\
   guix-data-service/web/query-parameters.scm			\
   guix-data-service/web/render.scm				\
+  guix-data-service/web/repository/controller.scm		\
+  guix-data-service/web/repository/html.scm			\
+  guix-data-service/web/revision/controller.scm		\
+  guix-data-service/web/revision/html.scm			\
   guix-data-service/web/server.scm				\
   guix-data-service/web/sxml.scm				\
   guix-data-service/web/util.scm				\
