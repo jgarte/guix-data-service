@@ -114,7 +114,8 @@
                 (target_commit ,(parse-commit conn) #:required)))))
        (render-compare/packages mime-types
                                 conn
-                                parsed-query-parameters)))))
+                                parsed-query-parameters)))
+    (_ #f)))
 
 (define (render-compare mime-types
                         conn

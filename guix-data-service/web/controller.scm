@@ -202,11 +202,12 @@
     (uri-path (request-uri request)))
 
   (define (delegate-to f)
-    (f request
-       method-and-path-components
-       mime-types
-       body
-       conn))
+    (or (f request
+           method-and-path-components
+           mime-types
+           body
+           conn)
+        (not-found (request-uri request))))
 
   (match method-and-path-components
     (('GET)

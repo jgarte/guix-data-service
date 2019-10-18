@@ -207,4 +207,5 @@
                                              "/latest-processed-revision"))
            (render-unknown-revision mime-types
                                     conn
-                                    commit-hash))))))
+                                    commit-hash))))
+    (_ #f)))

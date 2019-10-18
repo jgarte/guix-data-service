@@ -44,7 +44,8 @@
        (render-job mime-types
                    conn
                    job-id
-                   parsed-query-parameters)))))
+                   parsed-query-parameters)))
+    (_ #f)))
 
 (define (render-jobs mime-types conn)
   (render-html
