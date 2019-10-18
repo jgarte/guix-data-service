@@ -89,6 +89,9 @@
     (setvbuf port 'line)
     port))
 
+(define real-error-port
+  (make-parameter (current-error-port)))
+
 (define* (log-for-job conn job-id
                       #:key
                       character-limit
@@ -596,7 +599,8 @@ WHERE job_id = $1"
                      "SSL_CERT_DIR=" (nss-certs-store-path store))))
              (begin
                (simple-format #t "debug: using open-inferior\n")
-               (open-inferior (guix-store-path store))))))
+               (open-inferior (guix-store-path store)
+                              #:error-port (real-error-port))))))
 
     (catch
       #t
@@ -707,7 +711,8 @@ WHERE job_id = $1"
                                           '("/gnu/store"))
                  (begin
                    (simple-format #t "debug: using open-inferior\n")
-                   (open-inferior store-path)))))
+                   (open-inferior store-path
+                                  #:error-port (real-error-port))))))
     (inferior-eval '(use-modules (srfi srfi-1)
                                  (srfi srfi-34)
                                  (guix grafts)
@@ -766,7 +771,8 @@ WHERE job_id = $1"
                                              '("/gnu/store"))
                     (begin
                       (simple-format #t "debug: using open-inferior\n")
-                      (open-inferior store-path))))))
+                      (open-inferior store-path
+                                     #:error-port (real-error-port)))))))
       (setenv "GUIX_LOCPATH" guix-locpath) ; restore GUIX_LOCPATH
 
       (when (eq? inf #f)
@@ -1236,7 +1242,8 @@ SKIP LOCKED")
                                      (set-current-output-port logging-port)
                                      (set-current-error-port logging-port)
                                      (let ((result
-                                            (parameterize ((current-build-output-port logging-port))
+                                            (parameterize ((current-build-output-port logging-port)
+                                                           (real-error-port previous-error-port))
                                               (load-new-guix-revision conn git-repository-id commit))))
                                        (combine-log-parts! logging-conn id)
 
