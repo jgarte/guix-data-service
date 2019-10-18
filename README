@@ -43,18 +43,6 @@ prompting to trust the =.envrc= file contained within the repository.
 Check the contents of the =.envrc= file, and if you trust it, run =direnv
 allow=.
 
-To setup the configuration for your local environment, create a file called
-.local.envrc. To provide the password you've set for the =guix_data_service=
-user, you'll need to set the =GUIX_DATA_SERVICE_DATABASE_PARAMSTRING=
-environment variable in this file. Add the following line, replacing
-THEPASSWORD with the password you set earlier.
-
-#+BEGIN_SRC shell
-export GUIX_DATA_SERVICE_DATABASE_PARAMSTRING="dbname=guix_data_service user=guix_data_service password=THEPASSWORD host=127.0.0.1"
-#+END_SRC
-
-After, run =direnv reload= to update the environment in your shell.
-
 ** Setup the database
 
 Dumps of the database behind data.guix.gnu.org are available at
@@ -85,6 +73,20 @@ you set earlier.
 #+BEGIN_SRC shell
 pg_restore --jobs=4 --user=guix_data_service --host=127.0.0.1 --dbname=guix_data_service guix_data_service_small.dump
 #+END_SRC
+
+** Set the database paramstring
+
+To setup the configuration for your local environment, create a file called
+.local.envrc. To provide the password you've set for the =guix_data_service=
+user, you'll need to set the =GUIX_DATA_SERVICE_DATABASE_PARAMSTRING=
+environment variable in this file. Add the following line, replacing
+THEPASSWORD with the password you set earlier.
+
+#+BEGIN_SRC shell
+export GUIX_DATA_SERVICE_DATABASE_PARAMSTRING="dbname=guix_data_service user=guix_data_service password=THEPASSWORD host=127.0.0.1"
+#+END_SRC
+
+After, run =direnv reload= to update the environment in your shell.
 
 ** Building the source files
 
