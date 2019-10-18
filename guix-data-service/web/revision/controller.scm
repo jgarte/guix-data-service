@@ -22,6 +22,7 @@
   #:use-module (texinfo)
   #:use-module (texinfo html)
   #:use-module (texinfo plain-text)
+  #:use-module (json)
   #:use-module (guix-data-service web render)
   #:use-module (guix-data-service web sxml)
   #:use-module (guix-data-service web query-parameters)

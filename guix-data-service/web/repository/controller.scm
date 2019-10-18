@@ -17,12 +17,16 @@
 
 (define-module (guix-data-service web repository controller)
   #:use-module (ice-9 match)
+  #:use-module (web uri)
+  #:use-module (web request)
   #:use-module (guix-data-service web render)
   #:use-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service web util)
   #:use-module (guix-data-service model package)
   #:use-module (guix-data-service model git-branch)
   #:use-module (guix-data-service model git-repository)
+  #:use-module (guix-data-service web view html)
+  #:use-module (guix-data-service web revision controller)
   #:use-module (guix-data-service web repository html)
   #:export (repository-controller))
 
@@ -31,6 +35,8 @@
                                mime-types
                                body
                                conn)
+  (define path
+    (uri-path (request-uri request)))
 
   (match method-and-path-components
     (('GET "repository" id)

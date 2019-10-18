@@ -19,11 +19,13 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-11)
   #:use-module (ice-9 match)
+  #:use-module (ice-9 vlist)
   #:use-module (guix-data-service web util)
   #:use-module (guix-data-service web render)
   #:use-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service model utils)
   #:use-module (guix-data-service comparison)
+  #:use-module (guix-data-service jobs load-new-guix-revision)
   #:use-module (guix-data-service model guix-revision)
   #:use-module (guix-data-service model derivation)
   #:use-module (guix-data-service model build-status)
@@ -378,6 +380,8 @@
                   query-parameters
                   (valid-systems conn)
                   build-status-strings
+                  '()
+                  '()
                   '()))))
 
       (let ((base-branch     (assq-ref query-parameters 'base_branch))

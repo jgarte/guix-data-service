@@ -20,6 +20,7 @@
   #:use-module (ice-9 match)
   #:use-module (texinfo)
   #:use-module (texinfo html)
+  #:use-module (json)
   #:use-module (guix-data-service web util)
   #:use-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service web view html)
