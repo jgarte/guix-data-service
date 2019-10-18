@@ -90,10 +90,10 @@ SOURCES =							\
   guix-data-service/model/package.scm				\
   guix-data-service/model/utils.scm				\
   guix-data-service/web/controller.scm				\
+  guix-data-service/web/query-parameters.scm			\
   guix-data-service/web/render.scm				\
   guix-data-service/web/server.scm				\
   guix-data-service/web/sxml.scm				\
-  guix-data-service/web/query-parameters.scm			\
   guix-data-service/web/util.scm				\
   guix-data-service/web/view/html.scm				\
   tests/driver.scm						\
