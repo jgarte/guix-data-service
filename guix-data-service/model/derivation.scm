@@ -245,16 +245,18 @@ ORDER BY derivations.system DESC,
 (define (select-derivation-inputs-by-derivation-id conn id)
   (define query
     (string-append
-     "SELECT derivations.file_name, derivation_outputs.name, "
-     "derivation_output_details.path "
-     "FROM derivation_inputs "
-     "INNER JOIN derivation_outputs"
-     " ON derivation_outputs.id = derivation_inputs.derivation_output_id "
-     "INNER JOIN derivation_output_details"
-     " ON derivation_outputs.derivation_output_details_id = derivation_output_details.id "
-     "INNER JOIN derivations"
-     " ON derivation_outputs.derivation_id = derivations.id "
-     "WHERE derivation_inputs.derivation_id = $1"))
+     "
+SELECT derivations.file_name, derivation_outputs.name,
+       derivation_output_details.path
+FROM derivation_inputs
+INNER JOIN derivation_outputs
+  ON derivation_outputs.id = derivation_inputs.derivation_output_id
+INNER JOIN derivation_output_details
+  ON derivation_outputs.derivation_output_details_id = derivation_output_details.id
+INNER JOIN derivations
+  ON derivation_outputs.derivation_id = derivations.id
+WHERE derivation_inputs.derivation_id = $1
+ORDER BY derivations.file_name"))
 
   (exec-query conn query (list id)))
 
