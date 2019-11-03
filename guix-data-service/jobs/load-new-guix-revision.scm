@@ -417,7 +417,14 @@ WHERE job_id = $1"
      (log-time
       (simple-format #f "getting derivations for ~A" system-target-pairs)
       (lambda ()
-        (inferior-eval '(invalidate-derivation-caches!) inf)
+        (catch
+          'match-error
+          (lambda ()
+            (inferior-eval '(invalidate-derivation-caches!) inf))
+          (lambda (key . args)
+            (simple-format
+             (current-error-port)
+             "warning: ignoring match-error from calling inferior invalidate-derivation-caches!\n")))
         (inferior-eval-with-store inf store (proc packages system-target-pairs)))))
    (append (map list supported-system-pairs)
            supported-system-cross-build-pairs)))
