@@ -118,6 +118,32 @@
                  "No derivation found with this file name.")
          #:code 404))))
 
+(define (render-formatted-derivation conn derivation-file-name)
+  (let ((derivation (select-derivation-by-file-name conn
+                                                    derivation-file-name)))
+    (if derivation
+        (let ((derivation-inputs (select-derivation-inputs-by-derivation-id
+                                  conn
+                                  (first derivation)))
+              (derivation-outputs (select-derivation-outputs-by-derivation-id
+                                   conn
+                                   (first derivation)))
+              (derivation-sources (select-derivation-sources-by-derivation-id
+                                   conn
+                                   (first derivation))))
+          (render-html
+           #:sxml (view-formatted-derivation derivation
+                                             derivation-inputs
+                                             derivation-outputs
+                                             derivation-sources)
+           #:extra-headers http-headers-for-unchanging-content))
+
+        (render-html
+         #:sxml (general-not-found
+                 "Derivation not found"
+                 "No derivation found with this file name.")
+         #:code 404))))
+
 (define (render-store-item conn filename)
   (let ((derivation (select-derivation-by-output-filename conn filename)))
     (match derivation
@@ -239,6 +265,11 @@
        (if (string-suffix? ".drv" path)
            (render-derivation conn path)
            (render-store-item conn path))))
+    (('GET "gnu" "store" filename "formatted")
+     (if (string-suffix? ".drv" filename)
+         (render-formatted-derivation conn
+                                      (string-append "/gnu/store/" filename))
+         (not-found (request-uri request))))
     (('GET "compare" _ ...)             (delegate-to compare-controller))
     (('GET "compare-by-datetime" _ ...) (delegate-to compare-controller))
     (('GET "jobs")         (delegate-to jobs-controller))

@@ -43,6 +43,7 @@
             view-statistics
             view-builds
             view-derivation
+            view-formatted-derivation
             view-store-item
             error-page))
 
@@ -451,6 +452,15 @@
        ,(string-append
          "/" (string-join fileparts "/"))))))
 
+(define (display-file-in-store-item-oneline filename)
+  (match (string-split filename #\/)
+    (("" "gnu" "store" item fileparts ...)
+     `(,(let ((full-item (string-append "/gnu/store/" item)))
+          `(a (@ (href ,full-item))
+              ,(display-store-item full-item)))
+       ,(string-append
+         "/" (string-join fileparts "/"))))))
+
 (define (view-store-item filename derivations derivations-using-store-item-list)
   (layout
    #:body
@@ -575,6 +585,205 @@
                       (td (a (@ (href ,path))
                              ,(display-store-item-short path))))))
                  derivation-outputs)))))))))
+
+(define (view-formatted-derivation derivation derivation-inputs derivation-outputs
+                                   derivation-sources)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      ,(match derivation
+         ((id file-name builder args env-vars system)
+          `(div
+            (@ (class "row"))
+            (div
+             (@ (class "col-sm-12"))
+             ,(display-store-item-title file-name)))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-offset-2 col-md-10")
+           (style "font-family: monospace; font-size: 1.5em;"))
+        "Derive("))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-offset-2 col-md-10")
+           (style "font-family: monospace;"))
+        (span (@ (style "margin-left: 1.5em;"))
+              "[")))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-2"))
+        "Outputs")
+       (div
+        (@ (class "col-md-10")
+           (style "font-family: monospace;"))
+        ,@(map (match-lambda*
+                 (((output-name path hash-algorithm hash recursive?) count-down)
+                  `(div
+                    (@ (style "margin-left: 3em;"))
+                    ,(simple-format #f "(\"~A\",\"" output-name)
+                    (a (@ (href ,path))
+                       ,(display-store-item path))
+                    "\")"
+                    ,@(if (eq? count-down 0)
+                          '()
+                          '(",")))))
+               derivation-outputs
+               (reverse (iota (length derivation-outputs))))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-offset-2 col-md-10")
+           (style "font-family: monospace;"))
+        (span (@ (style "margin-left: 1.5em;"))
+              "],[")))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-2"))
+        "Inputs")
+       (div
+        (@ (class "col-md-10")
+           (style "font-family: monospace;"))
+        ,@(map (match-lambda*
+                 (((file-name output-name path) count-down)
+                  `(div
+                    (@ (style "margin-left: 3em;"))
+                    "(\""
+                    (a (@ (href ,file-name))
+                       ,(display-store-item file-name))
+                    "\",\""
+                    "[\"" ,output-name "\"]"
+                    ")"
+                    ,@(if (eq? count-down 0)
+                          '()
+                          '(",")))))
+               derivation-inputs
+               (reverse (iota (length derivation-inputs))))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-offset-2 col-md-10")
+           (style "font-family: monospace;"))
+        (span (@ (style "margin-left: 1.5em;"))
+              "],[")))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-2"))
+        "Sources")
+       (div
+        (@ (class "col-md-10")
+           (style "font-family: monospace;"))
+        ,@(map (lambda (source count-down)
+                 `(div (@ (style "margin-left: 3em;"))
+                       "\""
+                       (a (@ (href ,source))
+                          ,(display-store-item source))
+                       "\""
+                       ,@(if (eq? count-down 0)
+                             '()
+                             '(","))))
+               derivation-sources
+               (reverse (iota (length derivation-sources))))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-offset-2 col-md-10")
+           (style "font-family: monospace;"))
+        (span (@ (style "margin-left: 1.5em;"))
+              "],")))
+      ,@(match derivation
+          ((id file-name builder args env-vars system)
+           `((div
+              (@ (class "row"))
+              (div
+               (@ (class "col-md-2"))
+               "System")
+              (div
+               (@ (class "col-md-10")
+                  (style "font-family: monospace;"))
+               (span (@ (style "margin-left: 1.5em;"))
+                     "\"" ,system "\",")))
+             (div
+              (@ (class "row"))
+              (div
+               (@ (class "col-md-2"))
+               "Builder")
+              (div
+               (@ (class "col-md-10")
+                  (style "font-family: monospace;"))
+               (span (@ (style "margin-left: 1.5em;"))
+                     ,@(if (string=? "builtin:download"
+                                     builder)
+                           '("builtin:download")
+                           `("\""
+                             (a (@ (href ,builder))
+                                ,(display-file-in-store-item-oneline builder))
+                             "\""))
+                     ",")))
+             (div
+              (@ (class "row"))
+              (div
+               (@ (class "col-md-offset-2 col-md-10")
+                  (style "font-family: monospace;"))
+               (span (@ (style "margin-left: 1.5em;"))
+                     "[")))
+             (div
+              (@ (class "row"))
+              (div
+               (@ (class "col-md-2"))
+               "Arguments")
+              (div
+               (@ (class "col-md-10")
+                  (style "font-family: monospace;"))
+               (div
+                (@ (style "margin-left: 3em;"))
+                ,@(map (lambda (arg count-down)
+                         `(div "\""
+                               ,arg
+                               "\""
+                               ,@(if (eq? count-down 0)
+                                     '()
+                                     '(","))))
+                       args
+                       (reverse (iota (length args)))))))
+             (div
+              (@ (class "row"))
+              (div
+               (@ (class "col-md-offset-2 col-md-10")
+                  (style "font-family: monospace;"))
+               (span (@ (style "margin-left: 1.5em;"))
+                     "],[")))
+             (div
+              (@ (class "row"))
+              (div
+               (@ (class "col-md-2"))
+               "Environment variables")
+              (div
+               (@ (class "col-md-10")
+                  (style "font-family: monospace;"))
+               ,@(map (lambda (env-var count-down)
+                        `(div (@ (style "margin-left: 3em;"))
+                              "("
+                              "\"" ,(assq-ref env-var 'key) "\""
+                              ","
+                              "\"" ,(assq-ref env-var 'value) "\""
+                              ")"))
+                      env-vars
+                      (reverse (iota (length env-vars))))
+               (span (@ (style "margin-left: 1.5em;"))
+                     "]")))
+             (div
+              (@ (class "row"))
+              (div
+               (@ (class "col-md-offset-2 col-md-10")
+                  (style "font-family: monospace; font-size: 1.5em;"))
+               ")")))))))))
 
 (define (general-not-found header-text body)
   (layout
