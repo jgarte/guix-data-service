@@ -11,6 +11,7 @@
             non-empty-string-or-false
             exec-query->vhash
             two-lists->vhash
+            parse-postgresql-array-string
             deduplicate-strings
             group-list-by-first-n-fields
             insert-missing-data-and-return-all-ids))
@@ -46,6 +47,15 @@
         vlist-null
         l1
         l2))
+
+(define (parse-postgresql-array-string s)
+  (if (string=? s "{}")
+      '()
+      (string-split
+       (string-drop-right
+        (string-drop s 1)
+        1)
+       #\,)))
 
 (define (deduplicate-strings strings)
   (pair-fold
