@@ -13,6 +13,7 @@
             count-derivations
             select-derivation-by-file-name
             select-derivation-outputs-by-derivation-id
+            select-derivation-sources-by-derivation-id
             select-derivation-by-output-filename
             select-derivations-using-output
             select-derivations-by-revision-name-and-version
@@ -269,6 +270,20 @@ WHERE derivation_inputs.derivation_id = $1
 ORDER BY derivations.file_name"))
 
   (exec-query conn query (list (number->string id))))
+
+(define (select-derivation-sources-by-derivation-id conn id)
+  (define query
+    (string-append
+     "
+SELECT derivation_source_files.store_path
+FROM derivation_source_files
+INNER JOIN derivation_sources
+  ON derivation_source_files.id = derivation_sources.derivation_source_file_id
+WHERE derivation_sources.derivation_id = $1
+ORDER BY 1"))
+
+  (map first
+       (exec-query conn query (list (number->string id)))))
 
 (define (insert-derivation-inputs conn derivation-id derivation-inputs)
   (define (insert-into-derivation-inputs output-ids)
