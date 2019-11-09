@@ -3,6 +3,7 @@
   #:use-module (ice-9 vlist)
   #:use-module (ice-9 match)
   #:use-module (squee)
+  #:use-module (json)
   #:use-module (guix base32)
   #:use-module (guix inferior)
   #:use-module (guix memoization)
@@ -202,15 +203,24 @@ ORDER BY derivations.system DESC,
 (define (select-derivation-by-file-name conn file-name)
   (define query
     (string-append
-     "SELECT id, file_name, builder, args, env_vars, system "
+     "SELECT id, file_name, builder, args, to_json(env_vars), system "
      "FROM derivations "
      "WHERE file_name = $1"))
 
   (match (exec-query conn query (list file-name))
     (()
      #f)
-    ((result)
-     result)))
+    (((id file_name builder args env_vars system))
+     (list (string->number id)
+           file-name
+           builder
+           (parse-postgresql-array-string args)
+           (map (match-lambda
+                  (#(key value)
+                   `((key . ,key)
+                     (value . ,value))))
+                (vector->list (json-string->scm env_vars)))
+           system))))
 
 (define select-derivation-output-id
   (mlambda (conn name path)
@@ -240,7 +250,7 @@ ORDER BY derivations.system DESC,
      "derivation_outputs.derivation_output_details_id = derivation_output_details.id "
      "WHERE derivation_id = $1"))
 
-  (exec-query conn query (list id)))
+  (exec-query conn query (list (number->string id))))
 
 (define (select-derivation-inputs-by-derivation-id conn id)
   (define query
@@ -258,7 +268,7 @@ INNER JOIN derivations
 WHERE derivation_inputs.derivation_id = $1
 ORDER BY derivations.file_name"))
 
-  (exec-query conn query (list id)))
+  (exec-query conn query (list (number->string id))))
 
 (define (insert-derivation-inputs conn derivation-id derivation-inputs)
   (define (insert-into-derivation-inputs output-ids)

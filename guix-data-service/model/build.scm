@@ -60,7 +60,7 @@
      "WHERE builds.derivation_id = $1 "
      "ORDER BY latest_build_status.status_fetched_at DESC "))
 
-  (exec-query conn query (list derivation-id)))
+  (exec-query conn query (list (number->string derivation-id))))
 
 (define (select-build-by-build-server-and-id
          conn build-server-id id)
