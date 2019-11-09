@@ -25,3 +25,4 @@ index_on_load_new_guix_revision_job_events_job_id 2019-09-29T10:39:04Z Christoph
 fix_null_values_in_git_branches 2019-09-29T11:06:12Z Christopher Baines <mail@cbaines.net> # Fix the NULL values in git_branches
 add_retry_value_to_job_event_enum 2019-10-02T19:13:52Z Christopher Baines <mail@cbaines.net> # Add retry value to job_event enum
 remove_guix_revision_duplicates 2019-10-05T08:00:14Z Christopher Baines <mail@cbaines.net> # Remove duplicates in the guix_revisions table
+package_derivations_by_guix_revision_range 2019-11-09T19:09:48Z Christopher Baines <mail@cbaines.net> # Add package_derivations_by_guix_revision_range
