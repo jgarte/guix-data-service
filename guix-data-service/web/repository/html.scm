@@ -23,7 +23,8 @@
   #:export (view-git-repository
             view-branches
             view-branch
-            view-branch-package))
+            view-branch-package
+            view-branch-package-derivations))
 
 (define* (view-git-repository git-repository-id
                               label url cgit-url-base
@@ -277,3 +278,154 @@
                                 (rationalize margin-left 1)
                                 (rationalize width 1)))))))))))
                versions-by-revision-range))))))))))
+
+(define (view-branch-package-derivations git-repository-id
+                                         branch-name
+                                         package-name
+                                         derivations-by-revision-range)
+  (define versions-list
+    (pair-fold (match-lambda*
+                 (((last) (count result ...))
+                  (cons (cons last count)
+                        result))
+                 (((a b rst ...) (count result ...))
+                  (peek a b)
+                  (if (string=? a b)
+                      (cons (+ 1 count)
+                            (cons #f result))
+                      (cons 1
+                            (cons (cons a count)
+                                  result)))))
+               '(1)
+               (reverse
+                (map first derivations-by-revision-range))))
+
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (a (@ (href ,(string-append "/repository/" git-repository-id)))
+           (h3 "Repository"))
+        (a (@ (href ,(string-append "/repository/" git-repository-id
+                                    "/branch/" branch-name)))
+           (h3 ,(string-append branch-name " branch")))
+        (a (@ (class "btn btn-default btn-lg pull-right")
+              (href ,(string-append
+                      "/repository/" git-repository-id
+                      "/branch/" branch-name
+                      "/package/" package-name
+                      ".json")))
+           "View JSON")
+        (h1 (@ (style "white-space: nowrap;"))
+            (samp ,package-name))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (table
+         (@ (class "table")
+            (style "table-layout: fixed;"))
+         (thead
+          (tr
+           (th (@ (class "col-sm-3")) "Version")
+           (th (@ (class "col-sm-5")) "Derivation")
+           (th (@ (class "col-sm-4")) "From")
+           (th (@ (class "col-sm-4")) "To")))
+         (tbody
+          ,@(let* ((times-in-seconds
+                    (map (lambda (d)
+                           (time-second
+                            (date->time-monotonic
+                             (string->date d "~Y-~m-~d ~H:~M:~S"))))
+                         (append (map fourth derivations-by-revision-range)
+                                 (map sixth derivations-by-revision-range))))
+                   (earliest-date-seconds
+                    (apply min
+                           times-in-seconds))
+                   (latest-date-seconds
+                    (apply max
+                           times-in-seconds))
+                   (min-to-max-seconds
+                    (- latest-date-seconds
+                       earliest-date-seconds)))
+              (map
+               (match-lambda*
+                 ((version-column-entry
+                   (package-version derivation-file-name
+                                    first-guix-revision-commit
+                                    first-datetime
+                                    last-guix-revision-commit
+                                    last-datetime))
+                  `((tr
+                     (@ (style "border-bottom: 0;"))
+                     ,@(match version-column-entry
+                         (#f '())
+                         ((package-version . rowspan)
+                          `((td (@ (rowspan ,(* 2 ; To account for the extra rows
+                                                rowspan)))
+                                ,package-version))))
+                     (td
+                      (a (@ (href ,derivation-file-name))
+                         ,(display-store-item-short derivation-file-name)))
+                     (td (a (@ (href ,(string-append
+                                       "/revision/" first-guix-revision-commit)))
+                            ,first-datetime)
+                         (br)
+                         (a (@ (href ,(string-append
+                                       "/revision/"
+                                       first-guix-revision-commit
+                                       "/package/"
+                                       package-name "/" package-version)))
+                            "(More information)"))
+                     (td (a (@ (href ,(string-append
+                                       "/revision/" last-guix-revision-commit)))
+                            ,last-datetime)
+                         (br)
+                         (a (@ (href ,(string-append
+                                       "/revision/"
+                                       last-guix-revision-commit
+                                       "/package/"
+                                       package-name "/" package-version)))
+                            "(More information)")))
+                    (tr
+                     (td
+                      (@ (colspan 3)
+                         (style "border-top: 0; padding-top: 0;"))
+                      (div
+                       (@
+                        (style
+                            ,(let* ((start-seconds
+                                     (time-second
+                                      (date->time-monotonic
+                                       (string->date first-datetime
+                                                     "~Y-~m-~d ~H:~M:~S"))))
+                                    (end-seconds
+                                     (time-second
+                                      (date->time-monotonic
+                                       (string->date last-datetime
+                                                     "~Y-~m-~d ~H:~M:~S"))))
+                                    (margin-left
+                                     (min
+                                      (* (/ (- start-seconds earliest-date-seconds)
+                                            min-to-max-seconds)
+                                         100)
+                                      98))
+                                    (width
+                                     (max
+                                      (- (* (/ (- end-seconds earliest-date-seconds)
+                                               min-to-max-seconds)
+                                            100)
+                                         margin-left)
+                                      2)))
+                               (simple-format
+                                #f
+                                "margin-left: ~A%; width: ~A%; height: 10px; background: #DCDCDC;"
+                                (rationalize margin-left 1)
+                                (rationalize width 1)))))))))))
+               versions-list
+               derivations-by-revision-range))))))))))

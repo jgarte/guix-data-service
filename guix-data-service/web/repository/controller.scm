@@ -111,6 +111,42 @@
                    branch-name
                    package-name
                    package-versions))))))
+    (('GET "repository" repository-id "branch" branch-name "package" package-name "derivation-history")
+     (let ((package-derivations
+            (package-derivations-for-branch conn
+                                            (string->number repository-id)
+                                            branch-name
+                                            "x86_64-linux"
+                                            "x86_64-linux"
+                                            package-name)))
+       (case (most-appropriate-mime-type
+              '(application/json text/html)
+              mime-types)
+         ((application/json)
+          (render-json
+           `((versions . ,(list->vector
+                           (map (match-lambda
+                                  ((package-version derivation-file-name
+                                                    first-guix-revision-commit
+                                                    first-datetime
+                                                    last-guix-revision-commit
+                                                    last-datetime)
+                                   `((version . ,package-version)
+                                     (derivation . ,derivation-file-name)
+                                     (first_revision
+                                      . ((commit . ,first-guix-revision-commit)
+                                         (datetime . ,first-datetime)))
+                                     (last_revision
+                                      . ((commit . ,last-guix-revision-commit)
+                                         (datetime . ,last-datetime))))))
+                                package-versions))))))
+         (else
+          (render-html
+           #:sxml (view-branch-package-derivations
+                   repository-id
+                   branch-name
+                   package-name
+                   package-derivations))))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision")
      (let ((commit-hash
             (latest-processed-commit-for-branch conn repository-id branch-name)))

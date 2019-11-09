@@ -12,7 +12,8 @@
             inferior-packages->package-ids
 
             select-package-versions-for-revision
-            package-versions-for-branch))
+            package-versions-for-branch
+            package-derivations-for-branch))
 
 (define (select-existing-package-entries package-entries)
   (string-append "SELECT id, packages.name, packages.version, "
@@ -236,3 +237,44 @@ ORDER BY first_datetime DESC, package_version DESC"
          (number->string git-repository-id)
          branch-name)))
 
+(define (package-derivations-for-branch conn
+                                        git-repository-id
+                                        branch-name
+                                        system
+                                        target
+                                        package-name)
+  (exec-query
+   conn
+   "
+SELECT package_version,
+       derivations.file_name,
+       first_guix_revisions.commit AS first_guix_revision_commit,
+       first_git_branches.datetime AS first_datetime,
+       last_guix_revisions.commit AS last_guix_revision_commit,
+       last_git_branches.datetime AS last_datetime
+FROM package_derivations_by_guix_revision_range
+INNER JOIN derivations
+  ON package_derivations_by_guix_revision_range.derivation_id = derivations.id
+INNER JOIN guix_revisions AS first_guix_revisions
+  ON first_guix_revision_id = first_guix_revisions.id
+INNER JOIN git_branches AS first_git_branches
+  ON first_guix_revisions.git_repository_id = first_git_branches.git_repository_id
+ AND first_guix_revisions.commit = first_git_branches.commit
+INNER JOIN guix_revisions AS last_guix_revisions
+  ON last_guix_revision_id = last_guix_revisions.id
+INNER JOIN git_branches AS last_git_branches
+  ON last_guix_revisions.git_repository_id = last_git_branches.git_repository_id
+ AND last_guix_revisions.commit = last_git_branches.commit
+WHERE package_name = $1
+AND package_derivations_by_guix_revision_range.git_repository_id = $2
+AND package_derivations_by_guix_revision_range.branch_name = $3
+AND first_git_branches.name = $3
+AND last_git_branches.name = $3
+AND package_derivations_by_guix_revision_range.system = $4
+AND package_derivations_by_guix_revision_range.target = $5
+ORDER BY first_datetime DESC, package_version DESC"
+   (list package-name
+         (number->string git-repository-id)
+         branch-name
+         system
+         target)))
