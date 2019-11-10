@@ -251,7 +251,15 @@ ORDER BY derivations.system DESC,
      "derivation_outputs.derivation_output_details_id = derivation_output_details.id "
      "WHERE derivation_id = $1"))
 
-  (exec-query conn query (list (number->string id))))
+  (map
+   (match-lambda
+     ((name path hash_algorithm hash recursive)
+      (list name
+            path
+            hash_algorithm
+            hash
+            (string=? recursive "t"))))
+   (exec-query conn query (list (number->string id)))))
 
 (define (select-derivation-inputs-by-derivation-id conn id)
   (define query
