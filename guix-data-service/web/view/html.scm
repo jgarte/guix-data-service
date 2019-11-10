@@ -628,7 +628,13 @@
                     ,(simple-format #f "(\"~A\",\"" output-name)
                     (a (@ (href ,path))
                        ,(display-store-item path))
-                    "\")"
+                    "\","
+                    ,(string-append (if (peek recursive?) "\"r:" "\"")
+                                    hash-algorithm)
+                    "\""
+                    ","
+                    "\"" ,hash "\""
+                    ")"
                     ,@(if (eq? count-down 0)
                           '()
                           '(",")))))
