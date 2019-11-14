@@ -516,7 +516,18 @@
             (@ (class "row"))
             (div
              (@ (class "col-sm-12"))
-             ,(display-store-item-title file-name)))))
+             ,(display-store-item-title file-name)
+             (div
+              (@ (class "btn-group pull-right")
+                 (role "group"))
+              (a (@ (class "btn btn-lg btn-default disabled")
+                    (href ,file-name)
+                    (role "button"))
+                 "Detail view")
+              (a (@ (class "btn btn-lg btn-default")
+                    (href ,(string-append file-name "/formatted"))
+                    (role "button"))
+                 "Formatted view"))))))
       (div
        (@ (class "row"))
        (div
@@ -600,7 +611,18 @@
             (@ (class "row"))
             (div
              (@ (class "col-sm-12"))
-             ,(display-store-item-title file-name)))))
+             ,(display-store-item-title file-name)
+             (div
+              (@ (class "btn-group pull-right")
+                 (role "group"))
+              (a (@ (class "btn btn-lg btn-default")
+                    (href ,file-name)
+                    (role "button"))
+                 "Detail view")
+              (a (@ (class "btn btn-lg btn-default disabled")
+                    (href ,(string-append file-name "/formatted"))
+                    (role "button"))
+                 "Formatted view"))))))
       (div
        (@ (class "row"))
        (div
