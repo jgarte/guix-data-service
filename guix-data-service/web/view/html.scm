@@ -629,7 +629,7 @@
                     (a (@ (href ,path))
                        ,(display-store-item path))
                     "\","
-                    ,(string-append (if (peek recursive?) "\"r:" "\"")
+                    ,(string-append (if recursive? "\"r:" "\"")
                                     hash-algorithm)
                     "\""
                     ","

@@ -638,7 +638,7 @@
     (assq-ref query-parameters 'base_commit))
 
   (define target-commit
-    (peek (assq-ref query-parameters 'target_commit)))
+    (assq-ref query-parameters 'target_commit))
 
   (layout
    #:body
