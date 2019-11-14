@@ -411,10 +411,10 @@
                     (th "Arguments"))
                    (tbody
                     (tr
-                     (td ,common-builder)
+                     (td ,(display-possible-store-item common-builder))
                      (td (ol
                           ,@(map (lambda (arg)
-                                   `(li ,arg))
+                                   `(li ,(display-possible-store-item arg)))
                                  common-args))))))
                  `(table
                    (@ (class "table"))
@@ -430,20 +430,22 @@
                             (target-args (assq-ref arguments 'target)))
                         `((tr
                            (td ,base)
-                           (td ,(or base-builder
-                                    common-builder))
+                           (td ,(display-possible-store-item
+                                 (or base-builder
+                                     common-builder)))
                            (td (ol
                                 ,@(map (lambda (arg)
-                                         `(li ,arg))
+                                         `(li ,(display-possible-store-item arg)))
                                        (or common-args
                                            base-args)))))
                           (tr
                            (td ,target)
-                           (td ,(or target-builder
-                                    common-builder))
+                           (td ,(display-possible-store-item
+                                 (or target-builder
+                                     common-builder)))
                            (td (ol
                                 ,@(map (lambda (arg)
-                                         `(li ,arg))
+                                         `(li ,(display-possible-store-item arg)))
                                        (or common-args
                                            target-args))))))))))))
         (h2 "Environment variables")
@@ -460,21 +462,27 @@
                       (if common-value
                           `((tr
                              (td ,name)
-                             (td ,common-value)))
+                             (td ,(display-possible-store-item common-value))))
                           (let ((base-value (assq-ref values 'base))
                                 (target-value (assq-ref values 'target)))
                             (if (and base-value target-value)
                                 `((tr
                                    (td (@ (rowspan 2))
                                        ,name)
-                                   (td ,base ,base-value))
+                                   (td ,base ,(display-possible-store-item
+                                               base-value)))
                                   (tr
-                                   (td ,target ,target-value)))
+                                   (td ,target ,(display-possible-store-item
+                                                 target-value))))
                                 `((tr
                                    (td ,name)
                                    (td ,@(if base-value
-                                             (list base base-value)
-                                             (list target target-value)))))))))))
+                                             (list base
+                                                   (display-possible-store-item
+                                                    base-value))
+                                             (list target
+                                                   (display-possible-store-item
+                                                    target-value))))))))))))
                  environment-variables))))))))))
 
 (define (compare/derivations query-parameters

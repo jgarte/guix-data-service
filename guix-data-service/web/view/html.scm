@@ -787,7 +787,7 @@
                 (@ (style "margin-left: 3em;"))
                 ,@(map (lambda (arg count-down)
                          `(div "\""
-                               ,arg
+                               ,(display-possible-store-item arg)
                                "\""
                                ,@(if (eq? count-down 0)
                                      '()
@@ -814,7 +814,9 @@
                               "("
                               "\"" ,(assq-ref env-var 'key) "\""
                               ","
-                              "\"" ,(assq-ref env-var 'value) "\""
+                              "\"" ,(display-possible-store-item
+                                     (assq-ref env-var 'value))
+                              "\""
                               ")"))
                       env-vars
                       (reverse (iota (length env-vars))))
