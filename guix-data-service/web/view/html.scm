@@ -32,6 +32,7 @@
             header
             form-horizontal-control
 
+            display-possible-store-item
             display-store-item
             display-store-item-short
             build-status-span
@@ -425,6 +426,18 @@
                       status)))
             (style "display: inline-block; font-size: 1.2em; margin-top: 0.4em;"))
          ,(build-status-value->display-string status)))
+
+(define (display-possible-store-item value)
+  (match (string-split value #\/)
+    (("" "gnu" "store" item)
+     `(a (@ (href ,value))
+         ,(display-store-item value)))
+    (("" "gnu" "store" item fileparts ...)
+     `(a (@ (href ,value))
+         ,(display-file-in-store-item-oneline value)))
+    (_
+     `(span (@ (style "font-family: monospace;"))
+            ,value))))
 
 (define (display-store-item-short item)
   `((span (@ (style "font-size: small; font-family: monospace; display: block;"))
