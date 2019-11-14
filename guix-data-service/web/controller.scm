@@ -148,11 +148,17 @@
   (let ((derivation (select-derivation-by-output-filename conn filename)))
     (match derivation
       (()
-       (render-html
-        #:sxml (general-not-found
-                "Store item not found"
-                "No derivation found producing this output")
-        #:code 404))
+       (match (select-derivation-source-file-by-store-path conn filename)
+         (()
+          (render-html
+           #:sxml (general-not-found
+                   "Store item not found"
+                   "No derivation found producing this output")
+           #:code 404))
+         ((id)
+          (render-html
+           #:sxml (view-derivation-source-file filename)
+           #:extra-headers http-headers-for-unchanging-content))))
       (derivations
        (render-html
         #:sxml (view-store-item filename

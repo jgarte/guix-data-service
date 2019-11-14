@@ -47,6 +47,7 @@
             view-derivation
             view-formatted-derivation
             view-store-item
+            view-derivation-source-file
             error-page))
 
 (define* (header)
@@ -515,6 +516,19 @@
                       derivations-using-store-item))))))
              derivations
              derivations-using-store-item-list)))))
+
+(define (view-derivation-source-file filename)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        ,(display-store-item-title filename)
+        "Derivation source file."))))))
 
 (define (view-derivation derivation derivation-inputs derivation-outputs
                          builds)
