@@ -557,7 +557,8 @@
               (th "Version")
               (th "System")
               (th "Target")
-              (th (@ (class "col-xs-5")) "Derivations")))
+              (th (@ (class "col-xs-5")) "Derivations")
+              (th "")))
             (tbody
              ,@(append-map
                 (match-lambda
@@ -608,6 +609,20 @@
                                                   (span (@ (class "text-success glyphicon glyphicon-plus pull-left")
                                                            (style "font-size: 1.5em; padding-right: 0.4em;")))
                                                   ,(and=> target-derivation-file-name display-store-item-short)))
+                                             '()))
+                                   (td (@ (style "vertical-align: middle;"))
+                                       ,@(if (and base-derivation-file-name
+                                                  target-derivation-file-name)
+                                             `((a (@ (class "btn btn-sm btn-default")
+                                                     (title "Compare")
+                                                     (href
+                                                      ,(string-append
+                                                        "/compare/derivation?"
+                                                        "base_derivation="
+                                                        base-derivation-file-name
+                                                        "&target_derivation="
+                                                        target-derivation-file-name)))
+                                                  "⇕ Compare"))
                                              '()))))))
                             system-and-versions)))
 
