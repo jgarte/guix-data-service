@@ -32,6 +32,7 @@
             header
             form-horizontal-control
 
+            display-store-item
             display-store-item-short
             build-status-span
 

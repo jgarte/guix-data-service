@@ -22,6 +22,7 @@
   #:use-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service web view html)
   #:export (compare
+            compare/derivation
             compare/derivations
             compare-by-datetime/derivations
             compare/packages
@@ -231,6 +232,250 @@
                                (td ,message))))
                           warnings))))))
             lint-warnings-data))))))))
+
+(define (compare/derivation query-parameters data)
+  (define base
+    '(span (@ (class "text-danger glyphicon glyphicon-minus pull-left")
+              (style "font-size: 1.5em; padding-right: 0.4em;"))))
+
+  (define target
+    '(span (@ (class "text-success glyphicon glyphicon-plus pull-left")
+              (style "font-size: 1.5em; padding-right: 0.4em;"))))
+
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (h1 ,@(let ((base-commit (assq-ref query-parameters 'base_commit))
+                   (target-commit (assq-ref query-parameters 'target_commit)))
+               (if (every string? (list base-commit target-commit))
+                   `("Comparing "
+                     (samp ,(string-take base-commit 8) "…")
+                     " and "
+                     (samp ,(string-take target-commit 8) "…"))
+                   '("Comparing derivations")))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (div
+         (@ (class "well"))
+         (form
+          (@ (method "get")
+             (action "")
+             (class "form-horizontal"))
+          ,(form-horizontal-control
+            "Base derivation" query-parameters
+            #:required? #t
+            #:help-text "The derivation to use as the basis for the comparison."
+            #:font-family "monospace")
+          ,(form-horizontal-control
+            "Target derivation" query-parameters
+            #:required? #t
+            #:help-text "The derivation to compare against the base commit."
+            #:font-family "monospace")
+          (div (@ (class "form-group form-group-lg"))
+               (div (@ (class "col-sm-offset-2 col-sm-10"))
+                    (button (@ (type "submit")
+                               (class "btn btn-lg btn-primary"))
+                            "Update results")))
+          (a (@ (class "btn btn-default btn-lg pull-right")
+                (href ,(let ((query-parameter-string
+                              (query-parameters->string query-parameters)))
+                         (string-append
+                          "/compare/derivation.json"
+                          (if (string-null? query-parameter-string)
+                              ""
+                              (string-append "?" query-parameter-string))))))
+             "View JSON")))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h2 "Outputs")
+        ,@(let ((outputs (assq-ref data 'outputs)))
+            `((table
+               (@ (class "table"))
+               (thead
+                (tr
+                 (th "")
+                 (th "Name")
+                 (th "Path")
+                 (th "Hash algorithm")
+                 (th "Hash")
+                 (th "Recursive")))
+               (tbody
+                ,@(let ((base-outputs (assq-ref outputs 'base))
+                        (target-outputs (assq-ref outputs 'target))
+                        (common-outputs (assq-ref outputs 'common)))
+                    (append-map
+                     (lambda (label items)
+                       (map
+                        (match-lambda
+                          ((name path hash-algorithm hash recursive)
+                           `(tr
+                             (td ,label)
+                             (td ,name)
+                             (td (a (@ (href ,path))
+                                    ,(display-store-item path)))
+                             (td ,hash-algorithm)
+                             (td ,hash)
+                             (td ,recursive))))
+                        (or items '())))
+                     (list base target "Common")
+                     (list (assq-ref outputs 'base)
+                           (assq-ref outputs 'target)
+                           (assq-ref outputs 'common))))))))
+        (h2 "Inputs")
+        ,@(let ((inputs (assq-ref data 'inputs)))
+            `((table
+               (@ (class "table"))
+               (thead
+                (tr
+                 (th "")
+                 (th "Derivation")
+                 (th "Outputs")))
+               (tbody
+                ,@(append-map
+                   (lambda (label items)
+                     (map
+                      (match-lambda
+                        ((derivation outputs)
+                         `(tr
+                           (td ,label)
+                           (td (a (@ (href ,derivation))
+                                  ,(display-store-item derivation)))
+                           (td ,outputs))))
+                      (or items '())))
+                   (list base target)
+                   (list (assq-ref inputs 'base)
+                         (assq-ref inputs 'target)))))))
+        (p "Common inputs are omitted.")
+        (h2 "Sources")
+        ,@(let ((sources (assq-ref data 'sources)))
+            `((table
+               (@ (class "table"))
+               (thead
+                (tr
+                 (th "")
+                 (th "Derivation")))
+               (tbody
+                ,@(append-map
+                   (lambda (label items)
+                     (map
+                      (match-lambda
+                        ((file)
+                         `(tr
+                           (td ,label)
+                           (td (a (@ (href ,file))
+                                  ,(display-store-item file))))))
+                      (or items '())))
+                   (list base target "Common")
+                   (list (assq-ref sources 'base)
+                         (assq-ref sources 'target)
+                         (assq-ref sources 'common)))))))
+        (h2 "System")
+        ,@(let ((system (assq-ref data 'system)))
+            (let ((common-system (assq-ref system 'common)))
+              (if common-system
+                  (list common-system)
+                  `(table
+                    (@ (class "table"))
+                    (thead
+                     (tr
+                      (th "")
+                      (th "System")))
+                    (tbody
+                     ,@(let ((base-system (assq-ref system 'base))
+                             (target-system (assq-ref system 'target)))
+                         `((tr
+                            (td ,base)
+                            (td ,base-system))
+                           (tr
+                            (td ,target)
+                            (td ,target-system)))))))))
+        (h2 "Builder and arguments")
+        ,(let ((builder (assq-ref data 'builder))
+               (arguments (assq-ref data 'arguments)))
+           (let ((common-builder (assq-ref builder 'common))
+                 (common-args (assq-ref arguments 'common)))
+             (if (and common-builder
+                      common-args)
+                 `(table
+                   (@ (class "table"))
+                   (thead
+                    (th "Builder")
+                    (th "Arguments"))
+                   (tbody
+                    (tr
+                     (td ,common-builder)
+                     (td (ol
+                          ,@(map (lambda (arg)
+                                   `(li ,arg))
+                                 common-args))))))
+                 `(table
+                   (@ (class "table"))
+                   (thead
+                    (tr
+                     (th "")
+                     (th "Builder")
+                     (th "Arguments")))
+                   (tbody
+                    ,@(let ((base-builder (assq-ref builder 'base))
+                            (target-builder (assq-ref builder 'target))
+                            (base-args (assq-ref arguments 'base))
+                            (target-args (assq-ref arguments 'target)))
+                        `((tr
+                           (td ,base)
+                           (td ,(or base-builder
+                                    common-builder))
+                           (td (ol
+                                ,@(map (lambda (arg)
+                                         `(li ,arg))
+                                       (or common-args
+                                           base-args)))))
+                          (tr
+                           (td ,target)
+                           (td ,(or target-builder
+                                    common-builder))
+                           (td (ol
+                                ,@(map (lambda (arg)
+                                         `(li ,arg))
+                                       (or common-args
+                                           target-args))))))))))))
+        (h2 "Environment variables")
+        ,(let ((environment-variables (assq-ref data 'environment-variables)))
+           `(table
+             (@ (class "table"))
+             (thead
+              (th "Name"))
+             (tbody
+              ,@(append-map
+                 (match-lambda
+                   ((name . values)
+                    (let ((common-value (assq-ref values 'common)))
+                      (if common-value
+                          `((tr
+                             (td ,name)
+                             (td ,common-value)))
+                          (let ((base-value (assq-ref values 'base))
+                                (target-value (assq-ref values 'target)))
+                            (if (and base-value target-value)
+                                `((tr
+                                   (td (@ (rowspan 2))
+                                       ,name)
+                                   (td ,base ,base-value))
+                                  (tr
+                                   (td ,target ,target-value)))
+                                `((tr
+                                   (td ,name)
+                                   (td ,@(if base-value
+                                             (list base base-value)
+                                             (list target target-value)))))))))))
+                 environment-variables))))))))))
 
 (define (compare/derivations query-parameters
                              valid-systems

@@ -53,6 +53,13 @@
         (make-invalid-query-parameter
          s "unknown commit"))))
 
+(define (parse-derivation conn)
+  (lambda (file-name)
+    (if (select-derivation-by-file-name conn file-name)
+        file-name
+        (make-invalid-query-parameter
+         file-name "unknown derivation"))))
+
 (define (compare-controller request
                             method-and-path-components
                             mime-types
@@ -79,6 +86,15 @@
        (render-compare-by-datetime mime-types
                                    conn
                                    parsed-query-parameters)))
+    (('GET "compare" "derivation")
+     (let* ((parsed-query-parameters
+             (parse-query-parameters
+              request
+              `((base_derivation   ,(parse-derivation conn) #:required)
+                (target_derivation ,(parse-derivation conn) #:required)))))
+       (render-compare/derivation mime-types
+                                  conn
+                                  parsed-query-parameters)))
     (('GET "compare" "derivations")
      (let* ((parsed-query-parameters
              (parse-query-parameters
@@ -286,6 +302,42 @@
                                   version-changes
                                   lint-warnings-data)
                   #:extra-headers http-headers-for-unchanging-content)))))))))
+
+(define (render-compare/derivation mime-types
+                                   conn
+                                   query-parameters)
+  (if (any-invalid-query-parameters? query-parameters)
+      (case (most-appropriate-mime-type
+             '(application/json text/html)
+             mime-types)
+        ((application/json)
+         (render-json
+          '((error . "invalid query"))))
+        (else
+         (render-html
+          #:sxml (compare/derivation
+                  query-parameters
+                  '()))))
+
+      (let ((base-derivation    (assq-ref query-parameters 'base_derivation))
+            (target-derivation  (assq-ref query-parameters 'target_derivation)))
+        (let ((data
+               (derivation-differences-data conn
+                                            base-derivation
+                                            target-derivation)))
+          (case (most-appropriate-mime-type
+                 '(application/json text/html)
+                 mime-types)
+            ((application/json)
+             (render-json
+              '((error . "unimplemented")) ; TODO
+              #:extra-headers http-headers-for-unchanging-content))
+            (else
+             (render-html
+              #:sxml (compare/derivation
+                      query-parameters
+                      data)
+              #:extra-headers http-headers-for-unchanging-content)))))))
 
 (define (render-compare/derivations mime-types
                                     conn

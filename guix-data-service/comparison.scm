@@ -4,8 +4,11 @@
   #:use-module (ice-9 vlist)
   #:use-module (ice-9 match)
   #:use-module (squee)
+  #:use-module (guix-data-service model utils)
   #:use-module (guix-data-service model derivation)
-  #:export (package-data->package-data-vhashes
+  #:export (derivation-differences-data
+
+            package-data->package-data-vhashes
             package-differences-data
             package-data-vhash->derivations
             package-data->names-and-versions
@@ -16,6 +19,218 @@
             package-data-derivation-changes
 
             lint-warning-differences-data))
+
+(define (group-to-alist process lst)
+  (fold (lambda (element result)
+          (match (process element)
+            ((key . value)
+             (match (assoc key result)
+               ((_ . existing-values)
+                `((,key . ,(cons value existing-values))
+                  ,@result))
+               (#f
+                `((,key . (,value))
+                  ,@result))))))
+        '()
+        lst))
+
+(define (derivation-differences-data conn
+                                     base-derivation-file-name
+                                     target-derivation-file-name)
+  (define base-derivation
+    (select-derivation-by-file-name conn base-derivation-file-name))
+
+  (define target-derivation
+    (select-derivation-by-file-name conn target-derivation-file-name))
+
+  (define group-by-last-element
+    (lambda (vals)
+      (let ((groups (last vals)))
+        (cons (if (eq? (length groups) 2)
+                  'common
+                  (first groups))
+              (drop-right vals 1)))))
+
+  (define (fetch-value alist key)
+    (assq-ref (find (lambda (env-var)
+                      (if (string=? key (assq-ref env-var 'key))
+                          (assq-ref env-var 'value)
+                          #f))
+                    alist)
+              'value))
+
+  `((outputs
+     . ,(group-to-alist
+         group-by-last-element
+         (derivation-outputs-differences-data conn
+                                              (first base-derivation)
+                                              (first target-derivation))))
+    (inputs
+     . ,(group-to-alist
+         group-by-last-element
+         (derivation-inputs-differences-data conn
+                                             (first base-derivation)
+                                             (first target-derivation))))
+    (sources
+     . ,(group-to-alist
+         group-by-last-element
+         (derivation-sources-differences-data conn
+                                              (first base-derivation)
+                                              (first target-derivation))))
+    ,@(match base-derivation
+        ((_ _ base-builder base-args base-env-vars base-system)
+         (match target-derivation
+           ((_ _ target-builder target-args target-env-vars target-system)
+            `((system
+               . ,(if (string=? base-system target-system)
+                      `((common . ,base-system))
+                      `((base . ,base-system)
+                        (target . ,target-system))))
+              (builder
+               . ,(if (string=? base-builder target-builder)
+                      `((common . ,base-builder))
+                      `((base . ,base-builder)
+                        (target . ,target-builder))))
+              (arguments
+               . ,(if (eq? base-args target-args)
+                      `((common . ,base-args))
+                      `((base . ,base-args)
+                        (target . ,target-args))))
+              (environment-variables
+               . ,(map (lambda (key)
+                         (let ((base-value (fetch-value base-env-vars key))
+                               (target-value (fetch-value target-env-vars key)))
+                           (if (and base-value target-value)
+                               `(,key
+                                 . ,(if (string=? base-value target-value)
+                                        `((common . ,base-value))
+                                        `((base . ,base-value)
+                                          (target . ,target-value))))
+                               (if base-value
+                                   `(,key . ((base . ,base-value)))
+                                   `(,key . ((target . ,target-value)))))))
+                       (delete-duplicates
+                        (map (lambda (env-var)
+                               (assq-ref env-var 'key))
+                             (append base-env-vars
+                                     target-env-vars))
+                        string=?))))))))))
+
+(define (derivation-outputs-differences-data conn
+                                             base-derivation-id
+                                             target-derivation-id)
+  (define query
+    (string-append
+     "
+SELECT derivation_outputs.name,
+       derivation_output_details.path,
+       derivation_output_details.hash_algorithm,
+       derivation_output_details.hash,
+       derivation_output_details.recursive,
+       ARRAY_AGG(derivation_outputs.derivation_id) AS derivation_ids
+FROM derivation_outputs
+INNER JOIN derivation_output_details
+  ON derivation_output_details_id = derivation_output_details.id
+WHERE derivation_outputs.derivation_id IN ("
+     (simple-format #f "~A,~A"
+                    base-derivation-id
+                    target-derivation-id) "
+)
+GROUP BY 1, 2, 3, 4, 5"))
+
+  (map (match-lambda
+         ((output-name path hash-algorithm hash recursive
+                       derivation_ids)
+          (let ((parsed-derivation-ids
+                 (map string->number
+                      (parse-postgresql-array-string derivation_ids))))
+            (list output-name
+                  path
+                  hash-algorithm
+                  hash
+                  recursive
+                  (append (if (memq base-derivation-id
+                                    parsed-derivation-ids)
+                              '(base)
+                              '())
+                          (if (memq target-derivation-id
+                                    parsed-derivation-ids)
+                              '(target)
+                              '()))))))
+       (exec-query conn query)))
+
+(define (derivation-inputs-differences-data conn
+                                            base-derivation-id
+                                            target-derivation-id)
+  (define query
+    (string-append
+     "
+SELECT derivations.file_name,
+       derivation_outputs.name,
+       relevant_derivation_inputs.derivation_ids
+FROM derivation_outputs
+INNER JOIN (
+  SELECT derivation_output_id,
+         ARRAY_AGG(derivation_id) AS derivation_ids
+  FROM derivation_inputs
+  WHERE derivation_id IN (" (simple-format #f "~A,~A"
+                                           base-derivation-id
+                                           target-derivation-id)
+  ") GROUP BY derivation_output_id
+) AS relevant_derivation_inputs
+  ON derivation_outputs.id = relevant_derivation_inputs.derivation_output_id
+INNER JOIN derivations ON derivation_outputs.derivation_id = derivations.id
+"))
+
+  (map (match-lambda
+         ((derivation_file_name derivation_output_name
+                                derivation_ids)
+          (let ((parsed-derivation-ids
+                 (map string->number
+                      (parse-postgresql-array-string derivation_ids))))
+          (list derivation_file_name
+                derivation_output_name
+                (append (if (memq base-derivation-id
+                                  parsed-derivation-ids)
+                            '(base)
+                            '())
+                        (if (memq target-derivation-id
+                                  parsed-derivation-ids)
+                            '(target)
+                            '()))))))
+       (exec-query conn query)))
+
+(define (derivation-sources-differences-data conn
+                                             base-derivation-id
+                                             target-derivation-id)
+  (define query
+    (string-append
+     "
+SELECT derivation_source_files.store_path, ARRAY_AGG(derivation_sources.derivation_id)
+FROM derivation_source_files
+INNER JOIN derivation_sources
+  ON derivation_source_files.id = derivation_sources.derivation_source_file_id
+WHERE derivation_sources.derivation_id IN (" (simple-format #f "~A,~A"
+                                                            base-derivation-id
+                                                            target-derivation-id)
+")
+GROUP BY derivation_source_files.store_path"))
+
+  (map (match-lambda
+         ((store_path derivation_ids)
+          (let ((parsed-derivation-ids
+                 (map string->number
+                      (parse-postgresql-array-string derivation_ids))))
+            (list store_path
+                  (append (if (memq base-derivation-id
+                                    parsed-derivation-ids)
+                              '(base)
+                              '())
+                          (if (memq target-derivation-id
+                                    parsed-derivation-ids)
+                              '(target)
+                              '()))))))
+       (exec-query conn query)))
 
 (define* (package-differences-data conn
                                    base_guix_revision_id
