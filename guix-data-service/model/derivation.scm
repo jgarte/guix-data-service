@@ -14,6 +14,7 @@
             select-derivation-by-file-name
             select-derivation-outputs-by-derivation-id
             select-derivation-sources-by-derivation-id
+            select-derivation-source-file-by-store-path
             select-derivation-by-output-filename
             select-derivations-using-output
             select-derivations-by-revision-name-and-version
@@ -292,6 +293,15 @@ ORDER BY 1"))
 
   (map first
        (exec-query conn query (list (number->string id)))))
+
+(define (select-derivation-source-file-by-store-path conn store-path)
+  (define query
+    "
+SELECT id
+FROM derivation_source_files
+WHERE store_path = $1")
+
+  (map car (exec-query conn query (list store-path))))
 
 (define (insert-derivation-inputs conn derivation-id derivation-inputs)
   (define (insert-into-derivation-inputs output-ids)
