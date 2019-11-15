@@ -897,21 +897,6 @@ WHERE job_id = $1"
         (lambda (key . args)
           (display-backtrace (make-stack #t) (current-error-port)))))))
 
-
-(define (store-item-for-git-repository-id-and-commit
-         conn git-repository-id commit)
-  (with-store store
-    (set-build-options store
-                       #:fallback? #t)
-    (channel->guix-store-item
-     conn
-     store
-     (channel (name 'guix)
-              (url (git-repository-id->url
-                    conn
-                    git-repository-id))
-              (commit commit)))))
-
 (define (update-package-versions-table conn git-repository-id commit)
   ;; Lock the table to wait for other transactions to commit before updating
   ;; the table
@@ -1044,10 +1029,22 @@ ORDER BY packages.name, packages.version"
 
   #t)
 
+(define (store-item-for-channel conn channel)
+  (with-store store
+    (set-build-options store #:fallback? #t)
+    (channel->guix-store-item conn
+                              store
+                              channel)))
+
 (define (load-new-guix-revision conn git-repository-id commit)
-  (let ((store-item
-         (store-item-for-git-repository-id-and-commit
-          conn git-repository-id commit)))
+  (let* ((channel-for-commit
+          (channel (name 'guix)
+                   (url (git-repository-id->url
+                         conn
+                         git-repository-id))
+                   (commit commit)))
+         (store-item
+          (store-item-for-channel conn channel-for-commit)))
     (if store-item
         (and
          (extract-information-from conn git-repository-id

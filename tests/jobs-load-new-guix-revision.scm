@@ -22,8 +22,8 @@
      #t
      (mock
       ((guix-data-service jobs load-new-guix-revision)
-       store-item-for-git-repository-id-and-commit
-       (lambda (conn git-repository-id commit)
+       store-item-for-channel
+       (lambda (conn channel)
          "/gnu/store/test"))
 
       (mock
@@ -46,8 +46,8 @@
      #f
      (mock
       ((guix-data-service jobs load-new-guix-revision)
-       store-item-for-git-repository-id-and-commit
-       (lambda (conn git-repository-id commit)
+       store-item-for-channel
+       (lambda (conn channel)
          #f))
 
       (match (enqueue-load-new-guix-revision-job
@@ -64,8 +64,8 @@
      #f
      (mock
       ((guix-data-service jobs load-new-guix-revision)
-       store-item-for-git-repository-id-and-commit
-       (lambda (conn git-repository-id commit)
+       store-item-for-channel
+       (lambda (conn channel)
          "/gnu/store/test"))
 
       (mock
