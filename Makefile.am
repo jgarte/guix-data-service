@@ -74,6 +74,7 @@ SOURCES =							\
   guix-data-service/model/build-server.scm			\
   guix-data-service/model/build-status.scm			\
   guix-data-service/model/build.scm				\
+  guix-data-service/model/channel-news.scm			\
   guix-data-service/model/derivation.scm			\
   guix-data-service/model/git-branch.scm			\
   guix-data-service/model/git-repository.scm			\
