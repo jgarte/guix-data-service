@@ -17,6 +17,7 @@
   #:use-module (guix build utils)
   #:use-module (guix-data-service config)
   #:use-module (guix-data-service database)
+  #:use-module (guix-data-service model channel-news)
   #:use-module (guix-data-service model package)
   #:use-module (guix-data-service model git-repository)
   #:use-module (guix-data-service model guix-revision)
@@ -1047,6 +1048,15 @@ ORDER BY packages.name, packages.version"
                                      commit store-item)))
           (and
            guix-revision-id
+           (if (defined? 'channel-news-for-commit)
+               (insert-channel-news-entries-for-guix-revision
+                conn
+                guix-revision-id
+                (channel-news-for-commit channel-for-commit commit))
+               (begin
+                 (simple-format #t "debug: importing channel news not supported\n")
+                 #t))
+
            (extract-information-from conn guix-revision-id
                                      commit store-item)
            (update-package-versions-table conn git-repository-id commit)

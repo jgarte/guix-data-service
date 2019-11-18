@@ -14,6 +14,8 @@
 (with-postgresql-connection
  "test-jobs-load-new-guix-revision"
  (lambda (conn)
+   (exec-query conn "TRUNCATE guix_revisions CASCADE")
+
    (test-equal "select-job-for-commit works"
      '()
      (select-job-for-commit conn "does not exist"))
@@ -29,17 +31,24 @@
       (mock
        ((guix-data-service jobs load-new-guix-revision)
         extract-information-from
-        (lambda (conn git-repository-id commit store-path)
+        (lambda (conn guix-revision-id commit store-path)
           #t))
 
-       (match (enqueue-load-new-guix-revision-job
-               conn
-               (git-repository-url->git-repository-id conn "test-url")
-               "test-commit"
-               "test-source")
-         ((id)
-          (process-load-new-guix-revision-job id))))))
+       (mock
+        ((guix channels)
+         channel-news-for-commit
+         (lambda (channel commit)
+           '()))
 
+        (match (enqueue-load-new-guix-revision-job
+                conn
+                (git-repository-url->git-repository-id conn "test-url")
+                "test-commit"
+                "test-source")
+          ((id)
+           (process-load-new-guix-revision-job id)))))))
+
+   (exec-query conn "TRUNCATE guix_revisions CASCADE")
    (exec-query conn "TRUNCATE load_new_guix_revision_jobs CASCADE")
 
    (test-equal "test build store item failure"
@@ -74,13 +83,19 @@
         (lambda (conn git-repository-id commit store-path)
           #f))
 
-       (match (enqueue-load-new-guix-revision-job
-               conn
-               (git-repository-url->git-repository-id conn "test-url")
-               "test-commit"
-               "test-source")
-         ((id)
-          (process-load-new-guix-revision-job id))))))
+       (mock
+        ((guix channels)
+         channel-news-for-commit
+         (lambda (channel commit)
+           '()))
+
+        (match (enqueue-load-new-guix-revision-job
+                conn
+                (git-repository-url->git-repository-id conn "test-url")
+                "test-commit"
+                "test-source")
+          ((id)
+           (process-load-new-guix-revision-job id)))))))
 
    (exec-query conn "TRUNCATE load_new_guix_revision_jobs CASCADE")
 
@@ -100,6 +115,5 @@
          "test-source")
         #t)
       #:always-rollback? #t))))
-
 
 (test-end)
