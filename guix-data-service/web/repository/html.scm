@@ -332,10 +332,11 @@
             (style "table-layout: fixed;"))
          (thead
           (tr
-           (th (@ (class "col-sm-3")) "Version")
-           (th (@ (class "col-sm-5")) "Derivation")
-           (th (@ (class "col-sm-4")) "From")
-           (th (@ (class "col-sm-4")) "To")))
+           (th (@ (class "col-sm-2")) "Version")
+           (th (@ (class "col-sm-4")) "Derivation")
+           (th (@ (class "col-sm-2")) "From")
+           (th (@ (class "col-sm-2")) "To")
+           (th (@ (class "col-sm-1")) "")))
          (tbody
           ,@(let* ((times-in-seconds
                     (map (lambda (d)
@@ -360,7 +361,8 @@
                                     first-guix-revision-commit
                                     first-datetime
                                     last-guix-revision-commit
-                                    last-datetime))
+                                    last-datetime)
+                   next-derivation-file-name)
                   `((tr
                      (@ (style "border-bottom: 0;"))
                      ,@(match version-column-entry
@@ -391,7 +393,21 @@
                                        last-guix-revision-commit
                                        "/package/"
                                        package-name "/" package-version)))
-                            "(More information)")))
+                            "(More information)"))
+                     (td
+                      (@ (rowspan 4)
+                         (style "vertical-align: middle;"))
+                      ,@(if next-derivation-file-name
+                            `((a
+                               (@ (class "btn btn-sm btn-default")
+                                  (title "Compare")
+                                  (href
+                                   ,(string-append
+                                     "/compare/derivation"
+                                     "?base_derivation=" next-derivation-file-name
+                                     "&target_derivation=" derivation-file-name)))
+                               "⇕ Compare"))
+                            '())))
                     (tr
                      (td
                       (@ (colspan 3)
@@ -428,4 +444,8 @@
                                 (rationalize margin-left 1)
                                 (rationalize width 1)))))))))))
                versions-list
-               derivations-by-revision-range))))))))))
+               derivations-by-revision-range
+               (append
+                (map second
+                     (cdr derivations-by-revision-range))
+                '(#f))))))))))))
