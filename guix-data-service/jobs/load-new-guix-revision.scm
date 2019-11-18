@@ -741,7 +741,7 @@ WHERE job_id = $1"
 
       output)))
 
-(define (extract-information-from conn git-repository-id commit store-path)
+(define (extract-information-from conn guix-revision-id commit store-path)
   (simple-format
    #t "debug: extract-information-from: ~A\n" store-path)
   (with-store store
@@ -854,39 +854,35 @@ WHERE job_id = $1"
                #t "debug: finished loading information from inferior\n")
               (close-inferior inf)
 
-              (let ((guix-revision-id
-                     (insert-guix-revision conn git-repository-id
-                                           commit store-path)))
+              (when inferior-lint-warnings
+                (let* ((lint-checker-ids
+                        (lint-checkers->lint-checker-ids
+                         conn
+                         (map car inferior-lint-warnings)))
+                       (lint-warning-ids
+                        (insert-lint-warnings
+                         conn
+                         inferior-package-id->package-database-id
+                         lint-checker-ids
+                         inferior-lint-warnings)))
+                  (insert-guix-revision-lint-checkers conn
+                                                      guix-revision-id
+                                                      lint-checker-ids)
 
-                (when inferior-lint-warnings
-                  (let* ((lint-checker-ids
-                          (lint-checkers->lint-checker-ids
-                           conn
-                           (map car inferior-lint-warnings)))
-                         (lint-warning-ids
-                          (insert-lint-warnings
-                           conn
-                           inferior-package-id->package-database-id
-                           lint-checker-ids
-                           inferior-lint-warnings)))
-                    (insert-guix-revision-lint-checkers conn
-                                                        guix-revision-id
-                                                        lint-checker-ids)
+                  (insert-guix-revision-lint-warnings conn
+                                                      guix-revision-id
+                                                      lint-warning-ids)))
+              (let ((package-derivation-ids
+                     (inferior-data->package-derivation-ids
+                      conn inf inferior-package-id->package-database-id
+                      inferior-data-4-tuples)))
 
-                    (insert-guix-revision-lint-warnings conn
-                                                        guix-revision-id
-                                                        lint-warning-ids)))
-                (let ((package-derivation-ids
-                       (inferior-data->package-derivation-ids
-                        conn inf inferior-package-id->package-database-id
-                        inferior-data-4-tuples)))
-
-                  (insert-guix-revision-package-derivations conn
-                                                            guix-revision-id
-                                                            package-derivation-ids)
-                  (simple-format
-                   #t "Successfully loaded ~A package/derivation pairs\n"
-                   (length package-derivation-ids))))))
+                (insert-guix-revision-package-derivations conn
+                                                          guix-revision-id
+                                                          package-derivation-ids)
+                (simple-format
+                 #t "Successfully loaded ~A package/derivation pairs\n"
+                 (length package-derivation-ids)))))
           #t)
         (lambda (key . args)
           (simple-format (current-error-port)
@@ -1046,11 +1042,15 @@ ORDER BY packages.name, packages.version"
          (store-item
           (store-item-for-channel conn channel-for-commit)))
     (if store-item
-        (and
-         (extract-information-from conn git-repository-id
-                                   commit store-item)
-         (update-package-versions-table conn git-repository-id commit)
-         (update-package-derivations-table conn git-repository-id commit))
+        (let ((guix-revision-id
+               (insert-guix-revision conn git-repository-id
+                                     commit store-item)))
+          (and
+           guix-revision-id
+           (extract-information-from conn guix-revision-id
+                                     commit store-item)
+           (update-package-versions-table conn git-repository-id commit)
+           (update-package-derivations-table conn git-repository-id commit)))
         (begin
           (simple-format #t "Failed to generate store item for ~A\n"
                          commit)
