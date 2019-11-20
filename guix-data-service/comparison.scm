@@ -4,6 +4,8 @@
   #:use-module (ice-9 vlist)
   #:use-module (ice-9 match)
   #:use-module (squee)
+  #:use-module (json)
+  #:use-module (guix-data-service database)
   #:use-module (guix-data-service model utils)
   #:use-module (guix-data-service model derivation)
   #:export (derivation-differences-data
@@ -18,7 +20,9 @@
             package-data-version-changes
             package-data-derivation-changes
 
-            lint-warning-differences-data))
+            lint-warning-differences-data
+
+            channel-news-differences-data))
 
 (define (group-to-alist process lst)
   (fold (lambda (element result)
@@ -658,3 +662,108 @@ ORDER BY coalesce(base_lint_warnings.name, target_lint_warnings.name) ASC, base_
   (exec-query conn query
               (list base-guix-revision-id
                     target-guix-revision-id)))
+
+(define (channel-news-differences-data conn
+                                       base-guix-revision-id
+                                       target-guix-revision-id)
+  (define query
+    "
+WITH base_news_entries AS (
+  SELECT channel_news_entries.id,
+         channel_news_entries.commit,
+         channel_news_entries.tag,
+         (
+           SELECT JSON_AGG(ARRAY[lang,text])
+           FROM channel_news_entry_text
+           INNER JOIN channel_news_entry_titles
+             ON channel_news_entry_text.id = channel_news_entry_titles.channel_news_entry_text_id
+             WHERE channel_news_entry_titles.channel_news_entry_id = channel_news_entries.id
+         ) AS title_text,
+         (
+           SELECT JSON_AGG(ARRAY[lang,text])
+           FROM channel_news_entry_text
+           INNER JOIN channel_news_entry_bodies
+             ON channel_news_entry_text.id = channel_news_entry_bodies.channel_news_entry_text_id
+           WHERE channel_news_entry_bodies.channel_news_entry_id = channel_news_entries.id
+         ) AS body_text
+  FROM channel_news_entries
+  WHERE id IN (
+    SELECT channel_news_entry_id
+    FROM guix_revision_channel_news_entries
+    WHERE guix_revision_channel_news_entries.guix_revision_id = $1
+  )
+), target_news_entries AS (
+  SELECT channel_news_entries.id,
+         channel_news_entries.commit,
+         channel_news_entries.tag,
+         (
+           SELECT JSON_AGG(ARRAY[lang,text])
+           FROM channel_news_entry_text
+           INNER JOIN channel_news_entry_titles
+             ON channel_news_entry_text.id = channel_news_entry_titles.channel_news_entry_text_id
+             WHERE channel_news_entry_titles.channel_news_entry_id = channel_news_entries.id
+         ) AS title_text,
+         (
+           SELECT JSON_AGG(ARRAY[lang,text])
+           FROM channel_news_entry_text
+           INNER JOIN channel_news_entry_bodies
+             ON channel_news_entry_text.id = channel_news_entry_bodies.channel_news_entry_text_id
+           WHERE channel_news_entry_bodies.channel_news_entry_id = channel_news_entries.id
+         ) AS body_text
+  FROM channel_news_entries
+  WHERE id IN (
+    SELECT channel_news_entry_id
+    FROM guix_revision_channel_news_entries
+    WHERE guix_revision_channel_news_entries.guix_revision_id = $2
+  )
+)
+SELECT coalesce(
+         base_news_entries.commit,
+         target_news_entries.commit
+       ) AS commit,
+       coalesce(
+         base_news_entries.tag,
+         target_news_entries.tag
+       ) AS tag,
+       coalesce(
+         base_news_entries.title_text,
+         target_news_entries.title_text
+       ) AS title_text,
+       coalesce(
+         base_news_entries.body_text,
+         target_news_entries.body_text
+       ) AS body_text,
+       CASE
+         WHEN base_news_entries.id IS NULL THEN 'new'
+         WHEN target_news_entries.id IS NULL THEN 'removed'
+         ELSE 'changed'
+       END AS change
+FROM base_news_entries
+FULL OUTER JOIN target_news_entries
+  ON base_news_entries.commit = target_news_entries.commit
+WHERE (
+  base_news_entries.id IS NULL OR
+  target_news_entries.id IS NULL OR
+  base_news_entries.id != target_news_entries.id
+)")
+
+  (map
+   (match-lambda
+     ((commit tag title_text body_text change)
+      (list commit
+            tag
+            (map (match-lambda
+                   (#(lang text)
+                    (cons lang text)))
+                 (vector->list
+                  (json-string->scm title_text)))
+            (map (match-lambda
+                   (#(lang text)
+                    (cons lang text)))
+                 (vector->list
+                  (json-string->scm body_text)))
+            (string->symbol change))))
+   (exec-query-with-null-handling conn query
+                                  (peek (list base-guix-revision-id
+                                        target-guix-revision-id)))))
+

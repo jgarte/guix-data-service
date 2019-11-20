@@ -20,6 +20,10 @@
   #:use-module (srfi srfi-11)
   #:use-module (ice-9 match)
   #:use-module (ice-9 vlist)
+  #:use-module (texinfo)
+  #:use-module (texinfo html)
+  #:use-module (texinfo plain-text)
+  #:use-module (guix-data-service web sxml)
   #:use-module (guix-data-service web util)
   #:use-module (guix-data-service web render)
   #:use-module (guix-data-service web query-parameters)
@@ -135,6 +139,14 @@
                                 parsed-query-parameters)))
     (_ #f)))
 
+(define (texinfo->variants-alist s)
+  (let ((stexi (texi-fragment->stexi s)))
+    `((source . ,s)
+      (html   . ,(with-output-to-string
+                   (lambda ()
+                     (sxml->html (stexi->shtml stexi)))))
+      (plain . ,(stexi->plain-text stexi)))))
+
 (define (render-compare mime-types
                         conn
                         query-parameters)
@@ -184,13 +196,45 @@
                    2
                    (lint-warning-differences-data conn
                                                   base-revision-id
-                                                  target-revision-id))))
+                                                  target-revision-id)))
+                 (channel-news-data
+                  (channel-news-differences-data conn
+                                                 base-revision-id
+                                                 target-revision-id)))
             (case (most-appropriate-mime-type
                    '(application/json text/html)
                    mime-types)
               ((application/json)
                (render-json
-                `((new-packages . ,(list->vector new-packages))
+                `((channel-news . ,(list->vector
+                                    (map
+                                     (match-lambda
+                                       ((commit tag title_text body_text change)
+                                        `(,@(if (null? commit)
+                                                '()
+                                                `((commit . ,commit)))
+                                          ,@(if (null? tag)
+                                                '()
+                                                `((tag . ,tag)))
+                                          (title-text
+                                           . ,(map
+                                               (match-lambda
+                                                 ((lang . text)
+                                                  (cons
+                                                   lang
+                                                   (texinfo->variants-alist text))))
+                                               title_text))
+                                          (body-text
+                                           . ,(map
+                                               (match-lambda
+                                                 ((lang . text)
+                                                  (cons
+                                                   lang
+                                                   (texinfo->variants-alist text))))
+                                               body_text))
+                                          (change . ,change))))
+                                     channel-news-data)))
+                  (new-packages . ,(list->vector new-packages))
                   (removed-packages . ,(list->vector removed-packages))
                   (version-changes . ,(list->vector
                                        (map
@@ -210,7 +254,8 @@
                                 new-packages
                                 removed-packages
                                 version-changes
-                                lint-warnings-data)
+                                lint-warnings-data
+                                channel-news-data)
                 #:extra-headers http-headers-for-unchanging-content))))))))
 
 (define (render-compare-by-datetime mime-types
@@ -272,13 +317,45 @@
                      2
                      (lint-warning-differences-data conn
                                                     base-revision-id
-                                                    target-revision-id))))
+                                                    target-revision-id)))
+                   (channel-news-data
+                    (channel-news-differences-data conn
+                                                   base-revision-id
+                                                   target-revision-id)))
               (case (most-appropriate-mime-type
                      '(application/json text/html)
                      mime-types)
                 ((application/json)
                  (render-json
-                  `((new-packages . ,(list->vector new-packages))
+                  `((channel-news . ,(list->vector
+                                      (map
+                                       (match-lambda
+                                         ((commit tag title_text body_text change)
+                                          `(,@(if (null? commit)
+                                                  '()
+                                                  `((commit . ,commit)))
+                                            ,@(if (null? tag)
+                                                  '()
+                                                  `((tag . ,tag)))
+                                            (title-text
+                                             . ,(map
+                                                 (match-lambda
+                                                   ((lang . text)
+                                                    (cons
+                                                     lang
+                                                     (texinfo->variants-alist text))))
+                                                 title_text))
+                                            (body-text
+                                             . ,(map
+                                                 (match-lambda
+                                                   ((lang . text)
+                                                    (cons
+                                                     lang
+                                                     (texinfo->variants-alist text))))
+                                                 body_text))
+                                            (change . ,change))))
+                                       channel-news-data)))
+                    (new-packages . ,(list->vector new-packages))
                     (removed-packages . ,(list->vector removed-packages))
                     (version-changes . ,(list->vector
                                          (map
@@ -300,7 +377,8 @@
                                   new-packages
                                   removed-packages
                                   version-changes
-                                  lint-warnings-data)
+                                  lint-warnings-data
+                                  channel-news-data)
                   #:extra-headers http-headers-for-unchanging-content)))))))))
 
 (define (render-compare/derivation mime-types

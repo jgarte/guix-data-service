@@ -19,6 +19,8 @@
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 match)
   #:use-module (ice-9 vlist)
+  #:use-module (texinfo)
+  #:use-module (texinfo html)
   #:use-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service web view html)
   #:export (compare
@@ -33,7 +35,8 @@
                  new-packages
                  removed-packages
                  version-changes
-                 lint-warnings-data)
+                 lint-warnings-data
+                 channel-news-data)
   (define base-commit
     (assq-ref query-parameters 'base_commit))
 
@@ -89,7 +92,59 @@
        (div
         (@ (class "col-sm-12"))
         (h3 (@ (style "clear: both;"))
-            "New packages")
+            "News entries")
+        ,(if (null? channel-news-data)
+             "No news entry changes"
+             (map
+              (match-lambda
+                ((commit tag title-text body-text change)
+                 `(div
+                   (h4 ,@(if (null? commit)
+                             '()
+                             `(("Commit: " (samp ,commit))))
+                       ,@(if (null? tag)
+                             '()
+                             `(("Tag: " ,tag))))
+                   (table
+                    (@ (class "table"))
+                    (thead
+                     (tr
+                      (th (@ (class "col-sm-1")) "")
+                      (th (@ (class "col-sm-1")) "Language")
+                      (th (@ (class "col-sm-3")) "Title")
+                      (th (@ (class "col-sm-7")) "Body"))
+                     (tbody
+                      ,@(let ((languages
+                               (sort
+                                (delete-duplicates
+                                 (append (map car title-text)
+                                         (map car body-text)))
+                                string<?)))
+                          (map (lambda (lang index)
+                                 `(tr
+                                   ,@(if (eq? index 0)
+                                         `((td (@ (rowspan ,(length languages)))
+                                               ,(case change
+                                                  ((new) "New")
+                                                  ((removed) "Removed")
+                                                  ((changed) "Changed"))))
+                                         '())
+                                   (td ,lang)
+                                   (td ,(stexi->shtml
+                                         (texi-fragment->stexi
+                                          (assoc-ref title-text lang))))
+                                   (td ,
+                                    (stexi->shtml
+                                     (texi-fragment->stexi
+                                      (assoc-ref body-text lang))))))
+                               languages
+                               (iota (length languages))))))))))
+              channel-news-data))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h3 "New packages")
         ,(if (null? new-packages)
              '(p "No new packages")
              `(table
