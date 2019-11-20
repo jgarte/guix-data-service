@@ -2,10 +2,57 @@
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 vlist)
   #:use-module (ice-9 match)
+  #:use-module (json)
   #:use-module (squee)
   #:use-module (guix channels)
+  #:use-module (guix-data-service database)
   #:use-module (guix-data-service model utils)
-  #:export (insert-channel-news-entries-for-guix-revision))
+  #:export (select-channel-news-entries-contained-in-guix-revision
+
+            insert-channel-news-entries-for-guix-revision))
+
+(define (select-channel-news-entries-contained-in-guix-revision conn commit)
+  (define query
+    "
+SELECT channel_news_entries.commit,
+       channel_news_entries.tag,
+       (
+         SELECT JSON_AGG(ARRAY[lang,text])
+         FROM channel_news_entry_text
+         INNER JOIN channel_news_entry_titles
+           ON channel_news_entry_text.id = channel_news_entry_titles.channel_news_entry_text_id
+           WHERE channel_news_entry_titles.channel_news_entry_id = channel_news_entries.id
+       ) AS title_text,
+       (
+         SELECT JSON_AGG(ARRAY[lang,text])
+         FROM channel_news_entry_text
+         INNER JOIN channel_news_entry_bodies
+           ON channel_news_entry_text.id = channel_news_entry_bodies.channel_news_entry_text_id
+         WHERE channel_news_entry_bodies.channel_news_entry_id = channel_news_entries.id
+       ) AS body_text
+       FROM channel_news_entries
+       INNER JOIN guix_revision_channel_news_entries ON
+         channel_news_entries.id = guix_revision_channel_news_entries.channel_news_entry_id
+       INNER JOIN guix_revisions
+         ON guix_revision_channel_news_entries.guix_revision_id = guix_revisions.id
+       WHERE guix_revisions.commit = $1
+       ORDER BY guix_revision_channel_news_entries.index ASC")
+
+  (map (match-lambda
+         ((commit tag title_text body_text)
+          (list commit
+                tag
+                (map (match-lambda
+                       (#(lang text)
+                        (cons lang text)))
+                     (vector->list
+                      (json-string->scm title_text)))
+                (map (match-lambda
+                       (#(lang text)
+                        (cons lang text)))
+                     (vector->list
+                      (json-string->scm body_text))))))
+       (exec-query-with-null-handling conn query (list commit))))
 
 (define (insert-channel-news-entry-text conn text)
   (insert-missing-data-and-return-all-ids
