@@ -327,7 +327,14 @@
                      mime-types)
                 ((application/json)
                  (render-json
-                  `((channel-news . ,(list->vector
+                  `((revisions
+                     . ((base
+                         . ((commit . ,(second base-revision-details))
+                            (datetime . ,(fifth base-revision-details))))
+                        (target
+                         . ((commit . ,(second target-revision-details))
+                            (datetime . ,(fifth target-revision-details))))))
+                    (channel-news . ,(list->vector
                                       (map
                                        (match-lambda
                                          ((commit tag title_text body_text change)
