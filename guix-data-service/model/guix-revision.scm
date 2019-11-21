@@ -72,8 +72,8 @@ FROM guix_revisions
 INNER JOIN git_branches
   ON git_branches.commit = guix_revisions.commit
  AND git_branches.git_repository_id = guix_revisions.git_repository_id
-WHERE git_branches.name = $1 AND git_branches.datetime >= $2
-ORDER BY git_branches.datetime ASC
+WHERE git_branches.name = $1 AND git_branches.datetime <= $2
+ORDER BY git_branches.datetime DESC
 LIMIT 1")
 
   (car
