@@ -289,7 +289,6 @@
                   (cons (cons last count)
                         result))
                  (((a b rst ...) (count result ...))
-                  (peek a b)
                   (if (string=? a b)
                       (cons (+ 1 count)
                             (cons #f result))

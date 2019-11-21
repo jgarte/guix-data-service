@@ -764,6 +764,6 @@ WHERE (
                   (json-string->scm body_text)))
             (string->symbol change))))
    (exec-query-with-null-handling conn query
-                                  (peek (list base-guix-revision-id
-                                        target-guix-revision-id)))))
+                                  (list base-guix-revision-id
+                                        target-guix-revision-id))))
 
