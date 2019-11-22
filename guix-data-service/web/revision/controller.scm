@@ -28,6 +28,7 @@
   #:use-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service web util)
   #:use-module (guix-data-service jobs load-new-guix-revision)
+  #:use-module (guix-data-service model channel-news)
   #:use-module (guix-data-service model package)
   #:use-module (guix-data-service model git-branch)
   #:use-module (guix-data-service model git-repository)
@@ -71,6 +72,19 @@
                                        (render-unknown-revision mime-types
                                                                 conn
                                                                 commit-hash)))
+    (('GET "revision" commit-hash "news")
+     (if (guix-commit-exists? conn commit-hash)
+         (let ((parsed-query-parameters
+                (parse-query-parameters
+                 request
+                 `((lang ,identity #:multi-value)))))
+           (render-revision-news mime-types
+                                 conn
+                                 commit-hash
+                                 parsed-query-parameters))
+         (render-unknown-revision mime-types
+                                  conn
+                                  commit-hash)))
     (('GET "revision" commit-hash "packages")
      (if (guix-commit-exists? conn commit-hash)
          (let ((parsed-query-parameters
@@ -214,6 +228,38 @@
                 #:path-base path-base
                 #:header-text header-text)
         #:extra-headers http-headers-for-unchanging-content)))))
+
+(define (render-revision-news mime-types
+                              conn
+                              commit-hash
+                              query-parameters)
+  (if (any-invalid-query-parameters? query-parameters)
+      (case (most-appropriate-mime-type
+             '(application/json text/html)
+             mime-types)
+        ((application/json)
+         (render-json
+          `((error . "invalid query"))))
+        (else
+         (render-html
+          #:sxml (view-revision-news commit-hash
+                                     query-parameters
+                                     '()))))
+      (let ((news-entries
+             (select-channel-news-entries-contained-in-guix-revision conn
+                                                                     commit-hash)))
+        (case (most-appropriate-mime-type
+               '(application/json text/html)
+               mime-types)
+          ((application/json)
+           (render-json
+            '()))
+          (else
+           (render-html
+            #:sxml (view-revision-news commit-hash
+                                       query-parameters
+                                       news-entries)
+            #:extra-headers http-headers-for-unchanging-content))))))
 
 (define* (render-revision-packages mime-types
                                    conn

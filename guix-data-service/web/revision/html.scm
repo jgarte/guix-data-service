@@ -24,12 +24,68 @@
   #:use-module (guix-data-service web util)
   #:use-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service web view html)
-  #:export (view-revision-package
+  #:export (view-revision-news
+            view-revision-package
             view-revision-package-and-version
             view-revision
             view-revision-packages
             view-revision-lint-warnings
             unknown-revision))
+
+(define* (view-revision-news commit-hash
+                             query-parameters
+                             news-entries)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h3 (a (@ (style "white-space: nowrap;")
+                  (href ,(string-append "/revision/" commit-hash)))
+               "Revision " (samp ,commit-hash)))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h1 "Channel News Entries")
+        ,@(map
+           (match-lambda
+             ((commit tag title-text body-text)
+              `(div
+                (h4 ,@(if (null? commit)
+                          '()
+                          `(("Commit: " (samp ,commit))))
+                    ,@(if (null? tag)
+                          '()
+                          `(("Tag: " ,tag))))
+                (table
+                 (@ (class "table"))
+                 (thead
+                  (tr
+                   (th (@ (class "col-sm-1")) "Language")
+                   (th (@ (class "col-sm-3")) "Title")
+                   (th (@ (class "col-sm-8")) "Body"))
+                  (tbody
+                   ,@(map (lambda (lang)
+                            `(tr
+                              (td ,lang)
+                              (td ,(stexi->shtml
+                                    (texi-fragment->stexi
+                                     (assoc-ref title-text lang))))
+                              (td ,
+                               (stexi->shtml
+                                (texi-fragment->stexi
+                                 (assoc-ref body-text lang))))))
+                          (sort
+                           (delete-duplicates
+                            (append (map car title-text)
+                                    (map car body-text)))
+                           string<?))))))))
+           news-entries)))))))
 
 (define* (view-revision-package revision-commit-hash
                                 name
