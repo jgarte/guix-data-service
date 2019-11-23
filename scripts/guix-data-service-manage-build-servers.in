@@ -1,0 +1,72 @@
+#!@GUILE@ --no-auto-compile
+-*- scheme -*-
+-*- geiser-scheme-implementation: guile -*-
+!#
+;;; Guix Data Service -- Information about Guix over time
+;;; Copyright © 2019 Christopher Baines <mail@cbaines.net>
+;;;
+;;; This file is part of guix-data-service.
+;;;
+;;; guix-data-service is free software; you can redistribute it and/or modify it
+;;; under the terms of the GNU General Public License as published by
+;;; the Free Software Foundation; either version 3 of the License, or
+;;; (at your option) any later version.
+;;;
+;;; guix-data-service is distributed in the hope that it will be useful, but
+;;; WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;;; General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU General Public License
+;;; along with the guix-data-service.  If not, see <http://www.gnu.org/licenses/>.
+
+(use-modules (srfi srfi-1)
+             (srfi srfi-37)
+             (ice-9 match)
+             (ice-9 textual-ports)
+             (squee)
+             (guix-data-service database)
+             (guix-data-service model build-server)
+             (guix-data-service model build-server-token-seed)
+             (guix-data-service builds))
+
+(define %options
+  ;; Specifications of the command-line options
+  (list (option '("secret-key-base-file") #t #f
+                (lambda (opt name arg result)
+                  (alist-cons 'secret-key-base
+                              (string-trim-right
+                               (call-with-input-file arg get-string-all))
+                              result)))))
+
+(define (parse-options args)
+  (args-fold
+   args %options
+   (lambda (opt name arg result)
+     (error "unrecognized option" name))
+   (lambda (arg result)
+     (error "extraneous argument" arg))
+   '()))
+
+(let ((opts (parse-options (cdr (program-arguments)))))
+  (with-postgresql-connection
+   "manage-build-servers"
+   (lambda (conn)
+     (for-each
+      (match-lambda
+        ((id url lookup-all-derivations?)
+         (simple-format #t "\nBuild server: ~A (id: ~A)\n"
+                        url
+                        id)
+         (map
+          (match-lambda
+            ((token-seed . token)
+             (simple-format #t " - token-seed: ~A
+   token:      ~A\n"
+                            token-seed
+                            token)))
+          (compute-tokens-for-build-server
+           conn
+           (assq-ref opts 'secret-key-base)
+           id))))
+      (select-build-servers conn)))))
