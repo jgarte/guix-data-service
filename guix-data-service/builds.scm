@@ -18,7 +18,7 @@
       (for-each
        (match-lambda
          ((id url lookup-all-derivations?)
-          (when (string=? lookup-all-derivations? "t")
+          (when lookup-all-derivations?
             (query-build-server conn id url))))
        build-servers))))
 
@@ -166,7 +166,7 @@
      ") "
      "LIMIT 1000"))
 
-  (exec-query conn query (list build-server-id)))
+  (exec-query conn query (list (number->string build-server-id))))
 
 (define (select-derivations-with-no-known-build conn)
   (define query
