@@ -27,25 +27,27 @@
   #:use-module (guix-data-service web util)
   #:export (start-guix-data-service-web-server))
 
-(define (run-controller controller request body)
+(define (run-controller controller request body secret-key-base)
   (let-values (((request-components mime-types)
                 (request->path-components-and-mime-type request)))
     (controller request
                 (cons (request-method request)
                       request-components)
                 mime-types
-                body)))
+                body
+                secret-key-base)))
 
-(define (handler request body controller)
+(define (handler request body controller secret-key-base)
   (display
    (format #f "~a ~a\n"
            (request-method request)
            (uri-path (request-uri request))))
   (apply values
-         (run-controller controller request body)))
+         (run-controller controller request body secret-key-base)))
 
-(define (start-guix-data-service-web-server port host)
+(define (start-guix-data-service-web-server port host secret-key-base)
   (run-server (lambda (request body)
-                (handler request body controller))
+                (handler request body controller
+                         secret-key-base))
               #:host host
               #:port port))

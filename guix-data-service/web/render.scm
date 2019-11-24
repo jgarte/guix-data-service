@@ -39,6 +39,7 @@
             not-found
             unprocessable-entity
             created
+            no-content
             redirect))
 
 (define file-mime-types
@@ -165,6 +166,10 @@
 
 (define (created)
   (list (build-response #:code 201)
+        ""))
+
+(define (no-content)
+  (list (build-response #:code 204)
         ""))
 
 (define (redirect path)

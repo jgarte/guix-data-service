@@ -25,6 +25,7 @@
 
 (use-modules (srfi srfi-1)
              (srfi srfi-37)
+             (ice-9 textual-ports)
              (system repl server)
              (guix-data-service config)
              (guix-data-service web server))
@@ -48,6 +49,12 @@
                 (lambda (opt name arg result)
                   (alist-cons 'pid-file
                               arg
+                              result)))
+        (option '("secret-key-base-file") #t #f
+                (lambda (opt name arg result)
+                  (alist-cons 'secret-key-base
+                              (string-trim-right
+                               (call-with-input-file arg get-string-all))
                               result)))
         (option '("update-database") #f #f
                 (lambda (opt name _ result)
@@ -123,4 +130,5 @@
                  (assq-ref opts 'port))
 
   (start-guix-data-service-web-server (assq-ref opts 'port)
-                                      (assq-ref opts 'host)))
+                                      (assq-ref opts 'host)
+                                      (assq-ref opts 'secret-key-base)))

@@ -21,10 +21,12 @@
   #:use-module (ice-9 vlist)
   #:use-module (ice-9 pretty-print)
   #:use-module (ice-9 textual-ports)
+  #:use-module (rnrs bytevectors)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-26)
   #:use-module (web request)
+  #:use-module (web response)
   #:use-module (web uri)
   #:use-module (texinfo)
   #:use-module (texinfo html)
@@ -53,6 +55,7 @@
   #:use-module (guix-data-service web revision controller)
   #:use-module (guix-data-service web jobs controller)
   #:use-module (guix-data-service web view html)
+  #:use-module (guix-data-service web build-server controller)
   #:use-module (guix-data-service web compare controller)
   #:use-module (guix-data-service web revision controller)
   #:use-module (guix-data-service web repository controller)
@@ -102,9 +105,9 @@
               (derivation-outputs (select-derivation-outputs-by-derivation-id
                                    conn
                                    (first derivation)))
-              (builds (select-builds-with-context-by-derivation-id
+              (builds (select-builds-with-context-by-derivation-file-name
                        conn
-                       (first derivation))))
+                       (second derivation))))
           (render-html
            #:sxml (view-derivation derivation
                                    derivation-inputs
@@ -176,7 +179,9 @@
       (static-asset-from-store-renderer)
       render-static-asset))
 
-(define (controller request method-and-path-components mime-types body)
+(define (controller request method-and-path-components
+                    mime-types body
+                    secret-key-base)
   (match method-and-path-components
     (('GET "assets" rest ...)
      (or (handle-static-assets (string-join rest "/")
@@ -223,13 +228,15 @@
                                              method-and-path-components
                                              mime-types
                                              body
-                                             conn))))))
+                                             conn
+                                             secret-key-base))))))
 
 (define (controller-with-database-connection request
                                              method-and-path-components
                                              mime-types
                                              body
-                                             conn)
+                                             conn
+                                             secret-key-base)
   (define path
     (uri-path (request-uri request)))
 
@@ -239,6 +246,15 @@
            mime-types
            body
            conn)
+        (not-found (request-uri request))))
+
+  (define (delegate-to-with-secret-key-base f)
+    (or (f request
+           method-and-path-components
+           mime-types
+           body
+           conn
+           secret-key-base)
         (not-found (request-uri request))))
 
   (match method-and-path-components
@@ -276,6 +292,8 @@
          (render-formatted-derivation conn
                                       (string-append "/gnu/store/" filename))
          (not-found (request-uri request))))
+    (((or 'GET 'POST) "build-server" _ ...)
+     (delegate-to-with-secret-key-base build-server-controller))
     (('GET "compare" _ ...)             (delegate-to compare-controller))
     (('GET "compare-by-datetime" _ ...) (delegate-to compare-controller))
     (('GET "jobs")         (delegate-to jobs-controller))

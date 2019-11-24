@@ -387,16 +387,19 @@
           ,@(map
              (match-lambda
                ((build-id build-server-url derivation-file-name
-                          status-fetched-at starttime stoptime status)
+                          timestamp status)
                 `(tr
                   (td (@ (class "text-center"))
                       ,(build-status-span status))
                   (td (a (@ (href ,derivation-file-name))
                          ,(display-store-item-short derivation-file-name)))
-                  (td ,starttime)
-                  (td ,stoptime)
+                  (td ,timestamp)
                   (td (a (@ (href ,(simple-format
-                                    #f "~Abuild/~A" build-server-url build-id)))
+                                    #f "~Abuild/~A"
+                                    build-server-url
+                                    (string-drop
+                                     derivation-file-name
+                                     (string-length "/gnu/store/")))))
                          "View build on " ,build-server-url)))))
              builds)))))))))
 
@@ -599,14 +602,17 @@
                  ,(build-status-span "")))
               (map
                (match-lambda
-                 ((build-id build-server-url status-fetched-at
-                            starttime stoptime status)
+                 ((build-server-url timestamp status)
                   `(div
                     (@ (class "text-center"))
                     (div ,(build-status-span status))
                     (a (@ (style "display: inline-block; margin-top: 0.4em;")
                           (href ,(simple-format
-                                  #f "~Abuild/~A" build-server-url build-id)))
+                                  #f "~Abuild/~A"
+                                  build-server-url
+                                  (string-drop
+                                   (second derivation)
+                                   (string-length "/gnu/store/")))))
                        "View build on " ,build-server-url))))
                builds)))
        (div

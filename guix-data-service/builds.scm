@@ -1,4 +1,5 @@
 (define-module (guix-data-service builds)
+  #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-11)
   #:use-module (ice-9 match)
   #:use-module (ice-9 iconv)
@@ -28,21 +29,59 @@
   (simple-format #t "\nFetching unseen derivations\n")
   (process-derivations conn id url))
 
+(define (insert-build-statuses-from-data conn build-server-id build-id data)
+  (define stop-statuses
+    (lset-difference string=?
+                     build-status-strings
+                     '("scheduled" "started")))
+
+  (let ((status-string
+         (assq-ref build-statuses
+                   (assoc-ref data "buildstatus")))
+        (existing-status-entries
+         (map second
+              (select-build-statuses-by-build-id conn
+                                                 build-id
+                                                 build-server-id)))
+        (timestamp
+         (assoc-ref data "timestamp"))
+        (starttime
+         (assoc-ref data "starttime"))
+        (stoptime
+         (assoc-ref data "stoptime")))
+    (map (match-lambda
+           ((timestamp status)
+            (insert-build-status conn build-id timestamp status)))
+         (filter
+          list?
+          (list
+           (unless (member "scheduled" existing-status-entries)
+             (list timestamp "scheduled"))
+           (when (and (< 0 starttime)
+                      (not (member "started" existing-status-entries)))
+             (list starttime "started"))
+           (when (and (< 0 stoptime)
+                      (not (member status-string existing-status-entries)))
+             (list stoptime status-string)))))))
+
 (define (process-pending-builds conn build-server-id url)
   (for-each
    (match-lambda
-     ((build-id internal-build-id derivation-id derivation-file-name)
-      (match (fetch-build url build-id)
-        (#f #f)
-        (() #f)
-        (status
-         (insert-build-status conn
-                              internal-build-id
-                              (assoc-ref status "starttime")
-                              (assoc-ref status "stoptime")
-                              (assq-ref build-statuses
-                                        (assoc-ref status "buildstatus")))))
-      (display ".")
+     ((build-id derivation-file-name)
+      (match (fetch-build url derivation-file-name)
+        (#f
+         (display ".")
+         #f)
+        (()
+         (display ".")
+         #f)
+        (data
+         (insert-build-statuses-from-data
+          conn
+          build-server-id
+          build-id
+          data)
+         (display "-")))
       ;; Try not to make to many requests at once
       (usleep 200)))
    (select-pending-builds conn build-server-id)))
@@ -51,47 +90,24 @@
   (for-each
    (match-lambda
      ((derivation-id derivation-file-name)
-      (and=> (fetch-build-for-derivation url derivation-file-name)
-             (lambda (status)
-               (let ((internal-build-id
-                      (ensure-build-exists conn
-                                           build-server-id
-                                           (assoc-ref status "id")
-                                           derivation-id
-                                           (assoc-ref status "timestamp"))))
-
-                 (insert-build-status conn
-                                      internal-build-id
-                                      (assoc-ref status "starttime")
-                                      (assoc-ref status "stoptime")
-                                      (assq-ref build-statuses
-                                                (assoc-ref status "buildstatus"))))))
-      (display ".")
+      (if
+       (and=> (fetch-build url derivation-file-name)
+              (lambda (data)
+                (let ((build-id
+                       (ensure-build-exists conn
+                                            build-server-id
+                                            derivation-file-name)))
+                  (insert-build-statuses-from-data
+                   conn
+                   build-server-id
+                   build-id
+                   data))
+                #t))
+       (display "-")
+       (display "."))
       ;; Try not to make to many requests at once
       (usleep 200)))
    (select-derivations-with-no-known-build conn)))
-
-(define (fetch-build-for-derivation url derivation-file-name)
-  (catch
-    #t
-    (lambda ()
-      (match (fetch-latest-builds-for-derivation url derivation-file-name)
-        ((or #f #())
-         (match (fetch-queued-builds-for-derivation url derivation-file-name)
-           ((or #f #())
-            (simple-format #t "\nwarning: couldn't find build for ~A on ~A\n"
-                           derivation-file-name
-                           url)
-            #f)
-           (#(status)
-            status)))
-        (#(status)
-         status)))
-    (lambda args
-      (simple-format #t "\nerror: couldn't fetch build for ~A on ~A\n"
-                     derivation-file-name url)
-      (simple-format #t "error: ~A\n" args)
-      #f)))
 
 (define (json-string->scm* string)
   (catch
@@ -104,78 +120,58 @@
       (simple-format #t "\nerror parsing: ~A\n" string)
       #f)))
 
-(define (fetch-latest-builds-for-derivation base-url derivation-file-name)
-  (define url
-    (string-append base-url
-                   "api/latestbuilds?nr=1"
-                   "&derivation=" derivation-file-name))
-
-  (let-values (((response body) (http-request url)))
-    (let ((code (response-code response)))
-      (cond
-       ((eq? code 200)
-        (json-string->scm
-         (bytevector->string body "utf-8")))
-       (else
-        (simple-format #t "\nerror: response code ~A: ~A\n" url code)
-        #f)))))
-
-(define (fetch-queued-builds-for-derivation base-url derivation-file-name)
-  (define url
-    (string-append base-url
-                   "api/queue?nr=1"
-                   "&derivation=" derivation-file-name))
-
-  (let-values (((response body) (http-request url)))
-    (let ((code (response-code response)))
-      (cond
-       ((eq? code 200)
-        (json-string->scm
-         (bytevector->string body "utf-8")))
-       (else
-        (simple-format #t "\nerror: response code ~A: ~A\n" url code)
-        #f)))))
-
-(define (fetch-build url id)
+(define (fetch-build url derivation-file-name)
   (let-values
       (((response body)
-        (http-request (string-append url "build/" id))))
+        (http-request (string-append
+                       url
+                       (string-append
+                        "build"
+                        (string-drop
+                         derivation-file-name
+                         (string-length "/gnu/store")))))))
 
     (cond
      ((eq? (response-code response) 200)
       (json-string->scm
        (bytevector->string body "utf-8")))
      (else
-      (simple-format #t "\nwarning: couldn't find build ~A on ~A\n"
-                     id
-                     url)
       #f))))
 
 (define (select-pending-builds conn build-server-id)
   (define query
-    (string-append
-     "SELECT builds.id, builds.internal_id, derivations.id, derivations.file_name "
-     "FROM derivations "
-     "INNER JOIN builds "
-     "ON derivations.id = builds.derivation_id "
-     "INNER JOIN build_status "
-     "ON builds.internal_id = build_status.internal_build_id "
-     "WHERE builds.build_server_id = $1 AND "
-     "build_status.status IN ("
-     "'scheduled', 'started'"
-     ") "
-     "LIMIT 1000"))
+    "
+SELECT builds.id, derivations.file_name
+FROM derivations
+INNER JOIN builds
+  ON derivations.file_name = builds.derivation_file_name
+INNER JOIN build_status
+  ON builds.id = build_status.build_id
+WHERE builds.build_server_id = $1 AND
+      build_status.status IN (
+        'scheduled', 'started'
+      )
+LIMIT 1000")
 
-  (exec-query conn query (list (number->string build-server-id))))
+  (map
+   (match-lambda
+     ((build-id derivation-file-name)
+      (list (string->number build-id)
+            derivation-file-name)))
+   (exec-query conn query (list (number->string build-server-id)))))
 
 (define (select-derivations-with-no-known-build conn)
   (define query
-    (string-append
-     "SELECT derivations.id, derivations.file_name "
-     "FROM derivations "
-     "WHERE derivations.id NOT IN ("
-     "SELECT derivation_id FROM builds"
-     ") "
-     "LIMIT 15000"))
+    ;; Only select derivations that are in the package_derivations table, as
+    ;; Cuirass doesn't build the intermediate derivations
+    "
+SELECT derivations.id, derivations.file_name
+FROM derivations
+WHERE derivations.file_name NOT IN (
+  SELECT derivation_file_name FROM builds
+) AND derivations.id IN (
+  SELECT derivation_id FROM package_derivations
+)
+LIMIT 15000")
 
   (exec-query conn query))

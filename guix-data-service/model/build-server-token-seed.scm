@@ -12,10 +12,13 @@
                         secret-key-base
                         build-server-id
                         token-seed)))
-    (base64-encode
-     (bytevector-hash
-      (string->utf8 source-string)
-      (hash-algorithm sha1)))))
+    (string-filter
+     (base64-encode
+      (bytevector-hash
+       (string->utf8 source-string)
+       (hash-algorithm sha1)))
+     ;; Remove the + / and = to make handling the value easier
+     char-set:letter+digit)))
 
 (define (compute-tokens-for-build-server conn secret-key-base build-server-id)
   (define query
