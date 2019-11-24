@@ -957,7 +957,10 @@ ORDER BY packages.name, packages.version"
 
   #t)
 
-(define (update-package-derivations-table conn git-repository-id commit)
+(define (update-package-derivations-table conn
+                                          git-repository-id
+                                          guix-revision-id
+                                          commit)
   ;; Lock the table to wait for other transactions to commit before updating
   ;; the table
   (exec-query
@@ -976,9 +979,18 @@ LOCK TABLE ONLY package_derivations_by_guix_revision_range
           conn
           "
 DELETE FROM package_derivations_by_guix_revision_range
-WHERE git_repository_id = $1 AND branch_name = $2"
+WHERE git_repository_id = $1 AND
+      branch_name = $2 AND
+      derivation_id IN (
+        SELECT package_derivations.derivation_id
+        FROM package_derivations
+        INNER JOIN guix_revision_package_derivations
+          ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+        WHERE revision_id = $3
+      )"
           (list git-repository-id
-                branch-name))))
+                branch-name
+                guix-revision-id))))
       (log-time
        (simple-format #f "inserting package derivation entries for ~A" branch-name)
        (lambda ()
@@ -1011,14 +1023,21 @@ INNER JOIN (
 ) AS revision_packages ON packages.id = revision_packages.package_id
 INNER JOIN guix_revisions ON revision_packages.revision_id = guix_revisions.id
 INNER JOIN git_branches ON guix_revisions.commit = git_branches.commit
-WHERE git_branches.name = $2
+WHERE git_branches.name = $2 AND
+      revision_packages.derivation_id IN (
+        SELECT package_derivations.derivation_id
+        FROM package_derivations
+        INNER JOIN guix_revision_package_derivations
+          ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+        WHERE revision_id = $3
+      )
 WINDOW package_version AS (
   PARTITION BY packages.name, packages.version, revision_packages.derivation_id
   ORDER BY git_branches.datetime
   RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
 )
 ORDER BY packages.name, packages.version"
-          (list git-repository-id branch-name))))))
+          (list git-repository-id branch-name guix-revision-id))))))
    (exec-query
     conn
     "SELECT name FROM git_branches WHERE commit = $1 AND git_repository_id = $2"
@@ -1060,7 +1079,10 @@ ORDER BY packages.name, packages.version"
            (extract-information-from conn guix-revision-id
                                      commit store-item)
            (update-package-versions-table conn git-repository-id commit)
-           (update-package-derivations-table conn git-repository-id commit)))
+           (update-package-derivations-table conn
+                                             git-repository-id
+                                             guix-revision-id
+                                             commit)))
         (begin
           (simple-format #t "Failed to generate store item for ~A\n"
                          commit)
