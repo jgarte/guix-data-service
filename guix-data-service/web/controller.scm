@@ -52,6 +52,7 @@
   #:use-module (guix-data-service web sxml)
   #:use-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service web util)
+  #:use-module (guix-data-service web build controller)
   #:use-module (guix-data-service web revision controller)
   #:use-module (guix-data-service web jobs controller)
   #:use-module (guix-data-service web view html)
@@ -269,9 +270,7 @@
                    conn (first git-repository-details))))
                (all-git-repositories conn)))))
     (('GET "builds")
-     (render-html
-      #:sxml (view-builds (select-build-stats conn)
-                          (select-builds-with-context conn))))
+     (delegate-to build-controller))
     (('GET "statistics")
      (render-html
       #:sxml (view-statistics (count-guix-revisions conn)
