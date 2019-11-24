@@ -299,5 +299,5 @@
     (('GET "jobs")         (delegate-to jobs-controller))
     (('GET "jobs" "queue") (delegate-to jobs-controller))
     (('GET "job" job-id)   (delegate-to jobs-controller))
-    (('GET path ...)
+    ((method path ...)
      (not-found (request-uri request)))))
