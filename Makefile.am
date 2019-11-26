@@ -73,6 +73,7 @@ SOURCES =							\
   guix-data-service/jobs.scm					\
   guix-data-service/jobs/load-new-guix-revision.scm		\
   guix-data-service/model/build-server.scm			\
+  guix-data-service/model/build-server-token-seed.scm		\
   guix-data-service/model/build-status.scm			\
   guix-data-service/model/build.scm				\
   guix-data-service/model/channel-news.scm			\
