@@ -318,7 +318,7 @@
                       "/repository/" git-repository-id
                       "/branch/" branch-name
                       "/package/" package-name
-                      ".json")))
+                      "/derivation-history.json")))
            "View JSON")
         (h1 (@ (style "white-space: nowrap;"))
             (samp ,package-name))))

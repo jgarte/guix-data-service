@@ -124,22 +124,22 @@
               mime-types)
          ((application/json)
           (render-json
-           `((versions . ,(list->vector
-                           (map (match-lambda
-                                  ((package-version derivation-file-name
-                                                    first-guix-revision-commit
-                                                    first-datetime
-                                                    last-guix-revision-commit
-                                                    last-datetime)
-                                   `((version . ,package-version)
-                                     (derivation . ,derivation-file-name)
-                                     (first_revision
-                                      . ((commit . ,first-guix-revision-commit)
-                                         (datetime . ,first-datetime)))
-                                     (last_revision
-                                      . ((commit . ,last-guix-revision-commit)
-                                         (datetime . ,last-datetime))))))
-                                package-versions))))))
+           `((derivations . ,(list->vector
+                              (map (match-lambda
+                                     ((package-version derivation-file-name
+                                                       first-guix-revision-commit
+                                                       first-datetime
+                                                       last-guix-revision-commit
+                                                       last-datetime)
+                                      `((version . ,package-version)
+                                        (derivation . ,derivation-file-name)
+                                        (first_revision
+                                         . ((commit . ,first-guix-revision-commit)
+                                            (datetime . ,first-datetime)))
+                                        (last_revision
+                                         . ((commit . ,last-guix-revision-commit)
+                                            (datetime . ,last-datetime))))))
+                                   package-derivations))))))
          (else
           (render-html
            #:sxml (view-branch-package-derivations
