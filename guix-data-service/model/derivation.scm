@@ -95,13 +95,13 @@ INNER JOIN guix_revision_package_derivations
   ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
 INNER JOIN guix_revisions
   ON guix_revision_package_derivations.revision_id = guix_revisions.id
-LEFT OUTER JOIN builds ON derivations.id = builds.derivation_id
+LEFT OUTER JOIN builds ON derivations.file_name = builds.derivation_file_name
 LEFT OUTER JOIN (
-  SELECT DISTINCT ON (internal_build_id) *
+  SELECT DISTINCT ON (build_id) *
   FROM build_status
-  ORDER BY internal_build_id, status_fetched_at DESC
+  ORDER BY build_id, timestamp DESC
 ) AS latest_build_status
-  ON builds.internal_id = latest_build_status.internal_build_id
+  ON builds.id = latest_build_status.build_id
 WHERE guix_revisions.commit = $1
   AND packages.name = $2
   AND packages.version = $3
@@ -569,13 +569,13 @@ FROM derivations
 INNER JOIN package_derivations
   ON derivations.id = package_derivations.derivation_id
 LEFT OUTER JOIN builds
-  ON derivations.id = builds.derivation_id
+  ON derivations.file_name = builds.derivation_file_name
 LEFT OUTER JOIN (
-  SELECT DISTINCT ON (internal_build_id) *
+  SELECT DISTINCT ON (build_id) *
   FROM build_status
-  ORDER BY internal_build_id, status_fetched_at DESC
+  ORDER BY build_id, timestamp DESC
 ) AS latest_build_status
-ON builds.internal_id = latest_build_status.internal_build_id
+  ON builds.id = latest_build_status.build_id
 WHERE " criteria ";"))
 
   (exec-query conn query))
