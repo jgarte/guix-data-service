@@ -106,6 +106,9 @@
        (if b "TRUE" "FALSE"))
       ((? null?)
        "NULL")
+      ((cast . value)
+       (string-append
+        (value->sql value) "::" cast))
       (v
        (error
         (simple-format #f "error: unknown type for value: ~A" v)))))
@@ -161,6 +164,15 @@
       ", ")
      " RETURNING id"))
 
+  (define (format-json json)
+    ;; PostgreSQL formats JSON strings differently to guile-json, so use
+    ;; PostgreSQL to do the formatting
+    (caar
+     (exec-query
+      conn
+      (string-append
+       "SELECT $STR$" json "$STR$::jsonb"))))
+
   (define (normalise-values data)
     (map (match-lambda
            ((? boolean? b)
@@ -174,6 +186,10 @@
            ((? null? n)
             ;; exec-query-with-null-handling specifies NULL values as '()
             n)
+           ((cast . value)
+            (if (string=? cast "jsonb")
+                (format-json value)
+                value))
            (unknown
             (error (simple-format #f "normalise-values: error: ~A\n" unknown))))
          data))
