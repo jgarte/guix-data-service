@@ -29,3 +29,4 @@ package_derivations_by_guix_revision_range 2019-11-09T19:09:48Z Christopher Bain
 channel_news_tables 2019-11-15T07:32:07Z Christopher Baines <mail@cbaines.net> # Add tables to store channel news
 build_server_token_seeds 2019-11-23T09:26:48Z Christopher Baines <mail@cbaines.net> # Add build_server_token_seeds table
 rework_builds 2019-11-23T20:41:20Z Christopher Baines <mail@cbaines.net> # Rework the build tables
+nar_related_tables 2019-11-29T20:28:19Z Christopher Baines <mail@cbaines.net> # Add nar related tables

@@ -88,6 +88,7 @@ SOURCES =							\
   guix-data-service/model/lint-warning-message.scm		\
   guix-data-service/model/lint-warning.scm			\
   guix-data-service/model/location.scm				\
+  guix-data-service/model/nar.scm				\
   guix-data-service/model/package-derivation.scm		\
   guix-data-service/model/package-metadata.scm			\
   guix-data-service/model/package.scm				\
