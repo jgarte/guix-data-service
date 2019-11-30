@@ -35,14 +35,16 @@
                      build-status-strings
                      '("scheduled" "started")))
 
-  (let ((status-string
-         (assq-ref build-statuses
-                   (assoc-ref data "buildstatus")))
-        (existing-status-entries
-         (map second
-              (select-build-statuses-by-build-id conn
-                                                 build-id
-                                                 build-server-id)))
+  (let* ((status-string
+          (assq-ref build-statuses
+                    (assoc-ref data "buildstatus")))
+         (finished?
+          (member status-string stop-statuses))
+         (existing-status-entries
+          (map second
+               (select-build-statuses-by-build-id conn
+                                                  build-id
+                                                  build-server-id)))
         (timestamp
          (assoc-ref data "timestamp"))
         (starttime
@@ -55,7 +57,12 @@
          (filter
           list?
           (list
-           (unless (member "scheduled" existing-status-entries)
+           (when (and
+                  ;; Cuirass returns the stoptime as the timestamp if the
+                  ;; build has finished, so only use the timestamp if the
+                  ;; build hasn't finished.
+                  (not finished?)
+                  (not (member "scheduled" existing-status-entries)))
              (list timestamp "scheduled"))
            (when (and (< 0 starttime)
                       (not (member "started" existing-status-entries)))
