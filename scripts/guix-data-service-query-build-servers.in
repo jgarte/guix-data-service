@@ -26,5 +26,7 @@
              (guix-data-service database)
              (guix-data-service builds))
 
-(with-postgresql-connection "query-build-servers"
-                            query-build-servers)
+(with-postgresql-connection
+ "query-build-servers"
+ (lambda (conn)
+   (query-build-servers conn (cdr (command-line)))))

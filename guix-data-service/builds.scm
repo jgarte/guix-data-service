@@ -7,27 +7,33 @@
   #:use-module (web response)
   #:use-module (web client)
   #:use-module (squee)
+  #:use-module (guix scripts substitute)
+  #:use-module (guix-data-service database)
   #:use-module (guix-data-service builds)
+  #:use-module (guix-data-service model utils)
   #:use-module (guix-data-service model build)
   #:use-module (guix-data-service model build-server)
   #:use-module (guix-data-service model build-status)
+  #:use-module (guix-data-service model nar)
   #:export (query-build-servers))
 
-(define (query-build-servers conn)
+(define (query-build-servers conn revision-commits)
   (while #t
     (let ((build-servers (select-build-servers conn)))
       (for-each
        (match-lambda
          ((id url lookup-all-derivations?)
           (when lookup-all-derivations?
-            (query-build-server conn id url))))
+            (query-build-server conn id url revision-commits))))
        build-servers))))
 
-(define (query-build-server conn id url)
+(define (query-build-server conn id url revision-commits)
   (simple-format #t "\nFetching pending builds\n")
   (process-pending-builds conn id url)
   (simple-format #t "\nFetching unseen derivations\n")
-  (process-derivations conn id url))
+  (process-derivations conn id url revision-commits)
+  (simple-format #t "\nFetching narinfo files\n")
+  (fetch-narinfo-files conn id url revision-commits))
 
 (define (insert-build-statuses-from-data conn build-server-id build-id data)
   (define stop-statuses
@@ -93,7 +99,12 @@
       (usleep 200)))
    (select-pending-builds conn build-server-id)))
 
-(define (process-derivations conn build-server-id url)
+(define (process-derivations conn build-server-id url revision-commits)
+  (define derivations
+    (select-derivations-with-no-known-build conn revision-commits))
+
+  (simple-format (current-error-port) "Fetching ~A derivations\n"
+                 (length derivations))
   (for-each
    (match-lambda
      ((derivation-id derivation-file-name)
@@ -114,7 +125,7 @@
        (display "."))
       ;; Try not to make to many requests at once
       (usleep 200)))
-   (select-derivations-with-no-known-build conn)))
+   derivations))
 
 (define (json-string->scm* string)
   (catch
@@ -128,15 +139,16 @@
       #f)))
 
 (define (fetch-build url derivation-file-name)
+  (define build-url
+    (string-append url
+                   "build"
+                   (string-drop
+                    derivation-file-name
+                    (string-length "/gnu/store"))))
+
   (let-values
       (((response body)
-        (http-request (string-append
-                       url
-                       (string-append
-                        "build"
-                        (string-drop
-                         derivation-file-name
-                         (string-length "/gnu/store")))))))
+        (http-request build-url)))
 
     (cond
      ((eq? (response-code response) 200)
@@ -172,18 +184,52 @@ LIMIT 1000")
             derivation-file-name)))
    (exec-query conn query (list (number->string build-server-id)))))
 
-(define (select-derivations-with-no-known-build conn)
+(define (select-derivations-with-no-known-build conn revision-commits)
   (define query
     ;; Only select derivations that are in the package_derivations table, as
     ;; Cuirass doesn't build the intermediate derivations
-    "
+    (string-append
+     "
 SELECT derivations.id, derivations.file_name
 FROM derivations
 WHERE derivations.file_name NOT IN (
   SELECT derivation_file_name FROM builds
 ) AND derivations.id IN (
-  SELECT derivation_id FROM package_derivations
-)
-LIMIT 15000")
+  SELECT derivation_id FROM package_derivations"
+     (if (null? revision-commits)
+         "\n"
+         (string-append
+          "  INNER JOIN guix_revision_package_derivations ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+  INNER JOIN guix_revisions ON guix_revisions.id = guix_revision_package_derivations.revision_id
+  WHERE guix_revisions.commit IN ("
+          (string-join (map quote-string revision-commits) ",")
+          ")"
+          ))
+     ")
+LIMIT 15000"))
 
   (exec-query conn query))
+
+(define (fetch-narinfo-files conn id url revision-commits)
+  (define outputs
+    (select-outputs-for-successful-builds-without-known-nar-entries
+     conn
+     id
+     revision-commits))
+
+  (simple-format #t "Querying ~A outputs\n"
+                 (length outputs))
+
+  (let ((narinfos
+         (lookup-narinfos (string-trim-right url #\/) outputs)))
+
+    (simple-format #t "Got ~A narinfo files\n"
+                   (length narinfos))
+
+    (unless (eq? (length narinfos) 0)
+      (with-postgresql-transaction
+       conn
+       (lambda (conn)
+         (record-narinfo-details-and-return-ids
+          conn
+          narinfos))))))
