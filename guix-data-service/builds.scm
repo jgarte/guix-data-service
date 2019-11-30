@@ -152,12 +152,17 @@ SELECT builds.id, derivations.file_name
 FROM derivations
 INNER JOIN builds
   ON derivations.file_name = builds.derivation_file_name
-INNER JOIN build_status
-  ON builds.id = build_status.build_id
+LEFT JOIN (
+  SELECT DISTINCT ON (build_id) *
+  FROM build_status
+  ORDER BY build_id, timestamp DESC
+) AS latest_build_status
+ON builds.id = latest_build_status.build_id
 WHERE builds.build_server_id = $1 AND
-      build_status.status IN (
+      latest_build_status.status IN (
         'scheduled', 'started'
       )
+ORDER BY latest_build_status.status DESC -- 'started' first
 LIMIT 1000")
 
   (map
