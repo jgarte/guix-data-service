@@ -220,4 +220,8 @@
 (define parse-result-limit parse-number)
 
 (define (any-invalid-query-parameters? query-parameters)
-  (->bool (any invalid-query-parameter? (map cdr query-parameters))))
+  (->bool (any (lambda (val)
+                 (if (list? val)
+                     (any invalid-query-parameter? val)
+                     (invalid-query-parameter? val)))
+               (map cdr query-parameters))))

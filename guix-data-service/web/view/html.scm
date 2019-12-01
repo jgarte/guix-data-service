@@ -122,9 +122,12 @@
          (input-name (or name
                          (underscore-join-words
                           (string-downcase label))))
-         (has-error? (invalid-query-parameter?
-                      (assq-ref query-parameters
-                                (string->symbol input-name))))
+         (has-error? (let ((val
+                            (assq-ref query-parameters
+                                      (string->symbol input-name))))
+                       (if (list? val)
+                           (any invalid-query-parameter? val)
+                           (invalid-query-parameter? val))))
          (show-help-span?
           (or help-text has-error? required?)))
     `(div
@@ -204,16 +207,24 @@
              `((span (@ (id ,help-span-id)
                         (class "help-block"))
                      ,@(if has-error?
-                           (let ((message
-                                  (invalid-query-parameter-message
+                           (let* ((val
                                    (assq-ref query-parameters
-                                             (string->symbol input-name)))))
-                             `((p (strong
-                                   ,(string-append
-                                     "Error: "
-                                     (if message
-                                         message
-                                         "invalid value."))))))
+                                             (string->symbol input-name)))
+                                  (messages
+                                   (map invalid-query-parameter-message
+                                        (if (list? val)
+                                            val
+                                            (list val)))))
+                             `((p
+                                ,@(if (null? messages)
+                                      '(string "Error: invalid value")
+                                      (map
+                                       (lambda (message)
+                                         `(strong
+                                           (@ (style "display: block;"))
+                                           ,(string-append
+                                             "Error: " message)))
+                                       messages)))))
                            '())
                      ,@(if required? '((strong "Required. ")) '())
                      ,@(if help-text
