@@ -21,7 +21,7 @@
   #:use-module (guix-data-service web view html)
   #:export (view-builds))
 
-(define (view-builds stats builds)
+(define (view-builds query-parameters build-status-strings stats builds)
   (layout
    #:body
    `(,(header)
@@ -46,6 +46,29 @@
                   (td ,(build-status-span status))
                   (td ,count))))
              stats)))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (div
+         (@ (class "well"))
+         (form
+          (@ (method "get")
+             (action "")
+             (class "form-horizontal"))
+          ,(form-horizontal-control
+            "Build status" query-parameters
+            #:options
+            (map (lambda (build-status)
+                   (cons (build-status-value->display-string build-status)
+                         build-status))
+                 build-status-strings)
+            #:help-text "Return builds with these statuses.")
+          (div (@ (class "form-group form-group-lg"))
+               (div (@ (class "col-sm-offset-2 col-sm-10"))
+                    (button (@ (type "submit")
+                               (class "btn btn-lg btn-primary"))
+                            "Update results")))))))
       (div
        (@ (class "row"))
        (div

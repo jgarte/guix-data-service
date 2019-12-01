@@ -35,6 +35,7 @@
             display-possible-store-item
             display-store-item
             display-store-item-short
+            build-status-value->display-string
             build-status-span
 
             table/branches-with-most-recent-commits

@@ -20,8 +20,17 @@
   #:use-module (guix-data-service web render)
   #:use-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service model build)
+  #:use-module (guix-data-service model build-status)
   #:use-module (guix-data-service web build html)
   #:export (build-controller))
+
+(define (parse-build-status status)
+  (if (member status build-status-strings)
+      status
+      (make-invalid-query-parameter
+       status
+       (string-append "unknown build status: "
+                      status))))
 
 (define (build-controller request
                           method-and-path-components
@@ -30,11 +39,27 @@
                           conn)
   (match method-and-path-components
     (('GET "builds")
-     (render-builds mime-types
+     (render-builds request
+                    mime-types
                     conn))
     (_ #f)))
 
-(define (render-builds mime-types conn)
-  (render-html
-   #:sxml (view-builds (select-build-stats conn)
-                       (select-builds-with-context conn))))
+(define (render-builds request mime-types conn)
+  (let ((parsed-query-parameters
+         (parse-query-parameters
+          request
+          `((build_status ,parse-build-status #:multi-value)))))
+    (if (any-invalid-query-parameters? parsed-query-parameters)
+        (render-html
+         #:sxml (view-builds parsed-query-parameters
+                             build-status-strings
+                             '()
+                             '()))
+        (render-html
+         #:sxml (view-builds parsed-query-parameters
+                             build-status-strings
+                             (select-build-stats conn)
+                             (select-builds-with-context
+                              conn
+                              (assq-ref parsed-query-parameters
+                                        'build_status)))))))
