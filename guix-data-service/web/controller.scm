@@ -172,8 +172,7 @@
                                          ((file-name output-id rest ...)
                                           (select-derivations-using-output
                                            conn output-id))))
-                                     derivations))
-        #:extra-headers http-headers-for-unchanging-content)))))
+                                     derivations)))))))
 
 (define handle-static-assets
   (if assets-dir-in-store?
