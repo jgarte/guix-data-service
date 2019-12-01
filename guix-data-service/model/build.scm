@@ -28,7 +28,24 @@ ORDER BY status")
 
   (exec-query conn query))
 
-(define (select-builds-with-context conn build-statuses)
+(define (select-builds-with-context conn build-statuses build-server-ids)
+  (define where-conditions
+    (filter
+     string?
+     (list
+      (when (list? build-statuses)
+        (string-append
+         "latest_build_status.status IN ("
+         (string-join (map quote-string build-statuses)
+                      ",")
+         ")"))
+      (when (list? build-server-ids)
+        (string-append
+         "builds.build_server_id IN ("
+         (string-join (map number->string build-server-ids)
+                      ", ")
+         ")")))))
+
   (define query
     (string-append "
 SELECT builds.id, build_servers.url, derivations.file_name,
@@ -44,14 +61,12 @@ INNER JOIN
 ) AS latest_build_status
 ON latest_build_status.build_id = builds.id
 "
-    (if (list? build-statuses)
-        (string-append
-         "WHERE latest_build_status.status IN ("
-         (string-join (map quote-string build-statuses)
-                      ",")
-         ")")
-        "")
-    "
+                   (if (null? where-conditions)
+                       ""
+                       (string-append
+                        "WHERE "
+                        (string-join where-conditions " AND ")))
+                   "
 ORDER BY latest_build_status.timestamp DESC
 LIMIT 100"))
 

@@ -21,7 +21,11 @@
   #:use-module (guix-data-service web view html)
   #:export (view-builds))
 
-(define (view-builds query-parameters build-status-strings stats builds)
+(define (view-builds query-parameters
+                     build-status-strings
+                     build-server-options
+                     stats
+                     builds)
   (layout
    #:body
    `(,(header)
@@ -64,6 +68,11 @@
                          build-status))
                  build-status-strings)
             #:help-text "Return builds with these statuses.")
+          ,(form-horizontal-control
+            "Build server"
+            query-parameters
+            #:options build-server-options
+            #:help-text "Return builds from these build servers.")
           (div (@ (class "form-group form-group-lg"))
                (div (@ (class "col-sm-offset-2 col-sm-10"))
                     (button (@ (type "submit")

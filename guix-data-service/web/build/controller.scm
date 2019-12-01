@@ -16,11 +16,13 @@
 ;;; <http://www.gnu.org/licenses/>.
 
 (define-module (guix-data-service web build controller)
+  #:use-module (srfi srfi-1)
   #:use-module (ice-9 match)
   #:use-module (guix-data-service web render)
   #:use-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service model build)
   #:use-module (guix-data-service model build-status)
+  #:use-module (guix-data-service model build-server)
   #:use-module (guix-data-service web build html)
   #:export (build-controller))
 
@@ -31,6 +33,20 @@
        status
        (string-append "unknown build status: "
                       status))))
+
+(define (parse-build-server conn)
+  (lambda (v)
+    (let ((build-servers (select-build-servers conn)))
+      (or (any (match-lambda
+                 ((id url lookup-all-derivations?)
+                  (if (eq? (string->number v)
+                           id)
+                      id
+                      #f)))
+               build-servers)
+          (make-invalid-query-parameter
+           v
+           "unknown build server")))))
 
 (define (build-controller request
                           method-and-path-components
@@ -48,18 +64,26 @@
   (let ((parsed-query-parameters
          (parse-query-parameters
           request
-          `((build_status ,parse-build-status #:multi-value)))))
+          `((build_status ,parse-build-status #:multi-value)
+            (build_server ,(parse-build-server conn) #:multi-value)))))
     (if (any-invalid-query-parameters? parsed-query-parameters)
         (render-html
          #:sxml (view-builds parsed-query-parameters
                              build-status-strings
                              '()
+                             '()
                              '()))
         (render-html
          #:sxml (view-builds parsed-query-parameters
                              build-status-strings
+                             (map (match-lambda
+                                    ((id url lookup-all-derivations)
+                                     (cons url id)))
+                                  (select-build-servers conn))
                              (select-build-stats conn)
                              (select-builds-with-context
                               conn
                               (assq-ref parsed-query-parameters
-                                        'build_status)))))))
+                                        'build_status)
+                              (assq-ref parsed-query-parameters
+                                        'build_server)))))))
