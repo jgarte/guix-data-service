@@ -435,7 +435,10 @@
        ,(string-append
          "/" (string-join fileparts "/"))))))
 
-(define (view-store-item filename derivations derivations-using-store-item-list)
+(define (view-store-item filename
+                         derivations
+                         derivations-using-store-item-list
+                         nars)
   (layout
    #:body
    `(,(header)
@@ -446,6 +449,51 @@
        (div
         (@ (class "col-sm-12"))
         ,(display-store-item-title filename)))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h2 "Nars")
+        (a (@ (class "btn btn-default btn-lg pull-right")
+              (href ,(string-append filename "/narinfos")))
+           "View narinfo details")
+        ,@(map
+           (match-lambda
+             ((hash-algorithm hash size urls signatures)
+              `(div
+                (h4 (@ (style "font-family: monospace;"))
+                    ,hash)
+                (table
+                 (@ (class "table")
+                    (style "table-layout: fixed;"))
+                 (thead
+                  (tr
+                   (th (@ (class "col-sm-1")) "Size")
+                   (th (@ (class "col-sm-4")) "Urls")))
+                 (tbody
+                  (td ,size)
+                  (td
+                   (ul
+                    ,@(map
+                       (lambda (url-details)
+                         `(li
+                           "Size: " ,(assoc-ref url-details "size")
+                           " Compression: " ,(assoc-ref url-details "compression")
+                           " "
+                           (a (@ (href ,(assoc-ref url-details "url")))
+                              ,(assoc-ref url-details "url"))))
+                       urls)))
+                  (td
+                   ,@(map
+                      (lambda (signature)
+                        `(dl
+                          (@ (class "dl-horizontal"))
+                          (dt "Version")
+                          (dd ,(assoc-ref signature "version"))
+                          (dt "Host name")
+                          (dd ,(assoc-ref signature "host_name"))))
+                      signatures)))))))
+           nars)))
       ,@(map (lambda (derivation derivations-using-store-item)
                `((div
                   (@ (class "row"))

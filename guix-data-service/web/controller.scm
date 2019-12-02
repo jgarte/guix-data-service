@@ -187,7 +187,9 @@
                                          ((file-name output-id rest ...)
                                           (select-derivations-using-output
                                            conn output-id))))
-                                     derivations)))))))
+                                     derivations)
+                                (select-nars-for-output conn
+                                                        filename)))))))
 
 (define handle-static-assets
   (if assets-dir-in-store?
