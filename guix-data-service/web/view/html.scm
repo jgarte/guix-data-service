@@ -21,6 +21,7 @@
   #:use-module (guix-data-service config)
   #:use-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service web util)
+  #:use-module (guix-data-service web html-utils)
   #:use-module (ice-9 vlist)
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-1)

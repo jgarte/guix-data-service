@@ -10,6 +10,7 @@
   #:use-module (guix scripts substitute)
   #:use-module (guix-data-service model utils)
   #:export (select-outputs-for-successful-builds-without-known-nar-entries
+            select-signing-key
 
             record-narinfo-details-and-return-ids))
 
@@ -245,3 +246,14 @@ LIMIT 1500"))
 
   (map car (exec-query conn query (list (number->string
                                          build-server-id)))))
+
+(define (select-signing-key conn id)
+  (define query
+    "
+SELECT sexp_json
+FROM narinfo_signature_public_keys
+WHERE id = $1")
+
+  (match (exec-query conn query (list (number->string id)))
+    (((sexp_json))
+     (json-string->scm sexp_json))))

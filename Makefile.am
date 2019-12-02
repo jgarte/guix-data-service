@@ -100,6 +100,7 @@ SOURCES =							\
   guix-data-service/web/build/controller.scm			\
   guix-data-service/web/build/html.scm				\
   guix-data-service/web/build-server/controller.scm		\
+  guix-data-service/web/build-server/html.scm			\
   guix-data-service/web/jobs/controller.scm			\
   guix-data-service/web/jobs/html.scm				\
   guix-data-service/web/query-parameters.scm			\

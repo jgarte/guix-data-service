@@ -26,8 +26,10 @@
   #:use-module (guix-data-service jobs load-new-guix-revision)
   #:use-module (guix-data-service model build)
   #:use-module (guix-data-service model build-status)
+  #:use-module (guix-data-service model nar)
   #:use-module (guix-data-service model build-server-token-seed)
   #:use-module (guix-data-service web jobs html)
+  #:use-module (guix-data-service web build-server html)
   #:export (build-server-controller))
 
 (define (handle-build-event-submission parsed-query-parameters
@@ -125,6 +127,11 @@
              '((error . "error"))
              #:code 403)))))
 
+(define (handle-signing-key-request conn id)
+  (render-html
+   #:sxml (view-signing-key
+           (select-signing-key conn id))))
+
 (define (build-server-controller request
                                  method-and-path-components
                                  mime-types
@@ -142,4 +149,7 @@
                                       body
                                       conn
                                       secret-key-base)))
+    (('GET "build-server" "signing-key" id)
+     (handle-signing-key-request conn
+                                 (string->number id)))
     (_ #f)))
