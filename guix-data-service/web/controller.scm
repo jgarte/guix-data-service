@@ -38,6 +38,7 @@
   #:use-module (guix-data-service model git-branch)
   #:use-module (guix-data-service model git-repository)
   #:use-module (guix-data-service model guix-revision)
+  #:use-module (guix-data-service model nar)
   #:use-module (guix-data-service model package)
   #:use-module (guix-data-service model package-derivation)
   #:use-module (guix-data-service model package-metadata)
@@ -147,6 +148,20 @@
                  "Derivation not found"
                  "No derivation found with this file name.")
          #:code 404))))
+
+(define (render-narinfos conn filename)
+  (let ((narinfos (select-nars-for-output
+                   conn
+                   (string-append "/gnu/store/" filename))))
+    (if (null? narinfos)
+        (render-html
+         #:sxml (general-not-found
+                 "No nars found"
+                 "No nars found for this output name.")
+         #:code 404)
+
+        (render-html
+         #:sxml (view-narinfos narinfos)))))
 
 (define (render-store-item conn filename)
   (let ((derivation (select-derivation-by-output-filename conn filename)))
@@ -290,6 +305,8 @@
          (render-formatted-derivation conn
                                       (string-append "/gnu/store/" filename))
          (not-found (request-uri request))))
+    (('GET "gnu" "store" filename "narinfos")
+     (render-narinfos conn filename))
     (((or 'GET 'POST) "build-server" _ ...)
      (delegate-to-with-secret-key-base build-server-controller))
     (('GET "compare" _ ...)             (delegate-to compare-controller))

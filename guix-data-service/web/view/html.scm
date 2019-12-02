@@ -48,6 +48,7 @@
             view-builds
             view-derivation
             view-formatted-derivation
+            view-narinfos
             view-store-item
             view-derivation-source-file
             error-page))
@@ -803,6 +804,68 @@
                (@ (class "col-md-offset-2 col-md-10")
                   (style "font-family: monospace; font-size: 1.5em;"))
                ")")))))))))
+
+(define (view-narinfos narinfos)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      ,@(map
+         (match-lambda
+           ((hash-algorithm hash size urls signatures)
+            `((div
+               (@ (class "row"))
+               (div
+                (@ (class "col-sm-6"))
+                (h4 (@ (style "font-family: monospace;"))
+                    ,hash)
+                (table
+                 (@ (class "table")
+                    (style "table-layout: fixed;"))
+                 (thead
+                  (tr
+                   (th (@ (class "col-sm-1")) "Size")
+                   (th (@ (class "col-sm-4")) "Urls")))
+                 (tbody
+                  (td ,size)
+                  (td
+                   (ul
+                    ,@(map
+                       (lambda (url-details)
+                         `(li
+                           "Size: " ,(assoc-ref url-details "size")
+                           " Compression: " ,(assoc-ref url-details "compression")
+                           " "
+                           (a (@ (href ,(assoc-ref url-details "url")))
+                              ,(assoc-ref url-details "url"))))
+                       urls)))))))
+              ,@(map
+                 (lambda (signature)
+                   `(div
+                     (@ (class "row"))
+                     (div
+                      (@ (class "col-sm-6"))
+                      (dl
+                       (@ (class "dl-horizontal"))
+                       (dt "Version")
+                       (dd ,(assoc-ref signature "version"))
+                       (dt "Host name")
+                       (dd ,(assoc-ref signature "host_name")))
+
+                      "data"
+                      ,(sexp-div (assoc-ref signature "data"))
+                      "sig_val"
+                      ,(sexp-div (assoc-ref signature "sig_val"))
+                      "public_key"
+                      ,(sexp-div
+                        (assoc-ref signature "narinfo_signature_public_key")))
+                     (div
+                      (@ (class "col-sm-6"))
+                      (pre ,(assoc-ref signature "body"))
+                      (pre ,(assoc-ref signature "signature_line")))))
+                 signatures))))
+         narinfos)))))
 
 (define (general-not-found header-text body)
   (layout

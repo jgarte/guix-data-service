@@ -10,6 +10,7 @@
   #:use-module (guix scripts substitute)
   #:use-module (guix-data-service model utils)
   #:export (select-outputs-for-successful-builds-without-known-nar-entries
+            select-nars-for-output
             select-signing-key
 
             record-narinfo-details-and-return-ids))
@@ -246,6 +247,55 @@ LIMIT 1500"))
 
   (map car (exec-query conn query (list (number->string
                                          build-server-id)))))
+
+(define (select-nars-for-output conn output-file-name)
+  (define query
+    "
+SELECT hash_algorithm, hash, size,
+       (
+         SELECT JSON_AGG(
+           json_build_object('url', url, 'compression', compression, 'size', file_size)
+         )
+         FROM nar_urls
+         WHERE nar_id = nars.id
+       ) AS urls,
+       (
+         SELECT JSON_AGG(
+           json_build_object(
+             'version', version,
+             'host_name', host_name,
+             'data_hash', data_hash,
+             'data_hash_algorithm', data_hash_algorithm,
+             'data', data_json,
+             'sig_val', sig_val_json,
+             'narinfo_signature_public_key', (
+               SELECT sexp_json
+               FROM narinfo_signature_public_keys
+               WHERE narinfo_signature_public_keys.id = narinfo_signature_public_key_id
+             ),
+             'body', narinfo_body,
+             'signature_line', narinfo_signature_line
+           )
+         )
+         FROM narinfo_signature_data
+         INNER JOIN narinfo_signatures
+           ON narinfo_signature_data.id = narinfo_signatures.narinfo_signature_data_id
+         WHERE narinfo_signatures.nar_id = nars.id
+       )
+FROM nars
+WHERE store_path = $1")
+
+  (map
+   (match-lambda
+     ((hash-algorithm hash size urls-json signatures-json)
+      (list hash-algorithm
+            hash
+            (string->number size)
+            (vector->list
+             (json-string->scm urls-json))
+            (vector->list
+             (json-string->scm signatures-json)))))
+   (exec-query conn query (list output-file-name))))
 
 (define (select-signing-key conn id)
   (define query
