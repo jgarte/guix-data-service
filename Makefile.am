@@ -93,6 +93,7 @@ SOURCES =							\
   guix-data-service/model/package-metadata.scm			\
   guix-data-service/model/package.scm				\
   guix-data-service/model/utils.scm				\
+  guix-data-service/web/html-utils.scm				\
   guix-data-service/web/compare/controller.scm			\
   guix-data-service/web/compare/html.scm			\
   guix-data-service/web/controller.scm				\
