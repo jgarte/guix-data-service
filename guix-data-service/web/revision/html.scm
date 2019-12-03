@@ -22,6 +22,7 @@
   #:use-module (texinfo html)
   #:use-module (json)
   #:use-module (guix-data-service web util)
+  #:use-module (guix-data-service web html-utils)
   #:use-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service web view html)
   #:export (view-revision-news

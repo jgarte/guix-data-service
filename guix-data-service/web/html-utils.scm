@@ -17,7 +17,10 @@
 
 (define-module (guix-data-service web html-utils)
   #:use-module (ice-9 match)
-  #:export (sexp-div))
+  #:export (sexp-div
+
+            build-status-value->display-string
+            build-status-span))
 
 (define (sexp-div sexp)
   (match sexp
@@ -33,3 +36,31 @@
             ,hash))
     ((and string val)
      val)))
+
+(define (build-status-value->display-string value)
+  (assoc-ref
+   '(("scheduled" . "Scheduled")
+     ("started" . "Started")
+     ("succeeded" . "Succeeded")
+     ("failed" . "Failed")
+     ("failed-dependency" . "Failed (dependency)")
+     ("failed-other" . "Failed (other)")
+     ("canceled" . "Canceled")
+     ("" . "Unknown"))
+   value))
+
+(define (build-status-span status)
+  `(span (@ (class ,(string-append
+                     "label label-"
+                     (assoc-ref
+                      '(("scheduled" . "info")
+                        ("started" . "primary")
+                        ("succeeded" . "success")
+                        ("failed" . "danger")
+                        ("failed-dependency" . "warning")
+                        ("failed-other" . "danger")
+                        ("canceled" . "default")
+                        ("" . "default"))
+                      status)))
+            (style "display: inline-block; font-size: 1.2em; margin-top: 0.4em;"))
+         ,(build-status-value->display-string status)))

@@ -36,8 +36,6 @@
             display-possible-store-item
             display-store-item
             display-store-item-short
-            build-status-value->display-string
-            build-status-span
 
             table/branches-with-most-recent-commits
 
@@ -358,34 +356,6 @@
                             '(span (@ (class "label label-default"))
                                    "No information yet")))))))))
         branches-with-most-recent-commits))))
-
-(define (build-status-value->display-string value)
-  (assoc-ref
-   '(("scheduled" . "Scheduled")
-     ("started" . "Started")
-     ("succeeded" . "Succeeded")
-     ("failed" . "Failed")
-     ("failed-dependency" . "Failed (dependency)")
-     ("failed-other" . "Failed (other)")
-     ("canceled" . "Canceled")
-     ("" . "Unknown"))
-   value))
-
-(define (build-status-span status)
-  `(span (@ (class ,(string-append
-                     "label label-"
-                     (assoc-ref
-                      '(("scheduled" . "info")
-                        ("started" . "primary")
-                        ("succeeded" . "success")
-                        ("failed" . "danger")
-                        ("failed-dependency" . "warning")
-                        ("failed-other" . "danger")
-                        ("canceled" . "default")
-                        ("" . "default"))
-                      status)))
-            (style "display: inline-block; font-size: 1.2em; margin-top: 0.4em;"))
-         ,(build-status-value->display-string status)))
 
 (define (display-possible-store-item value)
   (match (string-split value #\/)

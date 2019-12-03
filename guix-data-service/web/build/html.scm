@@ -18,6 +18,7 @@
 (define-module (guix-data-service web build html)
   #:use-module (ice-9 match)
   #:use-module (guix-data-service web query-parameters)
+  #:use-module (guix-data-service web html-utils)
   #:use-module (guix-data-service web view html)
   #:export (view-builds))
 
