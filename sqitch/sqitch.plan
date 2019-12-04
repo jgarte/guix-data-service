@@ -31,3 +31,4 @@ build_server_token_seeds 2019-11-23T09:26:48Z Christopher Baines <mail@cbaines.n
 rework_builds 2019-11-23T20:41:20Z Christopher Baines <mail@cbaines.net> # Rework the build tables
 nar_related_tables 2019-11-29T20:28:19Z Christopher Baines <mail@cbaines.net> # Add nar related tables
 add_index_on_builds_derivation_file_name 2019-12-03T16:23:55Z   <chris@phact> # Add index on builds_derivation_file_name
+narinfo_fetch_record 2019-12-03T20:53:28Z   <chris@phact> # Add a table to describe fetching a narinfo
