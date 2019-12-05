@@ -44,6 +44,7 @@
             render-revision-lint-warnings
             render-revision-package-version
             render-revision-packages
+            render-revision-derivations
             render-unknown-revision
             render-view-revision))
 
@@ -54,6 +55,9 @@
   `((cache-control
      . (public
         (max-age . ,cache-control-default-max-age)))))
+
+(define (parse-system s)
+  s)
 
 (define (revision-controller request
                              method-and-path-components
@@ -128,6 +132,26 @@
                                           commit-hash
                                           name
                                           version)
+         (render-unknown-revision mime-types
+                                  conn
+                                  commit-hash)))
+    (('GET "revision" commit-hash "derivations")
+     (if (guix-commit-exists? conn commit-hash)
+         (let ((parsed-query-parameters
+                (parse-query-parameters
+                 request
+                 `((system ,parse-system #:multi-value)
+                   (target ,parse-system #:multi-value)
+                   (maximum_builds ,parse-number)
+                   (minimum_builds ,parse-number)
+                   (after_name ,identity)
+                   (limit_results ,parse-number #:default 100)))))
+
+           (render-revision-derivations mime-types
+                                        conn
+                                        commit-hash
+                                        parsed-query-parameters
+                                        #:path-base path))
          (render-unknown-revision mime-types
                                   conn
                                   commit-hash)))
@@ -468,6 +492,64 @@
                                                   #:header-text header-text
                                                   #:header-link header-link)
         #:extra-headers http-headers-for-unchanging-content)))))
+
+(define* (render-revision-derivations mime-types
+                                      conn
+                                      commit-hash
+                                      query-parameters
+                                      #:key
+                                      (path-base "/revision/")
+                                      (header-text
+                                       `("Revision " (samp ,commit-hash)))
+                                      (header-link
+                                       (string-append "/revision/" commit-hash)))
+  (if (any-invalid-query-parameters? query-parameters)
+      (case (most-appropriate-mime-type
+             '(application/json text/html)
+             mime-types)
+        ((application/json)
+         (render-json
+          `((error . "invalid query"))))
+        (else
+         (render-html
+          #:sxml (view-revision-derivations commit-hash
+                                            query-parameters
+                                            (valid-systems conn)
+                                            '()
+                                            #:path-base path-base
+                                            #:header-text header-text
+                                            #:header-link header-link))))
+      (let* ((limit-results
+              (assq-ref query-parameters 'limit_results))
+             (derivations
+              (select-derivations-in-revision
+               conn
+               commit-hash
+               #:systems (assq-ref query-parameters 'system)
+               #:targets (assq-ref query-parameters 'target)
+               #:maximum-builds (assq-ref query-parameters 'maximum_builds)
+               #:minimum-builds (assq-ref query-parameters 'minimum_builds)
+               #:limit-results limit-results
+               #:after-name (assq-ref query-parameters 'after_name)))
+             (show-next-page?
+              (>= (length derivations)
+                  limit-results)))
+        (case (most-appropriate-mime-type
+               '(application/json text/html)
+               mime-types)
+          ((application/json)
+           (render-json
+            `()))
+          (else
+           (render-html
+            #:sxml (view-revision-derivations commit-hash
+                                              query-parameters
+                                              (valid-systems conn)
+                                              derivations
+                                              show-next-page?
+                                              #:path-base path-base
+                                              #:header-text header-text
+                                              #:header-link header-link)))))))
 
 (define* (render-revision-lint-warnings mime-types
                                         conn

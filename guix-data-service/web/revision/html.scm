@@ -30,6 +30,7 @@
             view-revision-package-and-version
             view-revision
             view-revision-packages
+            view-revision-derivations
             view-revision-lint-warnings
             unknown-revision))
 
@@ -615,6 +616,148 @@
                                            (car (last packages)))))
                   "Next page")))
             '())))))
+
+(define* (view-revision-derivations commit-hash
+                                    query-parameters
+                                    valid-systems
+                                    derivations
+                                    show-next-page?
+                                    #:key (path-base "/revision/")
+                                    header-text
+                                    header-link)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h3 (a (@ (style "white-space: nowrap;")
+                  (href ,header-link))
+               ,@header-text))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (div
+         (@ (class "well"))
+         (form
+          (@ (method "get")
+             (action "")
+             (style "padding-bottom: 0")
+             (class "form-horizontal"))
+          ,(form-horizontal-control
+            "Search query" query-parameters
+            #:help-text
+            "List packages where the name or synopsis match the query.")
+          ,(form-horizontal-control
+            "System" query-parameters
+            #:options valid-systems
+            #:help-text "Only include derivations for this system."
+            #:font-family "monospace")
+          ,(form-horizontal-control
+            "Target" query-parameters
+            #:options valid-systems
+            #:help-text "Only include derivations that are build for this system."
+            #:font-family "monospace")
+          ,(form-horizontal-control
+            "Minimum builds" query-parameters
+            #:help-text "Only show derivations with a minimum number of known builds.")
+          ,(form-horizontal-control
+            "Maximum builds" query-parameters
+            #:help-text "Only show derivations with a maximum number of known builds.")
+          ,(form-horizontal-control
+            "After name" query-parameters
+            #:help-text
+            "List packages that are alphabetically after the given name.")
+          ,(form-horizontal-control
+            "Limit results" query-parameters
+            #:help-text "The maximum number of packages by name to return.")
+          ,(form-horizontal-control
+            "All results" query-parameters
+            #:type "checkbox"
+            #:help-text "Return all results.")
+          (div (@ (class "form-group form-group-lg"))
+               (div (@ (class "col-sm-offset-2 col-sm-10"))
+                    (button (@ (type "submit")
+                               (class "btn btn-lg btn-primary"))
+                            "Update results")))))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (table
+         (@ (class "table"))
+         (thead
+          (tr
+           (th "File name")
+           (th "System")
+           (th "Target")))
+         (tbody
+          ,@(map
+             (match-lambda
+               ((file-name system target builds outputs)
+                (let ((build-server-ids
+                       (sort
+                        (delete-duplicates
+                         (append
+                          (map (lambda (build)
+                                 (assoc-ref build "build_server_id"))
+                               (vector->list builds))
+                          (append-map
+                           (lambda (output)
+                             (map (lambda (nar)
+                                    (assoc-ref nar "build_server_id"))
+                                  (vector->list
+                                   (or (assoc-ref output "nars")
+                                       #()))))
+                           (vector->list outputs))))
+                        <)))
+                  `(tr
+                    (td (a (@ (href ,file-name))
+                           ,(display-store-item-short file-name)))
+                    (td (@ (style "font-family: monospace;"))
+                        ,system)
+                    (td (@ (style "font-family: monospace;"))
+                        ,target)
+                    (td ,@(map
+                           (lambda (build-server-id)
+                             `(div
+                               ,@(map build-status-alist->build-icon
+                                      (filter
+                                       (lambda (build)
+                                         (eq? build-server-id
+                                              (assoc-ref build "build_server_id")))
+                                       (vector->list builds)))
+                               ,@(map (lambda (output)
+                                        `(div
+                                          "Output: " ,(assoc-ref output "output_name")
+                                          ,@(map (lambda (nar)
+                                                   `(div
+                                                     (a (@ (href
+                                                            ,(assoc-ref output "output_path")))
+                                                        "Build server "
+                                                        ,(assoc-ref nar "build_server_id"))))
+                                                 (filter
+                                                  (lambda (nar)
+                                                    (eq? build-server-id
+                                                         (assoc-ref nar "build_server_id")))
+                                                  (vector->list
+                                                   (or (assoc-ref output "nars")
+                                                       #()))))))
+                                      (vector->list outputs))))
+                           build-server-ids))))))
+             derivations)))
+        ,@(if show-next-page?
+              `((div
+                 (@ (class "row"))
+                 (a (@ (href ,(string-append path-base
+                                             "?after_name="
+                                             (car (last derivations)))))
+                    "Next page")))
+              '())))))))
 
 (define* (view-revision-lint-warnings revision-commit-hash
                                       query-parameters
