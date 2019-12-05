@@ -105,7 +105,8 @@ WHERE build_server_id = $1 AND derivation_file_name = $2")
                      query
                      (list (number->string build-server-id)
                            derivation-file-name))
-    ((id) (string->number id))
+    ((id build_server_id derivation_file_name)
+     (string->number id))
     (_
      #f)))
 
