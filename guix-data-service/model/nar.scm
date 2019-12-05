@@ -18,7 +18,7 @@
 (define narinfo-contents
   (@@ (guix scripts substitute) narinfo-contents))
 
-(define (record-narinfo-details-and-return-ids conn narinfos)
+(define (record-narinfo-details-and-return-ids conn build-server-id narinfos)
   (define data
     (map (lambda (narinfo)
            (match (string-split
@@ -106,7 +106,16 @@ VALUES "
                      nar-id
                      narinfo-signature-data-id)
                     "
-ON CONFLICT DO NOTHING"))))
+ON CONFLICT DO NOTHING"))
+
+                  (exec-query
+                   conn
+                   (string-append
+                    "
+INSERT INTO narinfo_fetch_records (narinfo_signature_data_id, build_server_id)
+VALUES ($1, $2)")
+                   (list (number->string narinfo-signature-data-id)
+                         (number->string build-server-id)))))
               nar-ids
               narinfos)
 

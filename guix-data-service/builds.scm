@@ -232,4 +232,5 @@ LIMIT 15000"))
        (lambda (conn)
          (record-narinfo-details-and-return-ids
           conn
+          build-server-id
           narinfos))))))
