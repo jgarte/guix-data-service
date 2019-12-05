@@ -34,3 +34,4 @@ add_index_on_builds_derivation_file_name 2019-12-03T16:23:55Z   <chris@phact> # 
 narinfo_fetch_record 2019-12-03T20:53:28Z   <chris@phact> # Add a table to describe fetching a narinfo
 change_nars_size_to_bigint 2019-12-04T21:24:21Z   <chris@phact> # Change nars.size to bigint
 change_nar_urls_size_to_bigint 2019-12-04T21:49:07Z   <chris@phact> # Change nar_urls.size to bigint
+sort_out_duplicate_builds 2019-12-05T12:43:53Z   <chris@phact> # Sort out duplicate builds
