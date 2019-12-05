@@ -226,21 +226,22 @@ VALUES ($1, $2)")
 SELECT DISTINCT derivation_output_details.path
 FROM derivations
 INNER JOIN derivation_outputs
-  ON derivations.id = derivation_outputs.id
+  ON derivations.id = derivation_outputs.derivation_id
 INNER JOIN derivation_output_details
   ON derivation_outputs.derivation_output_details_id = derivation_output_details.id
-WHERE file_name IN (
-  SELECT derivation_file_name
-  FROM builds
-  INNER JOIN build_status
-    ON builds.id = build_status.build_id
-  WHERE
-    build_server_id = $1 AND
-    build_status.status = 'succeeded'
-) AND derivation_output_details.path NOT IN (
-  SELECT store_path FROM nars
-) AND
-  derivations.id IN (
+WHERE derivation_output_details.path NOT IN (
+  SELECT store_path
+  FROM nars
+  INNER JOIN narinfo_signatures
+    ON nars.id = narinfo_signatures.nar_id
+  INNER JOIN narinfo_signature_data
+    ON narinfo_signatures.narinfo_signature_data_id = narinfo_signature_data.id
+  INNER JOIN narinfo_fetch_records
+    ON narinfo_signature_data.id = narinfo_fetch_records.narinfo_signature_data_id
+  WHERE narinfo_fetch_records.build_server_id = $1
+)
+  AND derivations.system = 'x86_64-linux'
+  AND derivations.id IN (
     SELECT derivation_id
     FROM package_derivations
     INNER JOIN guix_revision_package_derivations
@@ -252,10 +253,9 @@ WHERE file_name IN (
                                 ",")
                    ")
 )
-LIMIT 1500"))
+LIMIT 10000"))
 
-  (map car (exec-query conn query (list (number->string
-                                         build-server-id)))))
+  (map car (exec-query conn query (list (number->string build-server-id)))))
 
 (define (select-nars-for-output conn output-file-name)
   (define query
