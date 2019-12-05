@@ -210,18 +210,18 @@ LIMIT 15000"))
 
   (exec-query conn query))
 
-(define (fetch-narinfo-files conn id url revision-commits)
+(define (fetch-narinfo-files conn build-server-id build-server-url revision-commits)
   (define outputs
     (select-outputs-for-successful-builds-without-known-nar-entries
      conn
-     id
+     build-server-id
      revision-commits))
 
   (simple-format #t "Querying ~A outputs\n"
                  (length outputs))
 
   (let ((narinfos
-         (lookup-narinfos (string-trim-right url #\/) outputs)))
+         (lookup-narinfos (string-trim-right build-server-url #\/) outputs)))
 
     (simple-format #t "Got ~A narinfo files\n"
                    (length narinfos))
