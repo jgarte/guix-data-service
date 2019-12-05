@@ -17,6 +17,7 @@
             select-derivation-source-file-by-store-path
             select-derivation-by-output-filename
             select-derivations-using-output
+            select-derivations-in-revision
             select-derivations-by-revision-name-and-version
             select-derivation-inputs-by-derivation-id
             select-existing-derivations
@@ -110,6 +111,155 @@ ORDER BY derivations.system DESC,
          derivations.file_name")
 
   (exec-query conn query (list revision-commit-hash name version)))
+
+(define* (select-derivations-in-revision conn
+                                         commit-hash
+                                         #:key
+                                         systems
+                                         targets
+                                         minimum-builds
+                                         maximum-builds
+                                         limit-results
+                                         after-name)
+  (define criteria
+    (string-join
+     `(,@(filter-map
+          (lambda (field values)
+            (if values
+                (string-append
+                 field " IN ("
+                 (string-join (map (lambda (value)
+                                     (simple-format #f "'~A'" value))
+                                   values)
+                              ",")
+                 ")")
+                #f))
+          '("derivations.system"
+            "target")
+          (list systems
+                targets))
+       ,@(if minimum-builds
+             (list
+              (string-append
+               "(SELECT COUNT(DISTINCT id) FROM builds WHERE derivation_file_name = derivations.file_name) >= "
+               (number->string minimum-builds)))
+             '())
+       ,@(if maximum-builds
+             (list
+              (string-append
+               "(SELECT COUNT(DISTINCT id) FROM builds WHERE derivation_file_name = derivations.file_name) <= "
+               (number->string maximum-builds)))
+             '()))
+     " AND "))
+
+  (define query
+    (string-append
+     "
+SELECT derivations.file_name,
+       derivations.system,
+       package_derivations.target,
+       (
+         SELECT JSON_AGG(
+                  json_build_object(
+                    'build_server_id', builds.build_server_id,
+                    'status',  latest_build_status.status,
+                    'timestamp',  latest_build_status.timestamp,
+                    'build_for_equivalent_derivation',
+                    builds.derivation_file_name != derivations.file_name
+                  )
+                  ORDER BY latest_build_status.timestamp
+                )
+         FROM builds
+         INNER JOIN (
+           SELECT DISTINCT ON (build_id) *
+           FROM build_status
+           ORDER BY build_id, timestamp DESC
+         ) AS latest_build_status
+           ON builds.id = latest_build_status.build_id
+         WHERE builds.derivation_file_name IN (
+           SELECT dervs_for_file_names.file_name
+           FROM derivations AS dervs_for_file_names
+           WHERE ARRAY[dervs_for_file_names.id] <@ (
+             SELECT equivalent_derivations.derivation_ids
+             FROM equivalent_derivations
+             WHERE ARRAY[derivations.id] <@ equivalent_derivations.derivation_ids
+           )
+         )
+       ) AS builds,
+       (
+         SELECT
+           JSON_AGG(
+             json_build_object(
+               'output_name', derivation_outputs.name,
+               'output_path', derivation_output_details.path,
+               'nars',
+               (
+                 SELECT JSON_AGG(
+                   json_build_object(
+                     'build_server_id', narinfo_fetch_records.build_server_id,
+                     'hash_algorithm', nars.hash_algorithm,
+                     'hash', nars.hash,
+                     'size', nars.size
+                   )
+                 )
+                 FROM nars
+                 INNER JOIN narinfo_signatures
+                   ON nars.id = narinfo_signatures.nar_id
+                 INNER JOIN narinfo_signature_data
+                   ON narinfo_signature_data.id = narinfo_signatures.narinfo_signature_data_id
+                 INNER JOIN narinfo_fetch_records
+                   ON narinfo_signature_data.id = narinfo_fetch_records.narinfo_signature_data_id
+                 WHERE nars.store_path = derivation_output_details.path
+               )
+             )
+           )
+         FROM derivation_output_details
+         INNER JOIN derivation_outputs
+           ON derivation_output_details.id = derivation_outputs.derivation_output_details_id
+         WHERE derivation_outputs.derivation_id = derivations.id
+       ) AS outputs
+FROM derivations
+INNER JOIN package_derivations
+  ON derivations.id = package_derivations.derivation_id
+INNER JOIN guix_revision_package_derivations
+  ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+INNER JOIN guix_revisions
+  ON guix_revision_package_derivations.revision_id = guix_revisions.id
+INNER JOIN packages
+  ON package_derivations.package_id = packages.id
+WHERE guix_revisions.commit = $1
+"
+     (if after-name
+         " AND derivations.file_name > $2"
+         "")
+     (if (string-null? criteria)
+         ""
+         (string-append " AND " criteria))
+     "
+ORDER BY derivations.file_name
+"
+     (if limit-results
+         (string-append
+          " LIMIT " (number->string limit-results))
+         "")))
+
+  (map (match-lambda
+         ((file_name system target builds outputs)
+          (list file_name
+                system
+                target
+                (if (string-null? builds)
+                    #()
+                    (json-string->scm builds))
+                (if (string-null? outputs)
+                    #()
+                    (json-string->scm outputs)))))
+       (exec-query conn
+                   query
+                   `(,commit-hash
+                     ,@(if after-name
+                           (list after-name)
+                           '())))))
 
 (define (insert-derivation-outputs conn
                                    derivation-id
