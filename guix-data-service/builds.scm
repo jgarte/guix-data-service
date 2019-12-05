@@ -24,6 +24,7 @@
        (match-lambda
          ((id url lookup-all-derivations?)
           (when lookup-all-derivations?
+            (simple-format #t "\nQuerying ~A\n" url)
             (query-build-server conn id url revision-commits))))
        build-servers))))
 
