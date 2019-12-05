@@ -193,20 +193,34 @@ LIMIT 1000")
      "
 SELECT derivations.id, derivations.file_name
 FROM derivations
-WHERE derivations.file_name NOT IN (
-  SELECT derivation_file_name FROM builds
+WHERE derivations.id NOT IN (
+  SELECT unnest(equivalent_derivations.derivation_ids)
+  FROM equivalent_derivations
+  WHERE ARRAY[(
+    SELECT derivations.id WHERE derivations.file_name IN (SELECT derivation_file_name FROM builds)
+  )] <@ equivalent_derivations.derivation_ids
 ) AND derivations.id IN (
-  SELECT derivation_id FROM package_derivations"
+  SELECT unnest(derivation_ids)
+  FROM package_derivations"
      (if (null? revision-commits)
          "\n"
          (string-append
-          "  INNER JOIN guix_revision_package_derivations ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
-  INNER JOIN guix_revisions ON guix_revisions.id = guix_revision_package_derivations.revision_id
+          "
+  INNER JOIN guix_revision_package_derivations
+    ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+  INNER JOIN guix_revisions
+    ON guix_revisions.id = guix_revision_package_derivations.revision_id
+  INNER JOIN equivalent_derivations
+    ON ARRAY[derivation_id] <@ equivalent_derivations.derivation_ids
   WHERE guix_revisions.commit IN ("
           (string-join (map quote-string revision-commits) ",")
           ")"
           ))
-     ")
+     "
+  -- TODO: Filter better on what systems and targets build servers use
+  AND package_derivations.system = 'x86_64-linux'
+  AND package_derivations.target = 'x86_64-linux'
+)
 LIMIT 15000"))
 
   (exec-query conn query))
