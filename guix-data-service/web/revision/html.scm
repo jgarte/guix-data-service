@@ -688,6 +688,7 @@
        (@ (class "row"))
        (div
         (@ (class "col-md-12"))
+        (p "Showing " ,(length derivations) " results")
         (table
          (@ (class "table"))
          (thead
