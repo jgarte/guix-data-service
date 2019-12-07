@@ -141,13 +141,25 @@ ORDER BY derivations.system DESC,
        ,@(if minimum-builds
              (list
               (string-append
-               "(SELECT COUNT(DISTINCT id) FROM builds WHERE derivation_file_name = derivations.file_name) >= "
+               "
+(
+  SELECT COUNT(*)
+  FROM builds
+  WHERE builds.derivation_output_details_set_id =
+        derivations_by_output_details_set.derivation_output_details_set_id
+) >= "
                (number->string minimum-builds)))
              '())
        ,@(if maximum-builds
              (list
               (string-append
-               "(SELECT COUNT(DISTINCT id) FROM builds WHERE derivation_file_name = derivations.file_name) <= "
+               "
+(
+  SELECT COUNT(*)
+  FROM builds
+  WHERE builds.derivation_output_details_set_id =
+        derivations_by_output_details_set.derivation_output_details_set_id
+) <= "
                (number->string maximum-builds)))
              '()))
      " AND "))
@@ -176,15 +188,8 @@ SELECT derivations.file_name,
            ORDER BY build_id, timestamp DESC
          ) AS latest_build_status
            ON builds.id = latest_build_status.build_id
-         WHERE builds.derivation_file_name IN (
-           SELECT dervs_for_file_names.file_name
-           FROM derivations AS dervs_for_file_names
-           WHERE ARRAY[dervs_for_file_names.id] <@ (
-             SELECT equivalent_derivations.derivation_ids
-             FROM equivalent_derivations
-             WHERE ARRAY[derivations.id] <@ equivalent_derivations.derivation_ids
-           )
-         )
+         WHERE builds.derivation_output_details_set_id =
+               derivations_by_output_details_set.derivation_output_details_set_id
        ) AS builds,
        (
          SELECT
@@ -219,6 +224,8 @@ SELECT derivations.file_name,
          WHERE derivation_outputs.derivation_id = derivations.id
        ) AS outputs
 FROM derivations
+INNER JOIN derivations_by_output_details_set
+  ON derivations.id = derivations_by_output_details_set.derivation_id
 INNER JOIN package_derivations
   ON derivations.id = package_derivations.derivation_id
 INNER JOIN guix_revision_package_derivations
