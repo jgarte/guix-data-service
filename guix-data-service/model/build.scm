@@ -6,6 +6,7 @@
             select-builds-with-context
             select-builds-with-context-by-derivation-file-name
             select-build-by-build-server-and-derivation-file-name
+            update-builds-derivation-output-details-set-id
             insert-builds
             insert-build
             ensure-build-exists))
@@ -110,25 +111,86 @@ WHERE build_server_id = $1 AND derivation_file_name = $2")
     (_
      #f)))
 
-(define (insert-builds conn build-server-id derivation-file-names)
-  (insert-missing-data-and-return-all-ids
+(define (update-builds-derivation-output-details-set-id conn derivation-file-names)
+  (exec-query
    conn
-   "builds"
-   '(build_server_id derivation_file_name)
-   (map (lambda (derivation-file-name)
-          (list build-server-id
-                derivation-file-name))
-        derivation-file-names)
-   #:delete-duplicates? #t))
+   (string-append
+    "
+UPDATE builds SET derivation_output_details_set_id = (
+  SELECT derivations_by_output_details_set.derivation_output_details_set_id
+  FROM derivations_by_output_details_set
+  INNER JOIN derivations
+    ON derivations.file_name = builds.derivation_file_name
+  WHERE derivations_by_output_details_set.derivation_id = derivations.id
+) WHERE builds.derivation_output_details_set_id IS NULL AND
+        builds.derivation_file_name IN ("
+    (string-join (map quote-string derivation-file-names)
+                 ",")
+    ")")))
+
+(define (select-derivations-by-output-details-set-id-by-derivation-file-name
+         conn
+         derivation-file-name)
+  (match (exec-query
+          conn
+          "
+SELECT derivation_output_details_set_id
+FROM derivations_by_output_details_set
+INNER JOIN derivations
+  ON derivations.id = derivations_by_output_details_set.derivation_id
+WHERE derivations.file_name = $1"
+          (list derivation-file-name))
+    (((id))
+     (string->number id))
+    (_
+     #f)))
+
+(define (insert-builds conn build-server-id derivation-file-names)
+  (let ((build-ids
+         (insert-missing-data-and-return-all-ids
+          conn
+          "builds"
+          '(build_server_id derivation_file_name)
+          (map (lambda (derivation-file-name)
+                 (list build-server-id
+                       derivation-file-name))
+               derivation-file-names)
+          #:delete-duplicates? #t)))
+
+    (exec-query
+     conn
+     (string-append
+      "
+UPDATE builds SET derivation_output_details_set_id = (
+  SELECT derivations_by_output_details_set.derivation_output_details_set_id
+  FROM derivations_by_output_details_set
+  INNER JOIN derivations
+    ON derivations.file_name = builds.derivation_file_name
+  WHERE derivations_by_output_details_set.derivation_id = derivations.id
+) WHERE builds.derivation_output_details_set_id IS NULL AND builds.id IN ("
+      (string-join (map number->string
+                        build-ids)
+                   ",")
+      ")"))
+
+    build-ids))
 
 (define (insert-build conn build-server-id derivation-file-name)
-  (match (exec-query conn
-                     "
-INSERT INTO builds (build_server_id, derivation_file_name)
-VALUES ($1, $2)
+  (match (exec-query
+          conn
+          "
+INSERT INTO builds
+  (build_server_id, derivation_file_name, derivation_output_details_set_id)
+VALUES ($1, $2, $3)
 RETURNING (id)"
-                     (list (number->string build-server-id)
-                           derivation-file-name))
+          (list (number->string build-server-id)
+                derivation-file-name
+                (or
+                 (and=> (select-derivations-by-output-details-set-id-by-derivation-file-name
+                         conn
+                         derivation-file-name)
+                        number->string)
+                 "NULL")))
     (((id))
      (string->number id))))
 

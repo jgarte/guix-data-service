@@ -17,6 +17,7 @@
   #:use-module (guix build utils)
   #:use-module (guix-data-service config)
   #:use-module (guix-data-service database)
+  #:use-module (guix-data-service model build)
   #:use-module (guix-data-service model channel-news)
   #:use-module (guix-data-service model package)
   #:use-module (guix-data-service model git-repository)
@@ -877,6 +878,9 @@ WHERE job_id = $1"
                      (inferior-data->package-derivation-ids
                       conn inf inferior-package-id->package-database-id
                       inferior-data-4-tuples)))
+                (update-builds-derivation-output-details-set-id
+                 conn
+                 (map fourth inferior-data-4-tuples))
 
                 (insert-guix-revision-package-derivations conn
                                                           guix-revision-id
