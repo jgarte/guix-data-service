@@ -138,14 +138,22 @@
     (('GET "revision" commit-hash "derivations")
      (if (guix-commit-exists? conn commit-hash)
          (let ((parsed-query-parameters
-                (parse-query-parameters
-                 request
-                 `((system ,parse-system #:multi-value)
-                   (target ,parse-system #:multi-value)
-                   (maximum_builds ,parse-number)
-                   (minimum_builds ,parse-number)
-                   (after_name ,identity)
-                   (limit_results ,parse-number #:default 100)))))
+                (guard-against-mutually-exclusive-query-parameters
+                 (parse-query-parameters
+                  request
+                  `((system ,parse-system #:multi-value)
+                    (target ,parse-system #:multi-value)
+                    (maximum_builds ,parse-number)
+                    (minimum_builds ,parse-number)
+                    (after_name ,identity)
+                    (limit_results  ,parse-result-limit
+                                    #:no-default-when (all_results)
+                                    #:default 100)
+                    (all_results    ,parse-checkbox-value)))
+                 ;; You can't specify a search query, but then also limit the
+                 ;; results by filtering for after a particular package name
+                 '((after_name search_query)
+                   (limit_results all_results)))))
 
            (render-revision-derivations mime-types
                                         conn
@@ -521,6 +529,8 @@
                                             #:header-link header-link))))
       (let* ((limit-results
               (assq-ref query-parameters 'limit_results))
+             (all-results
+              (assq-ref query-parameters 'all_results))
              (derivations
               (select-derivations-in-revision
                conn
@@ -532,8 +542,10 @@
                #:limit-results limit-results
                #:after-name (assq-ref query-parameters 'after_name)))
              (show-next-page?
-              (>= (length derivations)
-                  limit-results)))
+              (if all-results
+                  #f
+                  (>= (length derivations)
+                      limit-results))))
         (case (most-appropriate-mime-type
                '(application/json text/html)
                mime-types)
