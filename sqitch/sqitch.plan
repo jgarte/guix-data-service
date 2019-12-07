@@ -36,3 +36,4 @@ change_nars_size_to_bigint 2019-12-04T21:24:21Z   <chris@phact> # Change nars.si
 change_nar_urls_size_to_bigint 2019-12-04T21:49:07Z   <chris@phact> # Change nar_urls.size to bigint
 sort_out_duplicate_builds 2019-12-05T12:43:53Z   <chris@phact> # Sort out duplicate builds
 add_some_database_indexes 2019-12-05T15:53:04Z Christopher Baines <mail@cbaines.net> # Add some indexes
+derivation_output_sets 2019-12-05T23:19:05Z Christopher Baines <mail@cbaines.net> # Describe the sets of derivation outputs

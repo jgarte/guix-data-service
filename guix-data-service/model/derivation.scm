@@ -289,18 +289,62 @@ ORDER BY derivations.file_name
      ";"))
 
   (define (insert-into-derivation-outputs output-names
-                                          derivation-output-ids)
+                                          derivation-output-details-ids)
     (string-append "INSERT INTO derivation_outputs "
                    "(derivation_id, name, derivation_output_details_id) VALUES "
                    (string-join
-                    (map (lambda (output-name derivation-output-id)
+                    (map (lambda (output-name derivation-output-details-id)
                            (simple-format
                             #f "(~A, '~A', ~A)"
-                            derivation-id output-name derivation-output-id))
+                            derivation-id
+                            output-name
+                            derivation-output-details-id))
                          output-names
-                         derivation-output-ids)
+                         derivation-output-details-ids)
                     ",")
                    ";"))
+
+  (define (select-derivation-output-details-sets-id derivation-output-details-ids)
+    (match (exec-query
+            conn
+            (string-append
+             "
+SELECT id
+FROM derivation_output_details_sets
+WHERE derivation_output_details_ids = ARRAY["
+             (string-join (map number->string
+                               derivation-output-details-ids)
+                          ",")
+             "]"))
+      (((id))
+       (string->number id))
+      (_ #f)))
+
+  (define (insert-into-derivation-output-details-sets
+           derivation-output-details-ids)
+    (match (exec-query
+            conn
+            (string-append
+             "
+INSERT INTO derivation_output_details_sets (derivation_output_details_ids)
+VALUES (ARRAY["
+             (string-join (map number->string derivation-output-details-ids)
+                          ",")
+             "])
+RETURNING id"))
+      (((id))
+       (string->number id))))
+
+  (define (insert-into-derivations-by-output-details-set
+           derivation_output_details_set_id)
+    (exec-query
+     conn
+     "
+INSERT INTO derivations_by_output_details_set
+  (derivation_id, derivation_output_details_set_id)
+VALUES ($1, $2)"
+     (list (number->string derivation-id)
+           (number->string derivation_output_details_set_id))))
 
   (let* ((derivation-outputs (map cdr names-and-derivation-outputs))
          (derivation-output-paths (map derivation-output-path
@@ -333,14 +377,15 @@ ORDER BY derivations.file_name
           (two-lists->vhash (map derivation-output-path missing-entries)
                             new-derivation-output-details-ids))
 
-         (derivation-output-ids
+         (derivation-output-details-ids
           (map (lambda (path)
-                 (cdr
-                  (or (vhash-assoc path
-                                   existing-derivation-output-details-entries)
-                      (vhash-assoc path
-                                   new-entries-id-lookup-vhash)
-                      (error "missing derivation output details entry"))))
+                 (string->number
+                  (cdr
+                   (or (vhash-assoc path
+                                    existing-derivation-output-details-entries)
+                       (vhash-assoc path
+                                    new-entries-id-lookup-vhash)
+                       (error "missing derivation output details entry")))))
                derivation-output-paths))
 
          (derivation-output-names
@@ -348,9 +393,14 @@ ORDER BY derivations.file_name
 
     (exec-query conn
                 (insert-into-derivation-outputs derivation-output-names
-                                                derivation-output-ids))
+                                                derivation-output-details-ids))
 
-    derivation-output-ids))
+    (insert-into-derivations-by-output-details-set
+     (or
+      (select-derivation-output-details-sets-id derivation-output-details-ids)
+      (insert-into-derivation-output-details-sets derivation-output-details-ids)))
+
+    derivation-output-details-ids))
 
 (define (select-derivation-by-file-name conn file-name)
   (define query
