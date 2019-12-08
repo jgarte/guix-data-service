@@ -31,6 +31,7 @@
             view-revision
             view-revision-packages
             view-revision-derivations
+            view-revision-derivation-outputs
             view-revision-lint-warnings
             unknown-revision))
 
@@ -757,6 +758,104 @@
                  (a (@ (href ,(string-append path-base
                                              "?after_name="
                                              (car (last derivations)))))
+                    "Next page")))
+              '())))))))
+
+(define* (view-revision-derivation-outputs commit-hash
+                                           query-parameters
+                                           derivation-outputs
+                                           show-next-page?
+                                           #:key (path-base "/revision/")
+                                           header-text
+                                           header-link)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h3 (a (@ (style "white-space: nowrap;")
+                  (href ,header-link))
+               ,@header-text))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (div
+         (@ (class "well"))
+         (form
+          (@ (method "get")
+             (action "")
+             (style "padding-bottom: 0")
+             (class "form-horizontal"))
+          ,(form-horizontal-control
+            "Search query" query-parameters
+            #:help-text
+            "List packages where the derivation output path matches this query.")
+          ,(form-horizontal-control
+            "Reproducibility status" query-parameters
+            #:options '(("Any" . "any")
+                        ("Unknown" . "unknown")
+                        ("Reproducible" . "reproducible")
+                        ("Unreproducible" . "unreproducible"))
+            #:help-text "Do the known hashes for this output suggest it's reproducible, or not reproducible.")
+          ,(form-horizontal-control
+            "After path" query-parameters
+            #:help-text
+            "List packages that are alphabetically after the given name.")
+          ,(form-horizontal-control
+            "Limit results" query-parameters
+            #:help-text "The maximum number of packages by name to return.")
+          ,(form-horizontal-control
+            "All results" query-parameters
+            #:type "checkbox"
+            #:help-text "Return all results.")
+          (div (@ (class "form-group form-group-lg"))
+               (div (@ (class "col-sm-offset-2 col-sm-10"))
+                    (button (@ (type "submit")
+                               (class "btn btn-lg btn-primary"))
+                            "Update results")))))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (p "Showing " ,(length derivation-outputs) " results")
+        (table
+         (@ (class "table"))
+         (thead
+          (tr
+           (th "Path")
+           (th "Hash")
+           (th "Nars")))
+         (tbody
+          ,@(map
+             (match-lambda
+               ((path hash-algorithm hash recursive nars)
+                `(tr
+                  (td (a (@ (href ,path))
+                         ,(display-store-item-short path)))
+                  (td
+                   ,@(if
+                      (null? hash-algorithm)
+                      '()
+                      `(,hash)))
+                  (td
+                   ,@(map (lambda (nar)
+                            `(div
+                              ,(assoc-ref nar "build_server_id")
+                              " "
+                              ,(assoc-ref nar "hash")))
+                          (vector->list nars))))))
+             derivation-outputs)))
+        ,@(if show-next-page?
+              `((div
+                 (@ (class "row"))
+                 (a (@ (href ,(string-append path-base
+                                             "?after_path="
+                                             (car (last derivation-outputs)))))
                     "Next page")))
               '())))))))
 

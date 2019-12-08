@@ -163,6 +163,30 @@
          (render-unknown-revision mime-types
                                   conn
                                   commit-hash)))
+    (('GET "revision" commit-hash "derivation-outputs")
+     (if (guix-commit-exists? conn commit-hash)
+         (let ((parsed-query-parameters
+                (guard-against-mutually-exclusive-query-parameters
+                 (parse-query-parameters
+                  request
+                  `((after_path ,identity)
+                    (limit_results  ,parse-result-limit
+                                    #:no-default-when (all_results)
+                                    #:default 100)
+                    (all_results    ,parse-checkbox-value)))
+                 ;; You can't specify a search query, but then also limit the
+                 ;; results by filtering for after a particular output path
+                 '((after_path search_query)
+                   (limit_results all_results)))))
+
+           (render-revision-derivation-outputs mime-types
+                                               conn
+                                               commit-hash
+                                               parsed-query-parameters
+                                               #:path-base path))
+         (render-unknown-revision mime-types
+                                  conn
+                                  commit-hash)))
     (('GET "revision" commit-hash "lint-warnings")
      (if (guix-commit-exists? conn commit-hash)
          (let ((parsed-query-parameters
@@ -562,6 +586,62 @@
                                               #:path-base path-base
                                               #:header-text header-text
                                               #:header-link header-link)))))))
+
+(define* (render-revision-derivation-outputs mime-types
+                                             conn
+                                             commit-hash
+                                             query-parameters
+                                             #:key
+                                             (path-base "/revision/")
+                                             (header-text
+                                              `("Revision " (samp ,commit-hash)))
+                                             (header-link
+                                              (string-append "/revision/" commit-hash)))
+  (if (any-invalid-query-parameters? query-parameters)
+      (case (most-appropriate-mime-type
+             '(application/json text/html)
+             mime-types)
+        ((application/json)
+         (render-json
+          `((error . "invalid query"))))
+        (else
+         (render-html
+          #:sxml (view-revision-derivation-outputs commit-hash
+                                                   query-parameters
+                                                   '()
+                                                   #:path-base path-base
+                                                   #:header-text header-text
+                                                   #:header-link header-link))))
+      (let* ((limit-results
+              (assq-ref query-parameters 'limit_results))
+             (all-results
+              (assq-ref query-parameters 'all_results))
+             (derivation-outputs
+              (select-derivation-outputs-in-revision
+               conn
+               commit-hash
+               #:limit-results limit-results
+               #:after-path (assq-ref query-parameters 'after_path)))
+             (show-next-page?
+              (if all-results
+                  #f
+                  (>= (length derivation-outputs)
+                      limit-results))))
+        (case (most-appropriate-mime-type
+               '(application/json text/html)
+               mime-types)
+          ((application/json)
+           (render-json
+            `()))
+          (else
+           (render-html
+            #:sxml (view-revision-derivation-outputs commit-hash
+                                                     query-parameters
+                                                     derivation-outputs
+                                                     show-next-page?
+                                                     #:path-base path-base
+                                                     #:header-text header-text
+                                                     #:header-link header-link)))))))
 
 (define* (render-revision-lint-warnings mime-types
                                         conn
