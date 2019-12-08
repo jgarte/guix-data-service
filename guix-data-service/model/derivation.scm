@@ -8,6 +8,7 @@
   #:use-module (guix inferior)
   #:use-module (guix memoization)
   #:use-module (guix derivations)
+  #:use-module (guix-data-service database)
   #:use-module (guix-data-service model utils)
   #:export (valid-systems
             count-derivations
@@ -18,6 +19,7 @@
             select-derivation-by-output-filename
             select-derivations-using-output
             select-derivations-in-revision
+            select-derivation-outputs-in-revision
             select-derivations-by-revision-name-and-version
             select-derivation-inputs-by-derivation-id
             select-existing-derivations
@@ -267,6 +269,78 @@ ORDER BY derivations.file_name
                      ,@(if after-name
                            (list after-name)
                            '())))))
+
+(define* (select-derivation-outputs-in-revision conn
+                                                commit-hash
+                                                #:key
+                                                limit-results
+                                                after-path)
+  (define query
+    (string-append
+     "
+SELECT derivation_output_details.path,
+       derivation_output_details.hash_algorithm,
+       derivation_output_details.hash,
+       derivation_output_details.recursive,
+       (
+         SELECT JSON_AGG(
+           json_build_object(
+             'build_server_id', narinfo_fetch_records.build_server_id,
+             'hash_algorithm', nars.hash_algorithm,
+             'hash', nars.hash,
+             'size', nars.size
+           )
+         )
+         FROM nars
+         INNER JOIN narinfo_signatures
+           ON nars.id = narinfo_signatures.nar_id
+         INNER JOIN narinfo_signature_data
+           ON narinfo_signature_data.id = narinfo_signatures.narinfo_signature_data_id
+         INNER JOIN narinfo_fetch_records
+           ON narinfo_signature_data.id = narinfo_fetch_records.narinfo_signature_data_id
+         WHERE nars.store_path = derivation_output_details.path
+       ) AS nars
+FROM derivations
+INNER JOIN derivation_outputs
+  ON derivations.id = derivation_outputs.derivation_id
+INNER JOIN derivation_output_details
+  ON derivation_outputs.derivation_output_details_id = derivation_output_details.id
+INNER JOIN package_derivations
+  ON derivations.id = package_derivations.derivation_id
+INNER JOIN guix_revision_package_derivations
+  ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+INNER JOIN guix_revisions
+  ON guix_revision_package_derivations.revision_id = guix_revisions.id
+INNER JOIN packages
+  ON package_derivations.package_id = packages.id
+WHERE guix_revisions.commit = $1
+"
+     (if after-path
+         " AND derivation_output_details.path > $2"
+         "")
+     "
+ORDER BY derivation_output_details.path
+"
+     (if limit-results
+         (string-append
+          " LIMIT " (number->string limit-results))
+         "")))
+
+  (map (match-lambda
+         ((path hash_algorithm hash recursive nars_json)
+          (list path
+                hash
+                hash_algorithm
+                (string=? recursive "t")
+                (if (null? nars_json)
+                    #()
+                    (json-string->scm nars_json)))))
+       (exec-query-with-null-handling  conn
+                                       query
+                                       `(,commit-hash
+                                         ,@(if after-path
+                                               (list after-path)
+                                               '())))))
 
 (define (insert-derivation-outputs conn
                                    derivation-id
