@@ -25,7 +25,6 @@
             select-existing-derivations
             select-derivations-by-id
             select-derivations-and-build-status
-            insert-into-derivations
             derivation-file-names->derivation-ids))
 
 (define (valid-systems conn)
