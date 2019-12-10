@@ -15,8 +15,10 @@
   (define query
     "
 SELECT latest_build_status.status AS build_status, COUNT(*)
-FROM derivations
-LEFT JOIN builds ON builds.derivation_file_name = derivations.file_name
+FROM derivation_output_details_sets
+LEFT JOIN builds
+   ON builds.derivation_output_details_set_id =
+      derivation_output_details_sets.id
 LEFT JOIN
 (
   SELECT DISTINCT ON (build_id) *
