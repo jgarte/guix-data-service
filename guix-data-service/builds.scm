@@ -104,7 +104,9 @@
 
 (define (process-derivations conn build-server-id url revision-commits)
   (define derivations
-    (select-derivations-with-no-known-build conn revision-commits))
+    (select-derivations-with-no-known-build conn
+                                            build-server-id
+                                            revision-commits))
 
   (simple-format (current-error-port) "Fetching ~A derivations\n"
                  (length derivations))
@@ -187,7 +189,9 @@ LIMIT 1000")
             derivation-file-name)))
    (exec-query conn query (list (number->string build-server-id)))))
 
-(define (select-derivations-with-no-known-build conn revision-commits)
+(define (select-derivations-with-no-known-build conn
+                                                build-server-id
+                                                revision-commits)
   (define query
     ;; Only select derivations that are in the package_derivations table, as
     ;; Cuirass doesn't build the intermediate derivations
@@ -195,37 +199,41 @@ LIMIT 1000")
      "
 SELECT derivations.id, derivations.file_name
 FROM derivations
-WHERE derivations.id NOT IN (
-  SELECT unnest(equivalent_derivations.derivation_ids)
-  FROM equivalent_derivations
-  WHERE ARRAY[(
-    SELECT derivations.id WHERE derivations.file_name IN (SELECT derivation_file_name FROM builds)
-  )] <@ equivalent_derivations.derivation_ids
-) AND derivations.id IN (
-  SELECT unnest(derivation_ids)
-  FROM package_derivations"
-     (if (null? revision-commits)
-         "\n"
+INNER JOIN derivations_by_output_details_set
+  ON derivations.id = derivations_by_output_details_set.derivation_id
+WHERE derivation_output_details_set_id NOT IN (
+  SELECT derivation_output_details_set_id
+  FROM builds
+  WHERE build_server_id = $1
+) AND derivation_output_details_set_id IN (
+  SELECT derivation_output_details_set_id
+  FROM package_derivations
+  INNER JOIN derivations_by_output_details_set
+    ON package_derivations.derivation_id =
+       derivations_by_output_details_set.derivation_id"
+   (if (null? revision-commits)
+         "
+  WHERE"
          (string-append
           "
   INNER JOIN guix_revision_package_derivations
-    ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+    ON package_derivations.id =
+       guix_revision_package_derivations.package_derivation_id
   INNER JOIN guix_revisions
     ON guix_revisions.id = guix_revision_package_derivations.revision_id
-  INNER JOIN equivalent_derivations
-    ON ARRAY[derivation_id] <@ equivalent_derivations.derivation_ids
   WHERE guix_revisions.commit IN ("
           (string-join (map quote-string revision-commits) ",")
-          ")"
-          ))
-     "
+          ")
+  AND"))
+   "
   -- TODO: Filter better on what systems and targets build servers use
-  AND package_derivations.system = 'x86_64-linux'
+      package_derivations.system = 'x86_64-linux'
   AND package_derivations.target = 'x86_64-linux'
 )
+ORDER BY derivation_output_details_set_id, derivations.id
 LIMIT 15000"))
 
-  (exec-query conn query))
+  (exec-query conn query (list (number->string build-server-id))))
 
 (define (fetch-narinfo-files conn build-server-id build-server-url revision-commits)
   (define outputs
