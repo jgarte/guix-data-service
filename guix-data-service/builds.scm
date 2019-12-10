@@ -17,15 +17,17 @@
   #:use-module (guix-data-service model nar)
   #:export (query-build-servers))
 
-(define (query-build-servers conn revision-commits)
+(define (query-build-servers conn build-server-ids revision-commits)
   (while #t
     (let ((build-servers (select-build-servers conn)))
       (for-each
        (match-lambda
          ((id url lookup-all-derivations?)
-          (when lookup-all-derivations?
-            (simple-format #t "\nQuerying ~A\n" url)
-            (query-build-server conn id url revision-commits))))
+          (when (or (not build-servers)
+                    (member id build-server-ids))
+            (when lookup-all-derivations?
+              (simple-format #t "\nQuerying ~A\n" url)
+              (query-build-server conn id url revision-commits)))))
        build-servers))))
 
 (define (query-build-server conn id url revision-commits)
