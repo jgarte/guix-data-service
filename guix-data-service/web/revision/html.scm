@@ -612,9 +612,11 @@
       ,@(if show-next-page?
             `((div
                (@ (class "row"))
-               (a (@ (href ,(string-append path-base
-                                           "?after_name="
-                                           (car (last packages)))))
+               (a (@ (href
+                      ,(next-page-link path-base
+                                       query-parameters
+                                       'after_name
+                                       (car (last packages)))))
                   "Next page")))
             '())))))
 
@@ -755,9 +757,11 @@
         ,@(if show-next-page?
               `((div
                  (@ (class "row"))
-                 (a (@ (href ,(string-append path-base
-                                             "?after_name="
-                                             (car (last derivations)))))
+                 (a (@ (href
+                        ,(next-page-link path-base
+                                         query-parameters
+                                         'after_name
+                                         (car (last derivations)))))
                     "Next page")))
               '())))))))
 
@@ -853,9 +857,11 @@
         ,@(if show-next-page?
               `((div
                  (@ (class "row"))
-                 (a (@ (href ,(string-append path-base
-                                             "?after_path="
-                                             (car (last derivation-outputs)))))
+                 (a (@ (href
+                        ,(next-page-link path-base
+                                         query-parameters
+                                         'after_path
+                                         (car (last derivation-outputs)))))
                     "Next page")))
               '())))))))
 
