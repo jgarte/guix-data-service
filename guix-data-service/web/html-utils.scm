@@ -16,8 +16,12 @@
 ;;; <http://www.gnu.org/licenses/>.
 
 (define-module (guix-data-service web html-utils)
+  #:use-module (srfi srfi-1)
   #:use-module (ice-9 match)
+  #:use-module (guix-data-service web query-parameters)
   #:export (sexp-div
+
+            next-page-link
 
             build-status-value->display-string
             build-status-span
@@ -37,6 +41,19 @@
             ,hash))
     ((and string val)
      val)))
+
+(define (next-page-link path
+                        query-parameters
+                        field
+                        value)
+  (string-append
+   path
+   "?"
+   (query-parameters->string
+    `((,field . ,value)
+      ,@(alist-delete
+         field
+         query-parameters)))))
 
 (define (build-status-value->display-string value)
   (assoc-ref
