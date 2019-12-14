@@ -107,6 +107,7 @@
                                   help-text
                                   required?
                                   options
+                                  (allow-selecting-multiple-options #t)
                                   font-family
                                   (type "text"))
   (define (value->text value)
@@ -146,7 +147,9 @@
                                     (string-append
                                      "font-family: " font-family ";")
                                     ""))
-                        (multiple #t)
+                        ,@(if allow-selecting-multiple-options
+                              '((multiple #t))
+                              '())
                         (id ,input-id)
                         ,@(if show-help-span?
                               `((aria-describedby ,help-span-id))
@@ -157,7 +160,9 @@
                         (match (assq (string->symbol input-name)
                                      query-parameters)
                           ((_key . value)
-                           value)
+                           (if (not allow-selecting-multiple-options)
+                               (list value)
+                               value))
                           (_ '()))))
 
                    (map (match-lambda
