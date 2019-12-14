@@ -11,12 +11,39 @@
             insert-build
             ensure-build-exists))
 
-(define (select-build-stats conn build-servers)
+(define* (select-build-stats conn build-servers #:key revision-commit)
+  (define criteria
+    `(,@(if build-servers
+            (list
+             (string-append
+              "builds.build_server_id IN ("
+              (string-join (map number->string build-servers)
+                           ", ")
+              ")"))
+            '())
+      ,@(if revision-commit
+            '("guix_revisions.commit = $1")
+            '())))
+
   (define query
     (string-append
      "
 SELECT latest_build_status.status AS build_status, builds.build_server_id, COUNT(*)
 FROM derivation_output_details_sets
+"
+     (if revision-commit
+         "
+INNER JOIN derivations_by_output_details_set
+  ON derivation_output_details_sets.id =
+     derivations_by_output_details_set.derivation_output_details_set_id
+INNER JOIN package_derivations
+  ON derivations_by_output_details_set.derivation_id = package_derivations.derivation_id
+INNER JOIN guix_revision_package_derivations
+  ON guix_revision_package_derivations.package_derivation_id = package_derivations.id
+INNER JOIN guix_revisions
+  ON guix_revision_package_derivations.revision_id = guix_revisions.id"
+         "")
+     "
 LEFT JOIN builds
    ON builds.derivation_output_details_set_id =
       derivation_output_details_sets.id
@@ -28,13 +55,11 @@ LEFT JOIN
 ) AS latest_build_status
 ON builds.id = latest_build_status.build_id
 "
-     (if build-servers
+     (if (null? criteria)
+         ""
          (string-append
-          "WHERE builds.build_server_id IN ("
-          (string-join (map number->string build-servers)
-                       ", ")
-          ")")
-         "")
+          "WHERE "
+          (string-join criteria " AND ")))
      "
 GROUP BY latest_build_status.status, builds.build_server_id
 ORDER BY status"))
@@ -47,7 +72,13 @@ ORDER BY status"))
                         (cons (string->number build-server-id)
                               (string->number count))))
                      data))))
-       (group-list-by-first-n-fields 1 (exec-query conn query))))
+       (group-list-by-first-n-fields
+        1
+        (exec-query conn
+                    query
+                    `(,@(if revision-commit
+                            (list revision-commit)
+                            '()))))))
 
 (define (select-builds-with-context conn build-statuses build-server-ids)
   (define where-conditions
