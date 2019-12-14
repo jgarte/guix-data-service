@@ -11,10 +11,11 @@
             insert-build
             ensure-build-exists))
 
-(define (select-build-stats conn)
+(define (select-build-stats conn build-servers)
   (define query
-    "
-SELECT latest_build_status.status AS build_status, COUNT(*)
+    (string-append
+     "
+SELECT latest_build_status.status AS build_status, builds.build_server_id, COUNT(*)
 FROM derivation_output_details_sets
 LEFT JOIN builds
    ON builds.derivation_output_details_set_id =
@@ -26,10 +27,27 @@ LEFT JOIN
   ORDER BY build_id, timestamp DESC
 ) AS latest_build_status
 ON builds.id = latest_build_status.build_id
-GROUP BY latest_build_status.status
-ORDER BY status")
+"
+     (if build-servers
+         (string-append
+          "WHERE builds.build_server_id IN ("
+          (string-join (map number->string build-servers)
+                       ", ")
+          ")")
+         "")
+     "
+GROUP BY latest_build_status.status, builds.build_server_id
+ORDER BY status"))
 
-  (exec-query conn query))
+  (map (match-lambda
+         (((build-status) . data)
+          (list build-status
+                (map (match-lambda
+                       ((build-server-id count)
+                        (cons (string->number build-server-id)
+                              (string->number count))))
+                     data))))
+       (group-list-by-first-n-fields 1 (exec-query conn query))))
 
 (define (select-builds-with-context conn build-statuses build-server-ids)
   (define where-conditions

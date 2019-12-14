@@ -80,7 +80,10 @@
                                     ((id url lookup-all-derivations)
                                      (cons url id)))
                                   (select-build-servers conn))
-                             (select-build-stats conn)
+                             (select-build-stats
+                              conn
+                              (assq-ref parsed-query-parameters
+                                        'build_server))
                              (select-builds-with-context
                               conn
                               (assq-ref parsed-query-parameters

@@ -42,14 +42,22 @@
          (thead
           (tr
            (th (@ (class "col-md-2")) "Status")
-           (th (@ (class "col-md-2")) "Count")))
+           ,@(map (match-lambda
+                    ((url . id)
+                     `(th (@ (class "col-md-2"))
+                          ,url)))
+                  build-server-options)))
          (tbody
           ,@(map
              (match-lambda
-               ((status count)
+               ((status counts-by-build-server-id)
                 `(tr
                   (td ,(build-status-span status))
-                  (td ,count))))
+                  ,@(map (lambda (id)
+                           `(td ,(or (assq-ref counts-by-build-server-id
+                                               id)
+                                     0)))
+                         (map cdr build-server-options)))))
              stats)))))
       (div
        (@ (class "row"))
