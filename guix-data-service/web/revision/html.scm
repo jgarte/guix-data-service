@@ -803,6 +803,7 @@
             "Reproducibility status" query-parameters
             #:allow-selecting-multiple-options #f
             #:options '(("Any" . "any")
+                        ("Fixed output" . "fixed-output")
                         ("Unknown" . "unknown")
                         ("Reproducible" . "reproducible")
                         ("Unreproducible" . "unreproducible"))
