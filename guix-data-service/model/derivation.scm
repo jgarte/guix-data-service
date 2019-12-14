@@ -272,6 +272,7 @@ ORDER BY derivations.file_name
 (define* (select-derivation-outputs-in-revision conn
                                                 commit-hash
                                                 #:key
+                                                reproducibility-status
                                                 limit-results
                                                 after-path)
   (define query
@@ -317,6 +318,43 @@ WHERE guix_revisions.commit = $1
      (if after-path
          " AND derivation_output_details.path > $2"
          "")
+     (cond
+      ((string=? reproducibility-status "any")
+       "")
+      ((string=? reproducibility-status "fixed-output")
+       " AND derivation_output_details.hash IS NOT NULL")
+      (else
+       (string-append
+        " AND derivation_output_details.hash IS NULL AND (
+  SELECT
+"
+        (cond
+         ((string=? reproducibility-status "unknown")
+          "COUNT(DISTINCT narinfo_fetch_records.build_server_id) <= 1")
+         ((string=? reproducibility-status "reproducible")
+          "
+    CASE
+      WHEN (COUNT(DISTINCT narinfo_fetch_records.build_server_id) <= 1) THEN NULL
+      ELSE (COUNT(DISTINCT nars.hash) = 1)
+    END")
+         ((string=? reproducibility-status "unreproducible")
+          "
+    CASE
+      WHEN (COUNT(DISTINCT narinfo_fetch_records.build_server_id) <= 1) THEN NULL
+      ELSE (COUNT(DISTINCT nars.hash) > 1)
+    END")
+         (else
+          (error "unknown reproducibility status")))
+        "
+  FROM nars
+  INNER JOIN narinfo_signatures
+    ON nars.id = narinfo_signatures.nar_id
+  INNER JOIN narinfo_signature_data
+    ON narinfo_signature_data.id = narinfo_signatures.narinfo_signature_data_id
+  INNER JOIN narinfo_fetch_records
+    ON narinfo_signature_data.id = narinfo_fetch_records.narinfo_signature_data_id
+  WHERE nars.store_path = derivation_output_details.path
+)")))
      "
 ORDER BY derivation_output_details.path
 "

@@ -801,6 +801,7 @@
             "List packages where the derivation output path matches this query.")
           ,(form-horizontal-control
             "Reproducibility status" query-parameters
+            #:allow-selecting-multiple-options #f
             #:options '(("Any" . "any")
                         ("Unknown" . "unknown")
                         ("Reproducible" . "reproducible")

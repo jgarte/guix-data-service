@@ -170,6 +170,8 @@
                  (parse-query-parameters
                   request
                   `((after_path ,identity)
+                    (reproducibility_status ,identity
+                                            #:default "any")
                     (limit_results  ,parse-result-limit
                                     #:no-default-when (all_results)
                                     #:default 100)
@@ -620,6 +622,8 @@
               (select-derivation-outputs-in-revision
                conn
                commit-hash
+               #:reproducibility-status
+               (assq-ref query-parameters 'reproducibility_status)
                #:limit-results limit-results
                #:after-path (assq-ref query-parameters 'after_path)))
              (show-next-page?
