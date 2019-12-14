@@ -16,6 +16,7 @@
 ;;; <http://www.gnu.org/licenses/>.
 
 (define-module (guix-data-service web revision controller)
+  #:use-module (srfi srfi-1)
   #:use-module (ice-9 match)
   #:use-module (web uri)
   #:use-module (web request)
@@ -28,6 +29,9 @@
   #:use-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service web util)
   #:use-module (guix-data-service jobs load-new-guix-revision)
+  #:use-module (guix-data-service model build)
+  #:use-module (guix-data-service model build-server)
+  #:use-module (guix-data-service model build-status)
   #:use-module (guix-data-service model channel-news)
   #:use-module (guix-data-service model package)
   #:use-module (guix-data-service model git-branch)
@@ -58,6 +62,28 @@
 
 (define (parse-system s)
   s)
+
+(define (parse-build-status status)
+  (if (member status build-status-strings)
+      status
+      (make-invalid-query-parameter
+       status
+       (string-append "unknown build status: "
+                      status))))
+
+(define (parse-build-server conn)
+  (lambda (v)
+    (let ((build-servers (select-build-servers conn)))
+      (or (any (match-lambda
+                 ((id url lookup-all-derivations?)
+                  (if (eq? (string->number v)
+                           id)
+                      id
+                      #f)))
+               build-servers)
+          (make-invalid-query-parameter
+           v
+           "unknown build server")))))
 
 (define (revision-controller request
                              method-and-path-components
@@ -186,6 +212,22 @@
                                                commit-hash
                                                parsed-query-parameters
                                                #:path-base path))
+         (render-unknown-revision mime-types
+                                  conn
+                                  commit-hash)))
+    (('GET "revision" commit-hash "builds")
+     (if (guix-commit-exists? conn commit-hash)
+         (let ((parsed-query-parameters
+                (parse-query-parameters
+                 request
+                 `((build_status ,parse-build-status #:multi-value)
+                   (build_server ,(parse-build-server conn) #:multi-value)))))
+
+           (render-revision-builds mime-types
+                                   conn
+                                   commit-hash
+                                   parsed-query-parameters
+                                   #:path-base path))
          (render-unknown-revision mime-types
                                   conn
                                   commit-hash)))
@@ -646,6 +688,42 @@
                                                      #:path-base path-base
                                                      #:header-text header-text
                                                      #:header-link header-link)))))))
+
+(define* (render-revision-builds mime-types
+                                 conn
+                                 commit-hash
+                                 query-parameters
+                                 #:key
+                                 (path-base "/revision/")
+                                 (header-text
+                                  `("Revision " (samp ,commit-hash)))
+                                 (header-link
+                                  (string-append "/revision/" commit-hash)))
+  (if (any-invalid-query-parameters? query-parameters)
+      (render-html
+       #:sxml (view-revision-builds query-parameters
+                                    build-status-strings
+                                    '()
+                                    '()
+                                    '()))
+      (render-html
+       #:sxml (view-revision-builds query-parameters
+                                    build-status-strings
+                                    (map (match-lambda
+                                           ((id url lookup-all-derivations)
+                                            (cons url id)))
+                                         (select-build-servers conn))
+                                    (select-build-stats
+                                     conn
+                                     (assq-ref query-parameters
+                                               'build_server)
+                                     #:revision-commit commit-hash)
+                                    (select-builds-with-context
+                                     conn
+                                     (assq-ref query-parameters
+                                               'build_status)
+                                     (assq-ref query-parameters
+                                               'build_server))))))
 
 (define* (render-revision-lint-warnings mime-types
                                         conn

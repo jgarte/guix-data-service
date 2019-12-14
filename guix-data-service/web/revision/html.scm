@@ -32,6 +32,7 @@
             view-revision-packages
             view-revision-derivations
             view-revision-derivation-outputs
+            view-revision-builds
             view-revision-lint-warnings
             unknown-revision))
 
@@ -866,6 +867,104 @@
                                          (car (last derivation-outputs)))))
                     "Next page")))
               '())))))))
+
+(define (view-revision-builds query-parameters
+                              build-status-strings
+                              build-server-options
+                              stats
+                              builds)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h1 "Builds")
+        (table
+         (@ (class "table"))
+         (thead
+          (tr
+           (th (@ (class "col-md-2")) "Status")
+           ,@(map (match-lambda
+                    ((url . id)
+                     `(th (@ (class "col-md-2"))
+                          ,url)))
+                  build-server-options)))
+         (tbody
+          ,@(map
+             (match-lambda
+               ((status counts-by-build-server-id)
+                `(tr
+                  (td ,(build-status-span status))
+                  ,@(map (lambda (id)
+                           `(td ,(or (assq-ref counts-by-build-server-id
+                                               id)
+                                     0)))
+                         (map cdr build-server-options)))))
+             stats)))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (div
+         (@ (class "well"))
+         (form
+          (@ (method "get")
+             (action "")
+             (class "form-horizontal"))
+          ,(form-horizontal-control
+            "Build status" query-parameters
+            #:options
+            (map (lambda (build-status)
+                   (cons (build-status-value->display-string build-status)
+                         build-status))
+                 build-status-strings)
+            #:help-text "Return builds with these statuses.")
+          ,(form-horizontal-control
+            "Build server"
+            query-parameters
+            #:options build-server-options
+            #:help-text "Return builds from these build servers.")
+          (div (@ (class "form-group form-group-lg"))
+               (div (@ (class "col-sm-offset-2 col-sm-10"))
+                    (button (@ (type "submit")
+                               (class "btn btn-lg btn-primary"))
+                            "Update results")))))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (table
+         (@ (class "table"))
+         (thead
+          (tr
+           (th (@ (class "col-xs-2")) "Status")
+           (th (@ (class "col-xs-9")) "Derivation")
+           (th (@ (class "col-xs-1")) "Started at")
+           (th (@ (class "col-xs-1")) "Finished at")
+           (th (@ (class "col-xs-1")) "")))
+         (tbody
+          ,@(map
+             (match-lambda
+               ((build-id build-server-url derivation-file-name
+                          timestamp status)
+                `(tr
+                  (td (@ (class "text-center"))
+                      ,(build-status-span status))
+                  (td (a (@ (href ,derivation-file-name))
+                         ,(display-store-item-short derivation-file-name)))
+                  (td ,timestamp)
+                  (td (a (@ (href ,(simple-format
+                                    #f "~Abuild/~A"
+                                    build-server-url
+                                    (string-drop
+                                     derivation-file-name
+                                     (string-length "/gnu/store/")))))
+                         "View build on " ,build-server-url)))))
+             builds)))))))))
 
 (define* (view-revision-lint-warnings revision-commit-hash
                                       query-parameters
