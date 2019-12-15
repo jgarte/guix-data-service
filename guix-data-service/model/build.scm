@@ -129,7 +129,8 @@ LIMIT 100"))
          conn derivation-file-name)
   (define query
     "
-SELECT build_servers.url,
+SELECT build_servers.id,
+       build_servers.url,
        latest_build_status.timestamp,
        latest_build_status.status
 FROM builds
@@ -140,7 +141,7 @@ INNER JOIN
   FROM build_status
   ORDER BY build_id, timestamp DESC
 ) AS latest_build_status
-ON latest_build_status.build_id = builds.id
+  ON latest_build_status.build_id = builds.id
 INNER JOIN derivations_by_output_details_set
   ON builds.derivation_output_details_set_id =
      derivations_by_output_details_set.derivation_output_details_set_id

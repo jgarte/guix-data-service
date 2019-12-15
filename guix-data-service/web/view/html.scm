@@ -581,10 +581,16 @@
                  ,(build-status-span "")))
               (map
                (match-lambda
-                 ((build-server-url timestamp status)
+                 ((build-server-id build-server-url timestamp status)
                   `(div
                     (@ (class "text-center"))
-                    (div ,(build-status-span status))
+                    (div
+                     (a (@ (href
+                            ,(simple-format
+                              #f "/build-server/~A/build?derivation_file_name=~A"
+                              build-server-id
+                              (second derivation))))
+                        ,(build-status-span status)))
                     (a (@ (style "display: inline-block; margin-top: 0.4em;")
                           (href ,(simple-format
                                   #f "~Abuild/~A"
