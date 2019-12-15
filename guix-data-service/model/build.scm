@@ -7,6 +7,7 @@
             select-builds-with-context
             select-builds-with-context-by-derivation-file-name
             select-build-by-build-server-and-derivation-file-name
+            select-required-builds-that-failed
             update-builds-derivation-output-details-set-id
             insert-builds
             insert-build
@@ -182,6 +183,41 @@ GROUP BY build_servers.url")
            (json-string->scm statuses-json)))
     (()
      #f)))
+
+(define (select-required-builds-that-failed conn build-server-id derivation-file-name)
+  (define query
+    "
+WITH RECURSIVE all_derivations(id, file_name) AS (
+    SELECT derivations.id, derivations.file_name
+    FROM derivations
+    WHERE file_name = $1
+  UNION
+    SELECT derivations.id, derivations.file_name
+    FROM all_derivations
+    INNER JOIN derivation_inputs
+      ON all_derivations.id = derivation_inputs.derivation_id
+    INNER JOIN derivation_outputs
+      ON derivation_inputs.derivation_output_id = derivation_outputs.id
+    INNER JOIN derivations
+      ON derivation_outputs.derivation_id = derivations.id
+)
+SELECT all_derivations.file_name, latest_build_status.status
+FROM all_derivations
+LEFT OUTER JOIN builds
+  ON all_derivations.file_name = builds.derivation_file_name AND
+     builds.build_server_id = $2
+LEFT OUTER JOIN (
+  SELECT DISTINCT ON (build_id) *
+  FROM build_status
+  ORDER BY build_id, timestamp DESC
+) AS latest_build_status
+  ON builds.id = latest_build_status.build_id
+WHERE latest_build_status.status = 'failed'")
+
+  (exec-query conn
+              query
+              (list derivation-file-name
+                    (number->string build-server-id))))
 
 (define (select-build-id-by-build-server-and-derivation-file-name
          conn build-server-id derivation-file-name)
