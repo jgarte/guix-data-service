@@ -154,7 +154,38 @@ ORDER BY latest_build_status.timestamp DESC")
          conn build-server-id derivation-file-name)
   (define query
     "
-SELECT id, build_server_id, derivation_file_name
+SELECT build_servers.url,
+       JSON_AGG(
+         json_build_object(
+           'timestamp', build_status.timestamp,
+           'status', build_status.status
+         )
+         ORDER BY build_status.timestamp
+       ) AS statuses
+FROM builds
+INNER JOIN build_servers
+  ON build_servers.id = builds.build_server_id
+INNER JOIN build_status
+  ON builds.id = build_status.build_id
+WHERE build_server_id = $1 AND
+      derivation_file_name = $2
+GROUP BY build_servers.url")
+
+  (match (exec-query conn
+                     query
+                     (list (number->string build-server-id)
+                           derivation-file-name))
+    (((build-server-url statuses-json))
+     (list build-server-url
+           (json-string->scm statuses-json)))
+    (()
+     #f)))
+
+(define (select-build-id-by-build-server-and-derivation-file-name
+         conn build-server-id derivation-file-name)
+  (define query
+    "
+SELECT id
 FROM builds
 WHERE build_server_id = $1 AND derivation_file_name = $2")
 
@@ -162,7 +193,7 @@ WHERE build_server_id = $1 AND derivation_file_name = $2")
                      query
                      (list (number->string build-server-id)
                            derivation-file-name))
-    ((id build_server_id derivation_file_name)
+    ((id)
      (string->number id))
     (_
      #f)))
@@ -254,7 +285,7 @@ RETURNING (id)"
                              build-server-id
                              derivation-file-name)
   (let ((existing-build-id
-         (select-build-by-build-server-and-derivation-file-name
+         (select-build-id-by-build-server-and-derivation-file-name
           conn build-server-id derivation-file-name)))
 
     (if existing-build-id
