@@ -32,6 +32,32 @@
   #:use-module (guix-data-service web build-server html)
   #:export (build-server-controller))
 
+(define (render-build mime-types
+                      conn
+                      build-server-id
+                      query-parameters)
+  (if (any-invalid-query-parameters? query-parameters)
+      (case (most-appropriate-mime-type
+             '(application/json text/html)
+             mime-types)
+        ((application/json)
+         (render-json
+          `((error . "invalid query"))))
+        (else
+         (render-html
+          #:sxml (view-build query-parameters))))
+      (let* ((derivation-file-name
+              (assq-ref query-parameters 'derivation_file_name))
+             (build
+              (select-build-by-build-server-and-derivation-file-name
+               conn
+               build-server-id
+               derivation-file-name)))
+        (render-html
+         #:sxml
+         (view-build query-parameters
+                     build)))))
+
 (define (handle-build-event-submission parsed-query-parameters
                                        build-server-id-string
                                        body
@@ -139,6 +165,15 @@
                                  conn
                                  secret-key-base)
   (match method-and-path-components
+    (('GET "build-server" build-server-id "build")
+     (let ((parsed-query-parameters
+            (parse-query-parameters
+             request
+             `((derivation_file_name ,identity #:required)))))
+       (render-build mime-types
+                     conn
+                     (string->number build-server-id)
+                     parsed-query-parameters)))
     (('POST "build-server" build-server-id "build-events")
      (let ((parsed-query-parameters
             (parse-query-parameters

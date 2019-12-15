@@ -1,6 +1,7 @@
 (define-module (guix-data-service model build)
   #:use-module (ice-9 match)
   #:use-module (squee)
+  #:use-module (json)
   #:use-module (guix-data-service model utils)
   #:export (select-build-stats
             select-builds-with-context

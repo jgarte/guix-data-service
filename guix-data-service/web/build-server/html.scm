@@ -16,9 +16,56 @@
 ;;; <http://www.gnu.org/licenses/>.
 
 (define-module (guix-data-service web build-server html)
+  #:use-module (ice-9 match)
   #:use-module (guix-data-service web view html)
   #:use-module (guix-data-service web html-utils)
-  #:export (view-signing-key))
+  #:export (view-build
+            view-signing-key))
+
+(define (view-build query-parameters
+                    build)
+  (define derivation
+    (assq-ref query-parameters 'derivation_file_name))
+
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h1 "Build")))
+      (div
+       (@ (class "row"))
+       ,@(match build
+           ((url statuses)
+            `((div
+               (@ (class "col-sm-6"))
+               (dl
+                (@ (class "dl-horizontal"))
+                (dt "Derivation")
+                (dd ,(display-possible-store-item derivation))
+                (dt "Build server URL")
+                (dd (a (@ (href ,url))
+                       ,url))))
+              (div
+               (@ (class "col-sm-6"))
+               (h3 "Timeline")
+               (table
+                (@ (class "table"))
+                (thead
+                 (tr
+                  (th "Timestamp")
+                  (th "Status")))
+                (tbody
+                 ,@(map (lambda (status)
+                          `(tr
+                            (td ,(assoc-ref status "timestamp"))
+                            (td ,(build-status-span
+                                  (assoc-ref status "status")))))
+                        (vector->list statuses)))))))))))))
 
 (define (view-signing-key sexp)
   (layout
