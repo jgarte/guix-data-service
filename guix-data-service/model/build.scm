@@ -140,7 +140,12 @@ INNER JOIN
   ORDER BY build_id, timestamp DESC
 ) AS latest_build_status
 ON latest_build_status.build_id = builds.id
-WHERE builds.derivation_file_name = $1
+INNER JOIN derivations_by_output_details_set
+  ON builds.derivation_output_details_set_id =
+     derivations_by_output_details_set.derivation_output_details_set_id
+INNER JOIN derivations
+  ON derivations.id = derivations_by_output_details_set.derivation_id
+WHERE derivations.file_name = $1
 ORDER BY latest_build_status.timestamp DESC")
 
   (exec-query conn query (list derivation-file-name)))
