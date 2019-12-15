@@ -23,7 +23,8 @@
             view-signing-key))
 
 (define (view-build query-parameters
-                    build)
+                    build
+                    required-failed-builds)
   (define derivation
     (assq-ref query-parameters 'derivation_file_name))
 
@@ -65,7 +66,27 @@
                             (td ,(assoc-ref status "timestamp"))
                             (td ,(build-status-span
                                   (assoc-ref status "status")))))
-                        (vector->list statuses)))))))))))))
+                        (vector->list statuses)))))))))
+      ,@(if required-failed-builds
+            `((div
+               (@ (class "row"))
+               (div
+                (@ (class "col-sm-6"))
+                (h3 "Required failed builds")
+                (table
+                 (@ (class "table"))
+                 (thead
+                  (tr
+                   (th "Derivation")
+                   (th "Status")))
+                 (tbody
+                  ,@(map (match-lambda
+                           ((derivation status)
+                            `(tr
+                              (td ,(display-possible-store-item derivation))
+                              (td ,(build-status-span status)))))
+                         required-failed-builds))))))
+            '())))))
 
 (define (view-signing-key sexp)
   (layout

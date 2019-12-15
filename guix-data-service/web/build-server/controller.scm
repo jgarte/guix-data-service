@@ -52,11 +52,20 @@
               (select-build-by-build-server-and-derivation-file-name
                conn
                build-server-id
-               derivation-file-name)))
+               derivation-file-name))
+             (latest-build-status
+              (assoc-ref (last (vector->list (second build)))
+                         "status")))
         (render-html
          #:sxml
          (view-build query-parameters
-                     build)))))
+                     build
+                     (if (string=? latest-build-status "failed-dependency")
+                         (select-required-builds-that-failed
+                          conn
+                          build-server-id
+                          derivation-file-name)
+                         #f))))))
 
 (define (handle-build-event-submission parsed-query-parameters
                                        build-server-id-string
