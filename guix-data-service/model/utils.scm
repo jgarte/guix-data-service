@@ -89,7 +89,7 @@
              (match (assoc key result)
                ((_ . existing-values)
                 `((,key . ,(cons value existing-values))
-                  ,@result))
+                  ,@(alist-delete key result)))
                (#f
                 `((,key . (,value))
                   ,@result))))))
