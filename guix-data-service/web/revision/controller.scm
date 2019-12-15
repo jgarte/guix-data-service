@@ -28,6 +28,7 @@
   #:use-module (guix-data-service web sxml)
   #:use-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service web util)
+  #:use-module (guix-data-service model utils)
   #:use-module (guix-data-service jobs load-new-guix-revision)
   #:use-module (guix-data-service model build)
   #:use-module (guix-data-service model build-server)
@@ -653,6 +654,7 @@
           #:sxml (view-revision-derivation-outputs commit-hash
                                                    query-parameters
                                                    '()
+                                                   '()
                                                    #:path-base path-base
                                                    #:header-text header-text
                                                    #:header-link header-link))))
@@ -668,6 +670,12 @@
                (assq-ref query-parameters 'reproducibility_status)
                #:limit-results limit-results
                #:after-path (assq-ref query-parameters 'after_path)))
+             (build-server-urls
+              (group-to-alist
+               (match-lambda
+                 ((id url lookup-all-derivations)
+                  (cons id url)))
+               (select-build-servers conn)))
              (show-next-page?
               (if all-results
                   #f
@@ -684,6 +692,7 @@
             #:sxml (view-revision-derivation-outputs commit-hash
                                                      query-parameters
                                                      derivation-outputs
+                                                     build-server-urls
                                                      show-next-page?
                                                      #:path-base path-base
                                                      #:header-text header-text

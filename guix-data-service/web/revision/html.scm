@@ -21,6 +21,7 @@
   #:use-module (texinfo)
   #:use-module (texinfo html)
   #:use-module (json)
+  #:use-module (guix-data-service model utils)
   #:use-module (guix-data-service web util)
   #:use-module (guix-data-service web html-utils)
   #:use-module (guix-data-service web query-parameters)
@@ -769,6 +770,7 @@
 (define* (view-revision-derivation-outputs commit-hash
                                            query-parameters
                                            derivation-outputs
+                                           build-server-urls
                                            show-next-page?
                                            #:key (path-base "/revision/")
                                            header-text
@@ -834,9 +836,9 @@
          (@ (class "table"))
          (thead
           (tr
-           (th "Path")
-           (th "Hash")
-           (th "Nars")))
+           (th (@ (class "col-sm-5")) "Path")
+           (th (@ (class "col-sm-5")) "Data")
+           (th (@ (class "col-sm-2")) "Reproducibility Status")))
          (tbody
           ,@(map
              (match-lambda
@@ -845,17 +847,56 @@
                   (td (a (@ (href ,path))
                          ,(display-store-item-short path)))
                   (td
-                   ,@(if
-                      (null? hash-algorithm)
-                      '()
-                      `(,hash)))
+                   (dl
+                    ,@(if
+                       (null? hash-algorithm)
+                       (append-map
+                        (match-lambda
+                          ((hash . nars)
+                           `((dt
+                              (a (@ (style "font-family: monospace;")
+                                    (href ,(string-append
+                                            path "/narinfos")))
+                                 ,hash))
+                             (dd
+                              (ul
+                               (@ (class "list-inline"))
+                               ,@(map (lambda (nar)
+                                        `(li
+                                          ,(assq-ref build-server-urls
+                                                     (assoc-ref nar "build_server_id"))))
+                                      nars))))))
+                        (group-to-alist
+                         (lambda (nar)
+                           (cons (assoc-ref nar "hash")
+                                 nar))
+                         (vector->list nars)))
+                       `(,hash))))
                   (td
-                   ,@(map (lambda (nar)
-                            `(div
-                              ,(assoc-ref nar "build_server_id")
-                              " "
-                              ,(assoc-ref nar "hash")))
-                          (vector->list nars))))))
+                   ,(let* ((hashes
+                            (delete-duplicates
+                             (map (lambda (nar)
+                                    (assoc-ref nar "hash"))
+                                  (vector->list nars))))
+                           (build-servers
+                            (delete-duplicates
+                             (map (lambda (nar)
+                                    (assoc-ref nar "build_server_id"))
+                                  (vector->list nars))))
+                           (hash-count
+                            (length hashes))
+                           (build-server-count
+                            (length build-servers)))
+                      (cond
+                       ((or (eq? hash-count 0)
+                            (eq? build-server-count 1))
+                        "Unknown")
+                       ((eq? hash-count 1)
+                        '(span (@ (class "text-success"))
+                               "Reproducible"))
+                       ((> hash-count 1)
+                        '(span (@ (class "text-danger"))
+                               "Unreproducible"))))))))
              derivation-outputs)))
         ,@(if show-next-page?
               `((div
