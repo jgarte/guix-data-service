@@ -14,6 +14,7 @@
             parse-postgresql-array-string
             deduplicate-strings
             group-list-by-first-n-fields
+            group-to-alist
             insert-missing-data-and-return-all-ids))
 
 (define NULL '())
@@ -80,6 +81,20 @@
                          (list vals)))))))
         '()
         lists))
+
+(define (group-to-alist process lst)
+  (fold (lambda (element result)
+          (match (process element)
+            ((key . value)
+             (match (assoc key result)
+               ((_ . existing-values)
+                `((,key . ,(cons value existing-values))
+                  ,@result))
+               (#f
+                `((,key . (,value))
+                  ,@result))))))
+        '()
+        lst))
 
 (define* (insert-missing-data-and-return-all-ids
           conn

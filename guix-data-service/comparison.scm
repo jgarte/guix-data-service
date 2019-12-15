@@ -24,20 +24,6 @@
 
             channel-news-differences-data))
 
-(define (group-to-alist process lst)
-  (fold (lambda (element result)
-          (match (process element)
-            ((key . value)
-             (match (assoc key result)
-               ((_ . existing-values)
-                `((,key . ,(cons value existing-values))
-                  ,@result))
-               (#f
-                `((,key . (,value))
-                  ,@result))))))
-        '()
-        lst))
-
 (define (derivation-differences-data conn
                                      base-derivation-file-name
                                      target-derivation-file-name)
