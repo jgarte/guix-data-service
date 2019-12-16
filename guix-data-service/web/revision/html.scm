@@ -18,6 +18,7 @@
 (define-module (guix-data-service web revision html)
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 match)
+  #:use-module (ice-9 format)
   #:use-module (texinfo)
   #:use-module (texinfo html)
   #:use-module (json)
@@ -28,6 +29,7 @@
   #:use-module (guix-data-service web view html)
   #:export (view-revision-news
             view-revision-package
+            view-revision-package-reproducibility
             view-revision-package-and-version
             view-revision
             view-revision-packages
@@ -621,6 +623,240 @@
                                        (car (last packages)))))
                   "Next page")))
             '())))))
+
+(define* (view-revision-package-reproducibility revision-commit-hash
+                                                reproducibility-status
+                                                #:key path-base
+                                                header-text header-link)
+  (layout
+   #:body
+   `(,(header)
+     (style "
+.chart-text {
+  fill: #000;
+  transform: translateY(0.25em);
+}
+.chart-number {
+  font-size: 0.6em;
+  line-height: 1;
+  text-anchor: middle;
+  transform: translateY(-0.25em);
+}
+.chart-label {
+  font-size: 0.2em;
+  text-anchor: middle;
+  transform: translateY(0.7em);
+}
+figure {
+  display: flex;
+  justify-content: space-around;
+  flex-direction: column;
+  margin-left: -15px;
+  margin-right: -15px;
+}
+@media (min-width: 768px) {
+  figure {
+    flex-direction: row;
+  }
+}
+.figure-content,
+.figure-key {
+  flex: 1;
+  padding-left: 15px;
+  padding-right: 15px;
+  align-self: center;
+}
+.figure-content svg {
+  height: auto;
+}
+.figure-key {
+  min-width: calc(8 / 12);
+}
+.figure-key [class*=\"shape-\"] {
+  margin-right: 6px;
+}
+.figure-key-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.figure-key-list li {
+  margin: 0 0 8px;
+  padding: 0;
+}
+.shape-circle {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 0.8em;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}")
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h3 (a (@ (style "white-space: nowrap;")
+                  (href ,header-link))
+               ,@header-text))))
+      (div
+       (@ (class "row"))
+       ;; Inspired by
+       ;; https://medium.com/@heyoka/scratch-made-svg-donut-pie-charts-in-html5-2c587e935d72
+       ,@(map
+           (match-lambda
+             ((system . reproducibility-status)
+
+              (define total
+                (apply + (map cdr reproducibility-status)))
+
+              (define keys
+                '(reproducible unreproducible unknown))
+
+              (define reproducibility-status-percentages
+                (map (lambda (key)
+                       (exact->inexact
+                        (* 100 (/ (or (assq-ref reproducibility-status key)
+                                      0)
+                                  total))))
+                     keys))
+
+
+              `(div
+                (@ (class "col-sm-6"))
+                (h2 (@ (style "font-family: monospace;"))
+                    ,system)
+                (figure
+                 (div
+                  (@ (class "figure-content"))
+                  (svg
+                   (@ (width "100%")
+                      (height "100%")
+                      (viewBox "0 0 42 42")
+                      (class "donut")
+                      (aria-labelledby "beers-title beers-desc") (role "img"))
+                   (title
+                    (@ (id ,(string-append system "-chart-title")))
+                    ,(string-append "Package reproducibility for " system))
+                   (desc
+                    (@ (id ,(string-append system "-chart-desc")))
+                    ,(string-append
+                      "Donut chart breaking down Guix package reproducibility for "
+                      system
+                      "."))              ; TODO Describe the data on the chart
+                   (circle
+                    (@ (class "donut-hole")
+                       (cx "21")
+                       (cy "21")
+                       (r "15.91549430918954")
+                       (fill "#fff")
+                       (role "presentation")))
+
+                   ,@(map
+                      (lambda (key label colour percentage offset)
+                        `(circle
+                          (@ (class "donut-segment")
+                             (cx "21")
+                             (cy "21")
+                             (r "15.91549430918954")
+                             (fill "transparent")
+                             (stroke ,colour)
+                             (stroke-width "4")
+                             (stroke-dasharray ,(simple-format #f "~A ~A"
+                                                               percentage
+                                                               (- 100 percentage)))
+                             (stroke-dashoffset ,offset)
+                             (aria-labelledby
+                              ,(simple-format #f "donut-segment-~A-title donut-segment-~A-desc"
+                                              key key)))
+                          (title
+                           (@ (id ,(simple-format #f "donut-segment-~A-title"
+                                                  key)))
+                           ,label)
+                          (desc
+                           (@ (id ,(simple-format #f "donut-segment-~A-desc"
+                                                  key)))
+                           ;; TODO Improve this description by stating the
+                           ;; colour and count
+                           ,(format #f "~2,2f%"
+                                    (or percentage 0)))))
+                      '(reproducible unreproducible unknown)
+                      '("Reproducible" "Unreproducible" "Unknown")
+                      '("green" "red" "#d2d3d4")
+                      reproducibility-status-percentages
+                      (cons 25
+                            (map (lambda (cumalative-percentage)
+                                   (+ (- 100
+                                         cumalative-percentage)
+                                      ;; Start at 25, as this will position
+                                      ;; the segment at the top of the chart
+                                      25))
+                                 (reverse
+                                  (fold
+                                   (lambda (val result)
+                                     (cons (+ val (first result))
+                                           result))
+                                   (list
+                                    (first reproducibility-status-percentages))
+                                   (cdr reproducibility-status-percentages))))))
+                   (g
+                    (@ (class "chart-text"))
+                    ,@(if (and (eq? (or (assq-ref reproducibility-status
+                                                  'reproducible)
+                                        0)
+                                    0)
+                               (eq? (or (assq-ref reproducibility-status
+                                                  'unreproducible)
+                                        0)
+                                    0))
+                          `((text
+                             (@ (x "50%")
+                                (y "50%")
+                                (class "chart-label"))
+                             "No data"))
+                          `((text
+                             (@ (x "50%")
+                                (y "50%")
+                                (class "chart-number"))
+                             ,(simple-format
+                               #f "~~~A%"
+                               (inexact->exact
+                                (round (car reproducibility-status-percentages)))))
+                            (text
+                             (@ (x "50%")
+                                (y "50%")
+                                (class "chart-label"))
+                             "Reproducible"))))))
+                 (figcaption
+                  (@ (class "figure-key"))
+                  (p (@ (class "sr-only"))
+                     ,(string-append
+                       "Donut chart breaking down Guix package reproducibility for "
+                       system
+                       "."))            ; TODO Describe the data on the chart
+                  (ul
+                   (@ (class "figure-key-list")
+                      (aria-hidden "true")
+                      (role "presentation"))
+                   ,@(map (lambda (label count percentage colour)
+                            `(li
+                              (span (@ (class "shape-circle")
+                                       (style
+                                           ,(string-append "background-color: "
+                                                           colour ";"))))
+                              ,(format #f "~a (~d, ~2,2f%)"
+                                       label
+                                       (or count 0)
+                                       (or percentage 0))))
+                          '("Reproducible" "Unreproducible" "Unknown")
+                          (map (lambda (key)
+                                 (assq-ref reproducibility-status key))
+                               keys)
+                          reproducibility-status-percentages
+                          '("green" "red" "#d2d3d4"))))))))
+           reproducibility-status))))))
 
 (define* (view-revision-derivations commit-hash
                                     query-parameters

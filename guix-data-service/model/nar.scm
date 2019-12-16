@@ -13,6 +13,8 @@
             select-nars-for-output
             select-signing-key
 
+            select-reproducibility-status-for-revision
+
             record-narinfo-details-and-return-ids))
 
 (define narinfo-contents
@@ -216,6 +218,67 @@ VALUES ($1, $2)")
       '(sexp_json)
       (list (list (cons "jsonb"
                         public-key-json-string)))))))
+
+(define (select-reproducibility-status-for-revision conn revision-commit)
+  (define query
+    "
+SELECT system, target, reproducible, COUNT(*)
+FROM (
+  SELECT derivation_output_details.path,
+         package_derivations.system,
+         package_derivations.target,
+         JSON_AGG(
+           json_build_object(
+             'hash', nars.hash,
+             'build_server_id', narinfo_fetch_records.build_server_id
+           )
+         ),
+         CASE
+           WHEN (COUNT(DISTINCT narinfo_fetch_records.build_server_id) <= 1) THEN NULL
+           ELSE (COUNT(DISTINCT nars.hash) = 1)
+         END AS reproducible
+  FROM derivation_output_details
+  INNER JOIN derivation_outputs
+    ON derivation_outputs.derivation_output_details_id =
+       derivation_output_details.id
+  INNER JOIN package_derivations
+    ON derivation_outputs.derivation_id = package_derivations.derivation_id
+  INNER JOIN guix_revision_package_derivations
+    ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+  INNER JOIN guix_revisions
+    ON guix_revision_package_derivations.revision_id = guix_revisions.id
+  LEFT JOIN nars
+    ON derivation_output_details.path = nars.store_path
+  LEFT JOIN narinfo_signatures
+    ON narinfo_signatures.nar_id = nars.id
+  LEFT JOIN narinfo_signature_data
+    ON narinfo_signatures.narinfo_signature_data_id = narinfo_signature_data.id
+  LEFT JOIN narinfo_fetch_records
+    ON narinfo_fetch_records.narinfo_signature_data_id = narinfo_signature_data.id
+  WHERE derivation_output_details.hash IS NULL AND
+        guix_revisions.commit = $1 AND
+        package_derivations.system = package_derivations.target -- Exclude cross builds
+  GROUP BY derivation_output_details.path,
+           package_derivations.system,
+           package_derivations.target
+) data
+GROUP BY system, target, reproducible
+ORDER BY COUNT(*) DESC")
+
+  (group-to-alist
+   (match-lambda
+     ((system status count)
+      (cons system
+            (cons status count))))
+   (map (match-lambda
+          ((system target status count)
+           (list system
+                 (match status
+                   ("t" 'reproducible)
+                   ("f" 'unreproducible)
+                   ("" 'unknown))
+                 (string->number count))))
+        (exec-query conn query (list revision-commit)))))
 
 (define (select-outputs-for-successful-builds-without-known-nar-entries
          conn

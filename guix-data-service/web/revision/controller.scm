@@ -43,6 +43,7 @@
   #:use-module (guix-data-service model lint-checker)
   #:use-module (guix-data-service model lint-warning)
   #:use-module (guix-data-service model guix-revision)
+  #:use-module (guix-data-service model nar)
   #:use-module (guix-data-service web revision html)
   #:export (revision-controller
 
@@ -216,6 +217,15 @@
          (render-unknown-revision mime-types
                                   conn
                                   commit-hash)))
+    (('GET "revision" commit-hash "package-reproducibility")
+     (if (guix-commit-exists? conn commit-hash)
+         (render-revision-package-reproduciblity mime-types
+                                                 conn
+                                                 commit-hash
+                                                 #:path-base path)
+         (render-unknown-revision mime-types
+                                  conn
+                                  commit-hash)))
     (('GET "revision" commit-hash "builds")
      (if (guix-commit-exists? conn commit-hash)
          (let ((parsed-query-parameters
@@ -329,6 +339,25 @@
                 #:path-base path-base
                 #:header-text header-text)
         #:extra-headers http-headers-for-unchanging-content)))))
+
+(define* (render-revision-package-reproduciblity mime-types
+                                                 conn
+                                                 commit-hash
+                                                 #:key path-base)
+  (let ((reproducibility-status
+         (select-reproducibility-status-for-revision conn commit-hash)))
+    (case (most-appropriate-mime-type
+           '(application/json text/html)
+           mime-types)
+      ((application/json)
+       (render-json
+        '()))
+      (else
+       (render-html
+        #:sxml (view-revision-package-reproducibility
+                commit-hash
+                reproducibility-status
+                #:header-text '("Package reproducibility status")))))))
 
 (define (render-revision-news mime-types
                               conn
