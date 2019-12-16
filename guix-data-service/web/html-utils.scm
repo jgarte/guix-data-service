@@ -80,7 +80,7 @@
                         ("canceled" . "default")
                         ("" . "default"))
                       status)))
-            (style "display: inline-block; font-size: 1.2em; margin-top: 0.4em;"))
+            (style "display: inline-block; font-size: 1.2em; margin-top: 0.4em; margin-bottom: 0.4em;"))
          ,(build-status-value->display-string status)))
 
 (define (build-status-alist->build-icon status)
