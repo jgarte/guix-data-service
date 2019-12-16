@@ -84,18 +84,4 @@
          ,(build-status-value->display-string status)))
 
 (define (build-status-alist->build-icon status)
-  `(span (@ (class ,(string-append
-                     "label label-"
-                     (assoc-ref
-                      '(("scheduled" . "info")
-                        ("started" . "primary")
-                        ("succeeded" . "success")
-                        ("failed" . "danger")
-                        ("failed-dependency" . "warning")
-                        ("failed-other" . "danger")
-                        ("canceled" . "default")
-                        ("" . "default"))
-                      (assoc-ref status "status"))))
-            (style "display: inline-block; font-size: 1.2em; margin-top: 0.4em;"))
-         ,(build-status-value->display-string
-           (assoc-ref status "status"))))
+  (build-status-span (assoc-ref status "status")))
