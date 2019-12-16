@@ -28,6 +28,8 @@
   #:use-module (guix-data-service model build-status)
   #:use-module (guix-data-service model nar)
   #:use-module (guix-data-service model build-server-token-seed)
+  #:use-module (guix-data-service web util)
+  #:use-module (guix-data-service web view html)
   #:use-module (guix-data-service web jobs html)
   #:use-module (guix-data-service web build-server html)
   #:export (build-server-controller))
@@ -45,27 +47,35 @@
           `((error . "invalid query"))))
         (else
          (render-html
-          #:sxml (view-build query-parameters))))
+          #:sxml (view-build query-parameters
+                             #f
+                             #f))))
       (let* ((derivation-file-name
               (assq-ref query-parameters 'derivation_file_name))
              (build
               (select-build-by-build-server-and-derivation-file-name
                conn
                build-server-id
-               derivation-file-name))
-             (latest-build-status
-              (assoc-ref (last (vector->list (second build)))
-                         "status")))
-        (render-html
-         #:sxml
-         (view-build query-parameters
-                     build
-                     (if (string=? latest-build-status "failed-dependency")
-                         (select-required-builds-that-failed
-                          conn
-                          build-server-id
-                          derivation-file-name)
-                         #f))))))
+               derivation-file-name)))
+        (if build
+            (render-html
+             #:sxml
+             (view-build query-parameters
+                         build
+                         (if (string=?
+                              (assoc-ref (last (vector->list (second build)))
+                                         "status")
+                              "failed-dependency")
+                             (select-required-builds-that-failed
+                              conn
+                              build-server-id
+                              derivation-file-name)
+                             #f)))
+            (render-html
+             #:sxml (general-not-found
+                     "Build not found"
+                     "No build found for this build server and derivation.")
+             #:code 404)))))
 
 (define (handle-build-event-submission parsed-query-parameters
                                        build-server-id-string
