@@ -840,16 +840,24 @@ figure {
                    (@ (class "figure-key-list")
                       (aria-hidden "true")
                       (role "presentation"))
-                   ,@(map (lambda (label count percentage colour)
+                   ,@(map (lambda (key label count percentage colour)
                             `(li
                               (span (@ (class "shape-circle")
                                        (style
                                            ,(string-append "background-color: "
                                                            colour ";"))))
-                              ,(format #f "~a (~d, ~2,2f%)"
-                                       label
-                                       (or count 0)
-                                       (or percentage 0))))
+                              (a (@ (href
+                                     ,(string-append
+                                       "/revision/" revision-commit-hash
+                                       "/derivation-outputs?"
+                                       "reproducibility_status=" key
+                                       "&system=" system
+                                       "&target=" system)))
+                                 ,(format #f "~a (~d, ~2,2f%)"
+                                          label
+                                          (or count 0)
+                                          (or percentage 0)))))
+                          '("reproducible" "unreproducible" "unknown")
                           '("Reproducible" "Unreproducible" "Unknown")
                           (map (lambda (key)
                                  (assq-ref reproducibility-status key))
