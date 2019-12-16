@@ -2,9 +2,11 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 format)
   #:use-module (guix-data-service jobs load-new-guix-revision)
-  #:export (process-jobs))
+  #:export (process-jobs
 
-(define (process-jobs conn)
+            default-max-processes))
+
+(define* (process-jobs conn #:key max-processes)
   (define (fetch-new-jobs)
     (fetch-unlocked-jobs conn))
 
@@ -23,7 +25,8 @@
 
   (process-jobs-concurrently fetch-new-jobs
                              process-job
-                             handle-job-failure))
+                             handle-job-failure
+                             #:max-processes max-processes))
 
 (define default-max-processes
   (max (round (/ (current-processor-count)
