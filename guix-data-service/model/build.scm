@@ -170,8 +170,13 @@ INNER JOIN build_servers
   ON build_servers.id = builds.build_server_id
 INNER JOIN build_status
   ON builds.id = build_status.build_id
+INNER JOIN derivations_by_output_details_set
+  ON builds.derivation_output_details_set_id =
+     derivations_by_output_details_set.derivation_output_details_set_id
+INNER JOIN derivations
+  ON derivations.id = derivations_by_output_details_set.derivation_id
 WHERE build_server_id = $1 AND
-      derivation_file_name = $2
+      derivations.file_name = $2
 GROUP BY build_servers.url")
 
   (match (exec-query conn
