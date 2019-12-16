@@ -930,6 +930,7 @@ figure {
        (@ (class "row"))
        (div
         (@ (class "col-md-12"))
+        (h1 "Package derivations")
         (p "Showing " ,(length derivations) " results")
         (table
          (@ (class "table"))
@@ -1046,6 +1047,7 @@ figure {
        (@ (class "row"))
        (div
         (@ (class "col-md-12"))
+        (h1 "Package derivation outputs")
         (p "Showing " ,(length derivation-outputs) " results")
         (table
          (@ (class "table"))
