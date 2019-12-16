@@ -639,6 +639,12 @@
                #:minimum-builds (assq-ref query-parameters 'minimum_builds)
                #:limit-results limit-results
                #:after-name (assq-ref query-parameters 'after_name)))
+             (build-server-urls
+              (group-to-alist
+               (match-lambda
+                 ((id url lookup-all-derivations)
+                  (cons id url)))
+               (select-build-servers conn)))
              (show-next-page?
               (if all-results
                   #f
@@ -656,6 +662,7 @@
                                               query-parameters
                                               (valid-systems conn)
                                               derivations
+                                              build-server-urls
                                               show-next-page?
                                               #:path-base path-base
                                               #:header-text header-text

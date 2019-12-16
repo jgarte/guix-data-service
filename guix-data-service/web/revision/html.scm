@@ -862,6 +862,7 @@ figure {
                                     query-parameters
                                     valid-systems
                                     derivations
+                                    build-server-urls
                                     show-next-page?
                                     #:key (path-base "/revision/")
                                     header-text
@@ -941,56 +942,34 @@ figure {
           ,@(map
              (match-lambda
                ((file-name system target builds outputs)
-                (let ((build-server-ids
-                       (sort
-                        (delete-duplicates
-                         (append
-                          (map (lambda (build)
-                                 (assoc-ref build "build_server_id"))
-                               (vector->list builds))
-                          (append-map
-                           (lambda (output)
-                             (map (lambda (nar)
-                                    (assoc-ref nar "build_server_id"))
-                                  (vector->list
-                                   (or (assoc-ref output "nars")
-                                       #()))))
-                           (vector->list outputs))))
-                        <)))
-                  `(tr
-                    (td (a (@ (href ,file-name))
-                           ,(display-store-item-short file-name)))
-                    (td (@ (style "font-family: monospace;"))
-                        ,system)
-                    (td (@ (style "font-family: monospace;"))
-                        ,target)
-                    (td ,@(map
-                           (lambda (build-server-id)
-                             `(div
-                               ,@(map build-status-alist->build-icon
-                                      (filter
-                                       (lambda (build)
-                                         (eq? build-server-id
-                                              (assoc-ref build "build_server_id")))
-                                       (vector->list builds)))
-                               ,@(map (lambda (output)
-                                        `(div
-                                          "Output: " ,(assoc-ref output "output_name")
-                                          ,@(map (lambda (nar)
-                                                   `(div
-                                                     (a (@ (href
-                                                            ,(assoc-ref output "output_path")))
-                                                        "Build server "
-                                                        ,(assoc-ref nar "build_server_id"))))
-                                                 (filter
-                                                  (lambda (nar)
-                                                    (eq? build-server-id
-                                                         (assoc-ref nar "build_server_id")))
-                                                  (vector->list
-                                                   (or (assoc-ref output "nars")
-                                                       #()))))))
-                                      (vector->list outputs))))
-                           build-server-ids))))))
+                `(tr
+                  (td (a (@ (href ,file-name))
+                         ,(display-store-item-short file-name)))
+                  (td (@ (style "font-family: monospace;"))
+                      ,system)
+                  (td (@ (style "font-family: monospace;"))
+                      ,target)
+                  (td
+                   (dl
+                    ,@(append-map
+                       (lambda (build)
+                         (let ((build-server-id
+                                (assoc-ref build "build_server_id")))
+                           `((dt
+                              (@ (style "font-weight: unset;"))
+                              (a (@ (href
+                                     ,(assq-ref build-server-urls
+                                                build-server-id)))
+                                 ,(assq-ref build-server-urls
+                                            build-server-id)))
+                             (dd
+                              (a (@ (href
+                                     ,(simple-format
+                                       #f "/build-server/~A/build?derivation_file_name=~A"
+                                       build-server-id
+                                       file-name)))
+                                 ,(build-status-alist->build-icon build))))))
+                       (vector->list builds)))))))
              derivations)))
         ,@(if show-next-page?
               `((div
