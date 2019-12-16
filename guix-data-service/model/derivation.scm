@@ -273,6 +273,8 @@ ORDER BY derivations.file_name
                                                 commit-hash
                                                 #:key
                                                 reproducibility-status
+                                                system
+                                                target
                                                 limit-results
                                                 after-path)
   (define query
@@ -315,9 +317,22 @@ INNER JOIN packages
   ON package_derivations.package_id = packages.id
 WHERE guix_revisions.commit = $1
 "
-     (if after-path
-         " AND derivation_output_details.path > $2"
-         "")
+     (let ((criteria
+            `(,@(if after-path
+                    '(" AND derivation_output_details.path > ")
+                    '())
+              ,@(if system
+                    '(" AND package_derivations.system = ")
+                    '())
+              ,@(if target
+                    '(" AND package_derivations.target = ")
+                    '()))))
+       (string-concatenate
+        (map (lambda (query count)
+               (simple-format #f "~A$~A"
+                              query count))
+             criteria
+             (iota (length criteria) 2))))
      (cond
       ((string=? reproducibility-status "any")
        "")
@@ -377,6 +392,12 @@ ORDER BY derivation_output_details.path
                                        `(,commit-hash
                                          ,@(if after-path
                                                (list after-path)
+                                               '())
+                                         ,@(if system
+                                               (list system)
+                                               '())
+                                         ,@(if target
+                                               (list target)
                                                '())))))
 
 (define (insert-derivation-outputs conn

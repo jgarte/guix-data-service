@@ -987,6 +987,7 @@ figure {
                                            query-parameters
                                            derivation-outputs
                                            build-server-urls
+                                           valid-systems
                                            show-next-page?
                                            #:key (path-base "/revision/")
                                            header-text
@@ -1027,6 +1028,18 @@ figure {
                         ("Reproducible" . "reproducible")
                         ("Unreproducible" . "unreproducible"))
             #:help-text "Do the known hashes for this output suggest it's reproducible, or not reproducible.")
+          ,(form-horizontal-control
+            "System" query-parameters
+            #:options valid-systems
+            #:allow-selecting-multiple-options #f
+            #:help-text "Only include derivations for this system."
+            #:font-family "monospace")
+          ,(form-horizontal-control
+            "Target" query-parameters
+            #:options valid-systems
+            #:allow-selecting-multiple-options #f
+            #:help-text "Only include derivations that are build for this system."
+            #:font-family "monospace")
           ,(form-horizontal-control
             "After path" query-parameters
             #:help-text

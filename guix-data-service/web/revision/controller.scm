@@ -200,6 +200,8 @@
                   `((after_path ,identity)
                     (reproducibility_status ,identity
                                             #:default "any")
+                    (system ,parse-system #:default "x86_64-linux")
+                    (target ,parse-system #:default "x86_64-linux")
                     (limit_results  ,parse-result-limit
                                     #:no-default-when (all_results)
                                     #:default 10)
@@ -691,6 +693,7 @@
                                                    query-parameters
                                                    '()
                                                    '()
+                                                   '()
                                                    #:path-base path-base
                                                    #:header-text header-text
                                                    #:header-link header-link))))
@@ -704,6 +707,8 @@
                commit-hash
                #:reproducibility-status
                (assq-ref query-parameters 'reproducibility_status)
+               #:system (assq-ref query-parameters 'system)
+               #:target (assq-ref query-parameters 'target)
                #:limit-results limit-results
                #:after-path (assq-ref query-parameters 'after_path)))
              (build-server-urls
@@ -729,6 +734,7 @@
                                                      query-parameters
                                                      derivation-outputs
                                                      build-server-urls
+                                                     (valid-systems conn)
                                                      show-next-page?
                                                      #:path-base path-base
                                                      #:header-text header-text
