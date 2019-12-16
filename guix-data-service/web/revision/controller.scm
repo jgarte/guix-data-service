@@ -176,7 +176,7 @@
                     (after_name ,identity)
                     (limit_results  ,parse-result-limit
                                     #:no-default-when (all_results)
-                                    #:default 100)
+                                    #:default 10)
                     (all_results    ,parse-checkbox-value)))
                  ;; You can't specify a search query, but then also limit the
                  ;; results by filtering for after a particular package name
