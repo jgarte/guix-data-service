@@ -40,7 +40,7 @@
 
 (define %default-options
   ;; Alist of default option values
-  `((max-processes ,default-max-processes)))
+  `((max-processes . ,default-max-processes)))
 
 (define (parse-options args)
   (args-fold
