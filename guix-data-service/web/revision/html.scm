@@ -1149,6 +1149,7 @@ figure {
 
 (define (view-revision-builds query-parameters
                               build-status-strings
+                              valid-systems
                               build-server-options
                               stats
                               builds)
@@ -1210,6 +1211,18 @@ figure {
             query-parameters
             #:options build-server-options
             #:help-text "Return builds from these build servers.")
+          ,(form-horizontal-control
+            "System" query-parameters
+            #:options valid-systems
+            #:allow-selecting-multiple-options #f
+            #:help-text "Only include derivations for this system."
+            #:font-family "monospace")
+          ,(form-horizontal-control
+            "Target" query-parameters
+            #:options valid-systems
+            #:allow-selecting-multiple-options #f
+            #:help-text "Only include derivations that are build for this system."
+            #:font-family "monospace")
           (div (@ (class "form-group form-group-lg"))
                (div (@ (class "col-sm-offset-2 col-sm-10"))
                     (button (@ (type "submit")

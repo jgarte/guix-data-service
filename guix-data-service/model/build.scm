@@ -13,7 +13,9 @@
             insert-build
             ensure-build-exists))
 
-(define* (select-build-stats conn build-servers #:key revision-commit)
+(define* (select-build-stats conn build-servers
+                             #:key revision-commit
+                             system target)
   (define criteria
     `(,@(if revision-commit
             ;; Ignore cross built derivations, as I'm not aware of a build server
@@ -30,6 +32,12 @@
             '())
       ,@(if revision-commit
             '("guix_revisions.commit = $1")
+            '())
+      ,@(if system
+            '("package_derivations.system = $2")
+            '())
+      ,@(if target
+            '("package_derivations.target = $3")
             '())))
 
   (define query
@@ -85,10 +93,17 @@ ORDER BY status"))
                     query
                     `(,@(if revision-commit
                             (list revision-commit)
+                            '())
+                      ,@(if system
+                            (list system)
+                            '())
+                      ,@(if target
+                            (list target)
                             '()))))))
 
 (define* (select-builds-with-context conn build-statuses build-server-ids
-                                     #:key revision-commit)
+                                     #:key revision-commit
+                                     system target)
   (define where-conditions
     (filter
      string?
@@ -106,7 +121,11 @@ ORDER BY status"))
                       ", ")
          ")"))
       (when revision-commit
-        "guix_revisions.commit = $1"))))
+        "guix_revisions.commit = $1")
+      (when system
+        "package_derivations.system = $2")
+      (when target
+        "package_derivations.target = $3"))))
 
   (define query
     (string-append
@@ -146,9 +165,15 @@ LIMIT 100"))
 
   (exec-query conn
               query
-              (if revision-commit
-                  (list revision-commit)
-                  '())))
+              `(,@(if revision-commit
+                      (list revision-commit)
+                      '())
+                ,@(if system
+                      (list system)
+                      '())
+                ,@(if target
+                      (list target)
+                      '()))))
 
 (define (select-builds-with-context-by-derivation-file-name
          conn derivation-file-name)

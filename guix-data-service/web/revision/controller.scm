@@ -234,7 +234,9 @@
                 (parse-query-parameters
                  request
                  `((build_status ,parse-build-status #:multi-value)
-                   (build_server ,(parse-build-server conn) #:multi-value)))))
+                   (build_server ,(parse-build-server conn) #:multi-value)
+                   (system ,parse-system #:default "x86_64-linux")
+                   (target ,parse-system #:default "x86_64-linux")))))
 
            (render-revision-builds mime-types
                                    conn
@@ -754,28 +756,36 @@
       (render-html
        #:sxml (view-revision-builds query-parameters
                                     build-status-strings
+                                    (valid-systems conn)
                                     '()
                                     '()
                                     '()))
-      (render-html
-       #:sxml (view-revision-builds query-parameters
-                                    build-status-strings
-                                    (map (match-lambda
-                                           ((id url lookup-all-derivations)
-                                            (cons url id)))
-                                         (select-build-servers conn))
-                                    (select-build-stats
-                                     conn
-                                     (assq-ref query-parameters
-                                               'build_server)
-                                     #:revision-commit commit-hash)
-                                    (select-builds-with-context
-                                     conn
-                                     (assq-ref query-parameters
-                                               'build_status)
-                                     (assq-ref query-parameters
-                                               'build_server)
-                                     #:revision-commit commit-hash)))))
+      (let ((system (assq-ref query-parameters 'system))
+            (target (assq-ref query-parameters 'target)))
+        (render-html
+         #:sxml (view-revision-builds query-parameters
+                                      build-status-strings
+                                      (valid-systems conn)
+                                      (map (match-lambda
+                                             ((id url lookup-all-derivations)
+                                              (cons url id)))
+                                           (select-build-servers conn))
+                                      (select-build-stats
+                                       conn
+                                       (assq-ref query-parameters
+                                                 'build_server)
+                                       #:revision-commit commit-hash
+                                       #:system system
+                                       #:target target)
+                                      (select-builds-with-context
+                                       conn
+                                       (assq-ref query-parameters
+                                                 'build_status)
+                                       (assq-ref query-parameters
+                                                 'build_server)
+                                       #:revision-commit commit-hash
+                                       #:system system
+                                       #:target target))))))
 
 (define* (render-revision-lint-warnings mime-types
                                         conn
