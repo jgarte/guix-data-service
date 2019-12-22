@@ -1071,7 +1071,8 @@ ORDER BY packages.name, packages.version"
                                      commit store-item)))
           (and
            guix-revision-id
-           (if (defined? 'channel-news-for-commit)
+           (if (defined? 'channel-news-for-commit
+                 (resolve-module '(guix channels)))
                (insert-channel-news-entries-for-guix-revision
                 conn
                 guix-revision-id
