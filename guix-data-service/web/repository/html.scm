@@ -303,7 +303,7 @@
    #:body
    `(,(header)
      (div
-      (@ (class "container"))
+      (@ (class "container-fluid"))
       (div
        (@ (class "row"))
        (div
@@ -331,10 +331,10 @@
             (style "table-layout: fixed;"))
          (thead
           (tr
-           (th (@ (class "col-sm-2")) "Version")
-           (th (@ (class "col-sm-4")) "Derivation")
-           (th (@ (class "col-sm-2")) "From")
-           (th (@ (class "col-sm-2")) "To")
+           (th (@ (class "col-sm-1")) "Version")
+           (th (@ (class "col-sm-5")) "Derivation")
+           (th (@ (class "col-sm-1")) "From")
+           (th (@ (class "col-sm-1")) "To")
            (th (@ (class "col-sm-1")) "")))
          (tbody
           ,@(let* ((times-in-seconds
@@ -372,27 +372,13 @@
                                 ,package-version))))
                      (td
                       (a (@ (href ,derivation-file-name))
-                         ,(display-store-item-short derivation-file-name)))
+                         ,(display-store-item derivation-file-name)))
                      (td (a (@ (href ,(string-append
                                        "/revision/" first-guix-revision-commit)))
-                            ,first-datetime)
-                         (br)
-                         (a (@ (href ,(string-append
-                                       "/revision/"
-                                       first-guix-revision-commit
-                                       "/package/"
-                                       package-name "/" package-version)))
-                            "(More information)"))
+                            ,first-datetime))
                      (td (a (@ (href ,(string-append
                                        "/revision/" last-guix-revision-commit)))
-                            ,last-datetime)
-                         (br)
-                         (a (@ (href ,(string-append
-                                       "/revision/"
-                                       last-guix-revision-commit
-                                       "/package/"
-                                       package-name "/" package-version)))
-                            "(More information)"))
+                            ,last-datetime))
                      (td
                       (@ (rowspan 4)
                          (style "vertical-align: middle;"))
