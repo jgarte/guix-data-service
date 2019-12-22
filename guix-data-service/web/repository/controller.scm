@@ -22,6 +22,8 @@
   #:use-module (guix-data-service web render)
   #:use-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service web util)
+  #:use-module (guix-data-service model utils)
+  #:use-module (guix-data-service model build-server)
   #:use-module (guix-data-service model package)
   #:use-module (guix-data-service model git-branch)
   #:use-module (guix-data-service model git-repository)
@@ -118,7 +120,13 @@
                                             branch-name
                                             "x86_64-linux"
                                             "x86_64-linux"
-                                            package-name)))
+                                            package-name))
+           (build-server-urls
+            (group-to-alist
+             (match-lambda
+               ((id url lookup-all-derivations)
+                (cons id url)))
+             (select-build-servers conn))))
        (case (most-appropriate-mime-type
               '(application/json text/html)
               mime-types)
@@ -146,6 +154,7 @@
                    repository-id
                    branch-name
                    package-name
+                   build-server-urls
                    package-derivations))))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision")
      (let ((commit-hash

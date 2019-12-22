@@ -19,6 +19,7 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-19)
   #:use-module (ice-9 match)
+  #:use-module (guix-data-service web html-utils)
   #:use-module (guix-data-service web view html)
   #:export (view-git-repository
             view-branches
@@ -282,6 +283,7 @@
 (define (view-branch-package-derivations git-repository-id
                                          branch-name
                                          package-name
+                                         build-server-urls
                                          derivations-by-revision-range)
   (define versions-list
     (pair-fold (match-lambda*
@@ -332,9 +334,10 @@
          (thead
           (tr
            (th (@ (class "col-sm-1")) "Version")
-           (th (@ (class "col-sm-5")) "Derivation")
-           (th (@ (class "col-sm-1")) "From")
-           (th (@ (class "col-sm-1")) "To")
+           (th (@ (class "col-sm-4")) "Derivation")
+           (th (@ (class "col-sm-2")) "Builds")
+           (th (@ (class "col-sm-2")) "From")
+           (th (@ (class "col-sm-2")) "To")
            (th (@ (class "col-sm-1")) "")))
          (tbody
           ,@(let* ((times-in-seconds
@@ -360,7 +363,8 @@
                                     first-guix-revision-commit
                                     first-datetime
                                     last-guix-revision-commit
-                                    last-datetime)
+                                    last-datetime
+                                    builds)
                    next-derivation-file-name)
                   `((tr
                      (@ (style "border-bottom: 0;"))
@@ -373,6 +377,27 @@
                      (td
                       (a (@ (href ,derivation-file-name))
                          ,(display-store-item derivation-file-name)))
+                     (td
+                      (dl
+                       ,@(append-map
+                          (lambda (build)
+                            (let ((build-server-id
+                                   (assoc-ref build "build_server_id")))
+                              `((dt
+                                 (@ (style "font-weight: unset;"))
+                                 (a (@ (href
+                                        ,(assq-ref build-server-urls
+                                                   build-server-id)))
+                                    ,(assq-ref build-server-urls
+                                               build-server-id)))
+                                (dd
+                                 (a (@ (href
+                                        ,(simple-format
+                                          #f "/build-server/~A/build?derivation_file_name=~A"
+                                          build-server-id
+                                          derivation-file-name)))
+                                    ,(build-status-alist->build-icon build))))))
+                          builds)))
                      (td (a (@ (href ,(string-append
                                        "/revision/" first-guix-revision-commit)))
                             ,first-datetime))

@@ -2,6 +2,7 @@
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 vlist)
   #:use-module (ice-9 match)
+  #:use-module (json)
   #:use-module (squee)
   #:use-module (guix inferior)
   #:use-module (guix-data-service model utils)
@@ -243,18 +244,38 @@ ORDER BY first_datetime DESC, package_version DESC"
                                         system
                                         target
                                         package-name)
-  (exec-query
-   conn
-   "
+  (define query
+    "
 SELECT package_version,
        derivations.file_name,
        first_guix_revisions.commit AS first_guix_revision_commit,
        first_git_branches.datetime AS first_datetime,
        last_guix_revisions.commit AS last_guix_revision_commit,
-       last_git_branches.datetime AS last_datetime
+       last_git_branches.datetime AS last_datetime,
+       JSON_AGG(
+         json_build_object(
+           'build_server_id', builds.build_server_id,
+           'status',  latest_build_status.status,
+           'timestamp',  latest_build_status.timestamp,
+           'build_for_equivalent_derivation',
+           builds.derivation_file_name != derivations.file_name
+         )
+         ORDER BY latest_build_status.timestamp
+       ) AS builds
 FROM package_derivations_by_guix_revision_range
 INNER JOIN derivations
   ON package_derivations_by_guix_revision_range.derivation_id = derivations.id
+INNER JOIN derivations_by_output_details_set
+  ON derivations_by_output_details_set.derivation_id = derivations.id
+LEFT OUTER JOIN builds
+  ON derivations_by_output_details_set.derivation_output_details_set_id =
+     builds.derivation_output_details_set_id
+LEFT OUTER JOIN (
+  SELECT DISTINCT ON (build_id) *
+  FROM build_status
+  ORDER BY build_id, timestamp DESC
+) AS latest_build_status
+  ON builds.id = latest_build_status.build_id
 INNER JOIN guix_revisions AS first_guix_revisions
   ON first_guix_revision_id = first_guix_revisions.id
 INNER JOIN git_branches AS first_git_branches
@@ -272,9 +293,35 @@ AND first_git_branches.name = $3
 AND last_git_branches.name = $3
 AND package_derivations_by_guix_revision_range.system = $4
 AND package_derivations_by_guix_revision_range.target = $5
-ORDER BY first_datetime DESC, package_version DESC"
-   (list package-name
-         (number->string git-repository-id)
-         branch-name
-         system
-         target)))
+GROUP BY 1, 2, 3, 4, 5, 6
+ORDER BY first_datetime DESC, package_version DESC")
+
+  (map (match-lambda
+         ((version derivation-file-name
+                   first-guix-revision-commit
+                   first-datetime
+                   last-guix-revision-commit
+                   last-datetime
+                   builds-json)
+          (list version
+                derivation-file-name
+                first-guix-revision-commit
+                first-datetime
+                last-guix-revision-commit
+                last-datetime
+                (if (string-null? builds-json)
+                    '()
+                    (filter (lambda (build)
+                              (not (eq?  (assoc-ref build "build_server_id")
+                                         #nil)))
+                            (vector->list
+                             (json-string->scm builds-json)))))))
+       (exec-query
+        conn
+        query
+        (list package-name
+              (number->string git-repository-id)
+              branch-name
+              system
+              target))))
+
