@@ -774,7 +774,8 @@
                                      (assq-ref query-parameters
                                                'build_status)
                                      (assq-ref query-parameters
-                                               'build_server))))))
+                                               'build_server)
+                                     #:revision-commit commit-hash)))))
 
 (define* (render-revision-lint-warnings mime-types
                                         conn

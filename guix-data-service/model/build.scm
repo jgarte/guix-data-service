@@ -87,7 +87,8 @@ ORDER BY status"))
                             (list revision-commit)
                             '()))))))
 
-(define (select-builds-with-context conn build-statuses build-server-ids)
+(define* (select-builds-with-context conn build-statuses build-server-ids
+                                     #:key revision-commit)
   (define where-conditions
     (filter
      string?
@@ -103,15 +104,29 @@ ORDER BY status"))
          "builds.build_server_id IN ("
          (string-join (map number->string build-server-ids)
                       ", ")
-         ")")))))
+         ")"))
+      (when revision-commit
+        "guix_revisions.commit = $1"))))
 
   (define query
-    (string-append "
+    (string-append
+     "
 SELECT builds.id, build_servers.url, derivations.file_name,
        latest_build_status.timestamp, latest_build_status.status
 FROM builds
 INNER JOIN build_servers ON build_servers.id = builds.build_server_id
 INNER JOIN derivations ON derivations.file_name = builds.derivation_file_name
+"
+     (if revision-commit
+         "
+INNER JOIN package_derivations
+  ON derivations.id = package_derivations.derivation_id
+INNER JOIN guix_revision_package_derivations
+  ON guix_revision_package_derivations.package_derivation_id = package_derivations.id
+INNER JOIN guix_revisions
+  ON guix_revision_package_derivations.revision_id = guix_revisions.id"
+         "")
+     "
 INNER JOIN
 (
   SELECT DISTINCT ON (build_id) *
@@ -129,7 +144,11 @@ ON latest_build_status.build_id = builds.id
 ORDER BY latest_build_status.timestamp DESC
 LIMIT 100"))
 
-  (exec-query conn query))
+  (exec-query conn
+              query
+              (if revision-commit
+                  (list revision-commit)
+                  '())))
 
 (define (select-builds-with-context-by-derivation-file-name
          conn derivation-file-name)
