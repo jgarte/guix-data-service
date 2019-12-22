@@ -23,7 +23,8 @@
       (for-each
        (match-lambda
          ((id url lookup-all-derivations?)
-          (when (or (not build-servers)
+          (when (or (or (not build-servers)
+                        (not build-server-ids))
                     (member id build-server-ids))
             (when lookup-all-derivations?
               (simple-format #t "\nQuerying ~A\n" url)
