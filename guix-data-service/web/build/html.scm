@@ -107,7 +107,12 @@
                           timestamp status)
                 `(tr
                   (td (@ (class "text-center"))
-                      ,(build-status-span status))
+                      (a (@ (href
+                             ,(simple-format
+                               #f "/build-server/~A/build?derivation_file_name=~A"
+                               (assoc-ref build-server-options build-server-url)
+                               derivation-file-name)))
+                         ,(build-status-span status)))
                   (td (a (@ (href ,derivation-file-name))
                          ,(display-store-item-short derivation-file-name)))
                   (td ,timestamp)
