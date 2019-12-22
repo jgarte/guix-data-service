@@ -29,27 +29,13 @@
                    action time-taken)
     result))
 
-(define (update-package-derivations-table conn
-                                          git-repository-id
-                                          guix-revision-id
-                                          commit)
-  ;; Lock the table to wait for other transactions to commit before updating
-  ;; the table
+(define (delete-guix-revision-package-derivation-entries conn
+                                                         git-repository-id
+                                                         guix-revision-id
+                                                         branch-name)
   (exec-query
    conn
    "
-LOCK TABLE ONLY package_derivations_by_guix_revision_range
-  IN SHARE ROW EXCLUSIVE MODE")
-
-  (for-each
-   (match-lambda
-     ((branch-name)
-      (log-time
-       (simple-format #f "deleting package derivation entries for ~A" branch-name)
-       (lambda ()
-         (exec-query
-          conn
-          "
 DELETE FROM package_derivations_by_guix_revision_range
 WHERE git_repository_id = $1 AND
       branch_name = $2 AND
@@ -60,15 +46,18 @@ WHERE git_repository_id = $1 AND
           ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
         WHERE revision_id = $3
       )"
-          (list git-repository-id
-                branch-name
-                guix-revision-id))))
-      (log-time
-       (simple-format #f "inserting package derivation entries for ~A" branch-name)
-       (lambda ()
-         (exec-query
-          conn
-          "
+   (list git-repository-id
+         branch-name
+         guix-revision-id
+         branch-name)))
+
+(define (insert-guix-revision-package-derivation-entries conn
+                                                         git-repository-id
+                                                         guix-revision-id
+                                                         branch-name)
+  (exec-query
+   conn
+   "
 INSERT INTO package_derivations_by_guix_revision_range
 SELECT DISTINCT
        $1::integer AS git_repository_id,
@@ -109,7 +98,39 @@ WINDOW package_version AS (
   RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
 )
 ORDER BY packages.name, packages.version"
-          (list git-repository-id branch-name guix-revision-id))))))
+   (list git-repository-id
+         branch-name
+         guix-revision-id)))
+
+(define (update-package-derivations-table conn
+                                          git-repository-id
+                                          guix-revision-id
+                                          commit)
+  ;; Lock the table to wait for other transactions to commit before updating
+  ;; the table
+  (exec-query
+   conn
+   "
+LOCK TABLE ONLY package_derivations_by_guix_revision_range
+  IN SHARE ROW EXCLUSIVE MODE")
+
+  (for-each
+   (match-lambda
+     ((branch-name)
+      (log-time
+       (simple-format #f "deleting package derivation entries for ~A" branch-name)
+       (lambda ()
+         (delete-guix-revision-package-derivation-entries conn
+                                                          git-repository-id
+                                                          guix-revision-id
+                                                          branch-name)))
+      (log-time
+       (simple-format #f "inserting package derivation entries for ~A" branch-name)
+       (lambda ()
+         (insert-guix-revision-package-derivation-entries conn
+                                                          git-repository-id
+                                                          guix-revision-id
+                                                          branch-name)))))
    (exec-query
     conn
     "SELECT name FROM git_branches WHERE commit = $1 AND git_repository_id = $2"
