@@ -1268,7 +1268,17 @@ SKIP LOCKED")
                                      (let ((result
                                             (parameterize ((current-build-output-port logging-port)
                                                            (real-error-port previous-error-port))
-                                              (load-new-guix-revision conn git-repository-id commit))))
+                                              (catch #t
+                                                (lambda ()
+                                                  (load-new-guix-revision conn
+                                                                          git-repository-id
+                                                                          commit))
+                                                (lambda (key . args)
+                                                  (simple-format
+                                                   (current-error-port)
+                                                   "error: load-new-guix-revision: ~A ~A\n"
+                                                   key args)
+                                                  #f)))))
                                        (combine-log-parts! logging-conn id)
 
                                        ;; This can happen with GC, so do it explicitly
