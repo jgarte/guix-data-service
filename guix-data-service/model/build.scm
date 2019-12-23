@@ -140,8 +140,11 @@ INNER JOIN derivations ON derivations.file_name = builds.derivation_file_name
 "
      (if revision-commit
          "
+INNER JOIN derivations_by_output_details_set
+  ON builds.derivation_output_details_set_id =
+     derivations_by_output_details_set.derivation_output_details_set_id
 INNER JOIN package_derivations
-  ON derivations.id = package_derivations.derivation_id
+  ON derivations_by_output_details_set.derivation_id = package_derivations.derivation_id
 INNER JOIN guix_revision_package_derivations
   ON guix_revision_package_derivations.package_derivation_id = package_derivations.id
 INNER JOIN guix_revisions
