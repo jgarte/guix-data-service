@@ -1180,12 +1180,10 @@ figure {
                 `(tr
                   (td ,(build-status-span status))
                   ,@(map (lambda (id)
-                           `(td ,(if (string-null? status)
-                                     (assq-ref counts-by-build-server-id
-                                               #f)
-                                     (or (assq-ref counts-by-build-server-id
-                                                   id)
-                                         0))))
+                           `(td
+                             ,(or (assq-ref counts-by-build-server-id
+                                            id)
+                                  0)))
                          (map cdr build-server-options)))))
              stats)))))
       (div

@@ -43,8 +43,9 @@
   (define query
     (string-append
      "
-SELECT latest_build_status.status AS build_status, builds.build_server_id, COUNT(*)
+SELECT latest_build_status.status AS build_status, build_servers.id, COUNT(*)
 FROM derivation_output_details_sets
+CROSS JOIN build_servers
 "
      (if revision-commit
          "
@@ -61,7 +62,8 @@ INNER JOIN guix_revisions
      "
 LEFT JOIN builds
    ON builds.derivation_output_details_set_id =
-      derivation_output_details_sets.id
+        derivation_output_details_sets.id AND
+      builds.build_server_id = build_servers.id
 LEFT JOIN
 (
   SELECT DISTINCT ON (build_id) *
@@ -76,7 +78,7 @@ ON builds.id = latest_build_status.build_id
           "WHERE "
           (string-join criteria " AND ")))
      "
-GROUP BY latest_build_status.status, builds.build_server_id
+GROUP BY latest_build_status.status, build_servers.id
 ORDER BY status"))
 
   (map (match-lambda
