@@ -39,7 +39,7 @@
 
 (define %default-options
   ;; Alist of default option values
-  '())
+  '((revision-commits . ())))
 
 (define (parse-options args)
   (args-fold
