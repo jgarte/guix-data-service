@@ -50,8 +50,7 @@ WHERE git_repository_id = $1 AND
       )"
    (list git-repository-id
          branch-name
-         guix-revision-id
-         branch-name)))
+         guix-revision-id)))
 
 (define* (insert-guix-revision-package-derivation-entries conn
                                                           git-repository-id
