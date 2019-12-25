@@ -27,8 +27,11 @@
              (srfi srfi-37)
              (ice-9 textual-ports)
              (system repl server)
+             (gcrypt pk-crypto)
+             (guix pki)
              (guix-data-service config)
-             (guix-data-service web server))
+             (guix-data-service web server)
+             (guix-data-service web nar controller))
 
 (define %default-repl-server-port
   ;; Default port to run REPL server on, if --listen-repl is provided
@@ -56,6 +59,12 @@
                               (string-trim-right
                                (call-with-input-file arg get-string-all))
                               result)))
+        (option '("narinfo-signing-public-key") #t #f
+                (lambda (opt name arg result)
+                  (alist-cons 'narinfo-signing-public-key-file arg result)))
+        (option '("narinfo-signing-private-key") #t #f
+                (lambda (opt name arg result)
+                  (alist-cons 'narinfo-signing-private-key-file arg result)))
         (option '("update-database") #f #f
                 (lambda (opt name _ result)
                   (alist-cons 'update-database #t result)))
@@ -73,10 +82,12 @@
 
 (define %default-options
   ;; Alist of default option values
-  `((listen-repl          . #f)
-    (update-database      . #f)
-    (port                 . 8765)
-    (host                 . "0.0.0.0")))
+  `((listen-repl                          . #f)
+    (narinfo-signing-public-key           . ,%public-key-file)
+    (narinfo-signing-private-key          . ,%private-key-file)
+    (update-database                      . #f)
+    (port                                 . 8765)
+    (host                                 . "0.0.0.0")))
 
 (define (parse-options args)
   (args-fold
@@ -129,6 +140,27 @@
   (simple-format #t "starting the server on port ~A\n"
                  (assq-ref opts 'port))
 
-  (start-guix-data-service-web-server (assq-ref opts 'port)
-                                      (assq-ref opts 'host)
-                                      (assq-ref opts 'secret-key-base)))
+  (parameterize ((%narinfo-signing-public-key
+                  (and=> (assoc-ref opts 'narinfo-signing-public-key)
+                         read-file-sexp))
+                 (%narinfo-signing-private-key
+                  (catch
+                    'system-error
+                    (lambda ()
+                      (and=> (assoc-ref opts 'narinfo-signing-private-key)
+                             read-file-sexp))
+                    (lambda (key . args)
+                      (simple-format
+                       (current-error-port)
+                       "warning: failed to load narinfo signing private key from ~A\n"
+                       (assoc-ref opts 'narinfo-signing-private-key))
+                      (simple-format (current-error-port)
+                                     "  ~A: ~A\n"
+                                     key args)
+                      (display "warning: not signing narinfo files\n"
+                               (current-error-port))
+                      #f))))
+
+    (start-guix-data-service-web-server (assq-ref opts 'port)
+                                        (assq-ref opts 'host)
+                                        (assq-ref opts 'secret-key-base))))
