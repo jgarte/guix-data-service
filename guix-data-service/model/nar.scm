@@ -1,4 +1,4 @@
-1(define-module (guix-data-service model nar)
+(define-module (guix-data-service model nar)
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 match)
   #:use-module (web uri)
