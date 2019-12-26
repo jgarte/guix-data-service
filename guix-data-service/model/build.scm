@@ -279,9 +279,12 @@ WITH RECURSIVE all_derivations(id, file_name) AS (
 )
 SELECT all_derivations.file_name, latest_build_status.status
 FROM all_derivations
+INNER JOIN derivations_by_output_details_set
+  ON all_derivations.id = derivations_by_output_details_set.derivation_id
 LEFT OUTER JOIN builds
-  ON all_derivations.file_name = builds.derivation_file_name AND
-     builds.build_server_id = $2
+  ON derivations_by_output_details_set.derivation_output_details_set_id =
+     builds.derivation_output_details_set_id
+ AND builds.build_server_id = $2
 LEFT OUTER JOIN (
   SELECT DISTINCT ON (build_id) *
   FROM build_status
