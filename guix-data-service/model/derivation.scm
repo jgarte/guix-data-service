@@ -17,6 +17,7 @@
             select-derivation-by-file-name-hash
             select-derivation-outputs-by-derivation-id
             select-derivation-sources-by-derivation-id
+            select-derivation-references-by-derivation-id
             select-derivation-source-file-by-store-path
             select-derivation-by-output-filename
             select-derivations-using-output
@@ -709,6 +710,33 @@ FROM derivation_source_files
 INNER JOIN derivation_sources
   ON derivation_source_files.id = derivation_sources.derivation_source_file_id
 WHERE derivation_sources.derivation_id = $1
+ORDER BY 1"))
+
+  (map first
+       (exec-query conn query (list (number->string id)))))
+
+(define (select-derivation-references-by-derivation-id conn id)
+  (define query
+    (string-append
+     "
+SELECT * FROM (
+    SELECT derivation_source_files.store_path
+    FROM derivation_source_files
+    INNER JOIN derivation_sources
+      ON derivation_source_files.id = derivation_sources.derivation_source_file_id
+    WHERE derivation_sources.derivation_id = $1
+  UNION ALL
+    SELECT derivations.file_name
+    FROM derivation_inputs
+    INNER JOIN derivation_outputs
+      ON derivation_outputs.id = derivation_inputs.derivation_output_id
+    INNER JOIN derivation_output_details
+      ON derivation_outputs.derivation_output_details_id = derivation_output_details.id
+    INNER JOIN derivations
+      ON derivation_outputs.derivation_id = derivations.id
+    WHERE derivation_inputs.derivation_id = $1
+    GROUP BY derivations.file_name
+) AS data
 ORDER BY 1"))
 
   (map first
