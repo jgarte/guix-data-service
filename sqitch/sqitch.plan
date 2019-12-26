@@ -38,3 +38,4 @@ sort_out_duplicate_builds 2019-12-05T12:43:53Z   <chris@phact> # Sort out duplic
 add_some_database_indexes 2019-12-05T15:53:04Z Christopher Baines <mail@cbaines.net> # Add some indexes
 derivation_output_sets 2019-12-05T23:19:05Z Christopher Baines <mail@cbaines.net> # Describe the sets of derivation outputs
 builds_add_derivation_output_details_set_id 2019-12-07T18:25:38Z Christopher Baines <mail@cbaines.net> # Add a derivation_output_details_set_id column to builds
+derivations_hash_index 2019-12-24T22:54:19Z Christopher Baines <mail@cbaines.net> # Add index on derivations for the hash component of the filename
