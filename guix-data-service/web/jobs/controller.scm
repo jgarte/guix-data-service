@@ -30,8 +30,19 @@
                          conn)
   (match method-and-path-components
     (('GET "jobs")
-     (render-jobs mime-types
-                  conn))
+     (let ((parsed-query-parameters
+            (guard-against-mutually-exclusive-query-parameters
+             (parse-query-parameters
+              request
+              `((before_id  ,parse-number)
+                (limit_results  ,parse-result-limit
+                                #:no-default-when (all_results)
+                                #:default 20)
+                (all_results    ,parse-checkbox-value)))
+             '((limit_results all_results)))))
+       (render-jobs mime-types
+                    conn
+                    parsed-query-parameters)))
     (('GET "jobs" "queue")
      (render-job-queue mime-types
                        conn))
@@ -47,10 +58,20 @@
                    parsed-query-parameters)))
     (_ #f)))
 
-(define (render-jobs mime-types conn)
-  (render-html
-   #:sxml (view-jobs
-           (select-jobs-and-events conn))))
+(define (render-jobs mime-types conn query-parameters)
+  (let* ((limit-results
+          (assq-ref query-parameters 'limit_results))
+         (jobs (select-jobs-and-events
+                conn
+                (assq-ref query-parameters 'before_id)
+                limit-results)))
+    (render-html
+     #:sxml (view-jobs
+             query-parameters
+             jobs
+             (and limit-results
+                  (>= (length jobs)
+                      limit-results))))))
 
 (define (render-job-queue mime-types conn)
   (render-html

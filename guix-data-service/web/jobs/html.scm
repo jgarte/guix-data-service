@@ -16,13 +16,17 @@
 ;;; <http://www.gnu.org/licenses/>.
 
 (define-module (guix-data-service web jobs html)
+  #:use-module (srfi srfi-1)
   #:use-module (ice-9 match)
+  #:use-module (guix-data-service web html-utils)
   #:use-module (guix-data-service web view html)
   #:export (view-jobs
             view-job-queue
             view-job))
 
-(define (view-jobs jobs-and-events)
+(define (view-jobs query-parameters
+                   jobs-and-events
+                   show-next-page?)
   (layout
    #:body
    `(,(header)
@@ -42,6 +46,33 @@
                (href "/jobs/queue")
                (role "button"))
             "Queue"))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (div
+         (@ (class "well"))
+         (form
+          (@ (method "get")
+             (action "")
+             (style "padding-bottom: 0")
+             (class "form-horizontal"))
+          ,(form-horizontal-control
+            "Before ID" query-parameters
+            #:help-text
+            "List packages that are alphabetically after the given name.")
+          ,(form-horizontal-control
+            "Limit results" query-parameters
+            #:help-text "The maximum number of packages by name to return.")
+          ,(form-horizontal-control
+            "All results" query-parameters
+            #:type "checkbox"
+            #:help-text "Return all results.")
+          (div (@ (class "form-group form-group-lg"))
+               (div (@ (class "col-sm-offset-2 col-sm-10"))
+                    (button (@ (type "submit")
+                               (class "btn btn-lg btn-primary"))
+                            "Update results")))))))
       (div
        (@ (class "row"))
        (div
@@ -94,7 +125,17 @@
                              `((a (@ (href ,(string-append "/job/" id)))
                                   "View log"))
                              '())))))
-                 jobs-and-events)))))))))
+                 jobs-and-events)))
+        ,@(if show-next-page?
+              `((div
+                 (@ (class "row"))
+                 (a (@ (href
+                        ,(next-page-link "/jobs"
+                                         query-parameters
+                                         'before_id
+                                         (car (last jobs-and-events)))))
+                    "Next page")))
+              '())))))))
 
 (define (view-job-queue jobs-and-events)
   (layout

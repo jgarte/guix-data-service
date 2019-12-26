@@ -1050,9 +1050,10 @@ RETURNING id;")
           (list commit))))
     result))
 
-(define (select-jobs-and-events conn)
+(define (select-jobs-and-events conn before-id limit)
   (define query
-    "
+    (string-append
+     "
 SELECT
   load_new_guix_revision_jobs.id,
   load_new_guix_revision_jobs.commit,
@@ -1071,7 +1072,19 @@ SELECT
     SELECT 1 FROM load_new_guix_revision_job_logs WHERE job_id = load_new_guix_revision_jobs.id
   ) AS log_exists
 FROM load_new_guix_revision_jobs
-ORDER BY load_new_guix_revision_jobs.id DESC")
+"
+     (if before-id
+         (string-append
+          "WHERE load_new_guix_revision_jobs.id < "
+          (number->string before-id))
+         "")
+     "
+ORDER BY load_new_guix_revision_jobs.id DESC
+"
+     (if limit
+         (string-append
+          "LIMIT " (number->string limit))
+         "")))
 
   (map
    (match-lambda
