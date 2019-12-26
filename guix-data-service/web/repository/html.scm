@@ -420,7 +420,7 @@
                             '())))
                     (tr
                      (td
-                      (@ (colspan 3)
+                      (@ (colspan 4)
                          (style "border-top: 0; padding-top: 0;"))
                       (div
                        (@
