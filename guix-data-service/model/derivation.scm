@@ -657,6 +657,7 @@ SELECT derivations.file_name,
            'output_name', derivation_outputs.name,
            'store_filename', derivation_output_details.path
          )
+         ORDER BY derivation_outputs.name
        )
 FROM derivation_inputs
 INNER JOIN derivation_outputs
