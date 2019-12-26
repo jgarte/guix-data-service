@@ -1,12 +1,21 @@
 (define-module (guix-data-service builds)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-11)
+  #:use-module (srfi srfi-26)
   #:use-module (ice-9 match)
   #:use-module (ice-9 iconv)
+  #:use-module (ice-9 binary-ports)
   #:use-module (json parser)
+  #:use-module (web uri)
+  #:use-module (web request)
   #:use-module (web response)
   #:use-module (web client)
   #:use-module (squee)
+  #:use-module ((guix build download)
+                #:select (close-connection
+                          (open-connection-for-uri
+                           . guix:open-connection-for-uri)))
+  #:use-module ((guix build utils) #:select (dump-port))
   #:use-module (guix scripts substitute)
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service builds)
@@ -16,6 +25,77 @@
   #:use-module (guix-data-service model build-status)
   #:use-module (guix-data-service model nar)
   #:export (query-build-servers))
+
+(define (at-most max-length lst)
+  "If LST is shorter than MAX-LENGTH, return it; otherwise return its
+MAX-LENGTH first elements."
+  (let loop ((len 0)
+             (lst lst)
+             (result '()))
+    (match lst
+      (()
+       (reverse result))
+      ((head . tail)
+       (if (>= len max-length)
+           (reverse result)
+           (loop (+ 1 len) tail (cons head result)))))))
+
+(define* (http-multiple-get base-uri proc seed requests
+                            #:key port (verify-certificate? #t))
+  "Send all of REQUESTS to the server at BASE-URI.  Call PROC for each
+response, passing it the request object, the response, a port from which to
+read the response body, and the previous result, starting with SEED, à la
+'fold'.  Return the final result.  When PORT is specified, use it as the
+initial connection on which HTTP requests are sent."
+  (let connect ((port     port)
+                (requests requests)
+                (result   seed))
+    (define batch
+      (at-most 50 requests))
+
+    (let ((p (or port (guix:open-connection-for-uri
+                       base-uri
+                       #:verify-certificate?
+                       verify-certificate?))))
+      ;; For HTTPS, P is not a file port and does not support 'setvbuf'.
+      (when (file-port? p)
+        (setvbuf p 'block (expt 2 16)))
+
+      ;; Send BATCH in a row.
+      ;; XXX: Do our own caching to work around inefficiencies when
+      ;; communicating over TLS: <http://bugs.gnu.org/22966>.
+      (let-values (((buffer get) (open-bytevector-output-port)))
+        (for-each (cut write-request <> buffer)
+                  batch)
+        (put-bytevector p (get))
+        (force-output p))
+
+      ;; Now start processing responses.
+      (let loop ((sent      batch)
+                 (processed 0)
+                 (result    result))
+        (match sent
+          (()
+           (match (drop requests processed)
+             (()
+              (reverse result))
+             (remainder
+              (connect port remainder result))))
+          ((head tail ...)
+           (let* ((resp   (read-response p))
+                  (body   (response-body-port resp))
+                  (result (proc head resp body result)))
+             ;; The server can choose to stop responding at any time, in which
+             ;; case we have to try again.  Check whether that is the case.
+             ;; Note that even upon "Connection: close", we can read from BODY.
+             (match (assq 'connection (response-headers resp))
+               (('connection 'close)
+                (close-connection p)
+                (connect #f                       ;try again
+                         (append tail (drop requests processed))
+                         result))
+               (_
+                (loop tail (+ 1 processed) result)))))))))) ;keep going
 
 (define (query-build-servers conn build-server-ids revision-commits)
   (while #t
@@ -111,27 +191,22 @@
 
   (simple-format (current-error-port) "Fetching ~A derivations\n"
                  (length derivations))
-  (for-each
-   (match-lambda
-     ((derivation-id derivation-file-name)
-      (if
-       (and=> (fetch-build url derivation-file-name)
-              (lambda (data)
-                (let ((build-id
-                       (ensure-build-exists conn
-                                            build-server-id
-                                            derivation-file-name)))
-                  (insert-build-statuses-from-data
-                   conn
-                   build-server-id
-                   build-id
-                   data))
-                #t))
-       (display "-")
-       (display "."))
-      ;; Try not to make to many requests at once
-      (usleep 200)))
-   derivations))
+  (fetch-builds
+   url
+   (map second derivations)
+   (lambda (data)
+     (if data
+         (let ((build-id
+                (ensure-build-exists conn
+                                     build-server-id
+                                     (assoc-ref data "derivation"))))
+           (insert-build-statuses-from-data
+            conn
+            build-server-id
+            build-id
+            data)
+           (display "-"))
+         (display ".")))))
 
 (define (json-string->scm* string)
   (catch
@@ -162,6 +237,40 @@
        (bytevector->string body "utf-8")))
      (else
       #f))))
+
+(define (fetch-builds url derivation-file-names handler)
+  (define (read-to-eof port)
+    "Read from PORT until EOF is reached.  The data are discarded."
+    (dump-port port (%make-void-port "w")))
+
+  (http-multiple-get
+   (string->uri url)
+   (lambda (request response port result)
+     (let* ((len (response-content-length response))
+            (response-body
+             (if len
+                 (get-bytevector-n port len)
+                 (read-to-eof port))))
+       (handler
+        (cond
+         ((eq? (response-code response) 200)
+          (json-string->scm
+           (bytevector->string response-body
+                               "utf-8")))
+         (else
+          #f)))))
+   '()
+   (map (lambda (derivation-file-name)
+          (build-request
+           (string->uri
+            (string-append url
+                           "build"
+                           (string-drop
+                            derivation-file-name
+                            (string-length "/gnu/store"))))
+           #:method 'GET
+           #:headers '((User-Agent . "Guix Data Service"))))
+        derivation-file-names)))
 
 (define (select-pending-builds conn build-server-id)
   (define query
