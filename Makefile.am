@@ -94,14 +94,14 @@ SOURCES =									\
   guix-data-service/model/package-metadata.scm					\
   guix-data-service/model/package.scm						\
   guix-data-service/model/utils.scm						\
-  guix-data-service/web/html-utils.scm						\
+  guix-data-service/web/build-server/controller.scm				\
+  guix-data-service/web/build-server/html.scm					\
+  guix-data-service/web/build/controller.scm					\
+  guix-data-service/web/build/html.scm						\
   guix-data-service/web/compare/controller.scm					\
   guix-data-service/web/compare/html.scm					\
   guix-data-service/web/controller.scm						\
-  guix-data-service/web/build/controller.scm					\
-  guix-data-service/web/build/html.scm						\
-  guix-data-service/web/build-server/controller.scm				\
-  guix-data-service/web/build-server/html.scm					\
+  guix-data-service/web/html-utils.scm						\
   guix-data-service/web/jobs/controller.scm					\
   guix-data-service/web/jobs/html.scm						\
   guix-data-service/web/nar/controller.scm					\
