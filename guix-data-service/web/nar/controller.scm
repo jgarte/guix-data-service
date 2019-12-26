@@ -45,6 +45,11 @@
 (define %narinfo-signing-public-key
   (make-parameter #f))
 
+(define %nix-cache-info
+  `(("StoreDir" . "/gnu/store")
+    ("WantMassQuery" . 0)
+    ("Priority" . 100)))
+
 (define (nar-controller request
                           method-and-path-components
                           mime-types
@@ -54,6 +59,13 @@
     (string-suffix? ".narinfo" s))
 
   (match method-and-path-components
+    (('GET "nix-cache-info")
+     (render-text
+      (string-concatenate
+       (map (match-lambda
+              ((key . value)
+               (format #f "~a: ~a~%" key value)))
+            %nix-cache-info))))
     (('GET "nar" derivation)
      (render-nar request
                  mime-types
