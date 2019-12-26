@@ -600,7 +600,7 @@ VALUES ($1, $2)"
      #f)
     (((id file_name builder args env_vars system))
      (list (string->number id)
-           file-name
+           file_name
            builder
            (parse-postgresql-array-string args)
            (map (match-lambda
