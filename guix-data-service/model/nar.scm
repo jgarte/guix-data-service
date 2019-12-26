@@ -285,7 +285,8 @@ ORDER BY COUNT(*) DESC")
          build-server-id
          guix-revision-commits)
   (define query
-    (string-append "
+    (string-append
+     "
 SELECT DISTINCT derivation_output_details.path
 FROM derivations
 INNER JOIN derivation_outputs
@@ -304,6 +305,11 @@ WHERE derivation_output_details.path NOT IN (
   WHERE narinfo_fetch_records.build_server_id = $1
 )
   AND derivations.system = 'x86_64-linux'
+"
+     (if (null? guix-revision-commits)
+         ""
+         (string-append
+          "
   AND derivations.id IN (
     SELECT derivation_id
     FROM package_derivations
@@ -312,10 +318,11 @@ WHERE derivation_output_details.path NOT IN (
     INNER JOIN guix_revisions
       ON guix_revisions.id = guix_revision_package_derivations.revision_id
     WHERE guix_revisions.commit IN ("
-                   (string-join (map quote-string guix-revision-commits)
-                                ",")
-                   ")
-)
+          (string-join (map quote-string guix-revision-commits)
+                       ",")
+          ")
+  )"))
+     "
 LIMIT 10000"))
 
   (map car (exec-query conn query (list (number->string build-server-id)))))
