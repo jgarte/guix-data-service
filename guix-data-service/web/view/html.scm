@@ -551,10 +551,10 @@
                  (th "File name")))
                (tdata
                 ,@(map (match-lambda
-                         ((file-name output-name path)
+                         ((derivation-file-name outputs)
                           `(tr
-                            (td (a (@ (href ,file-name))
-                                   ,(display-store-item-short path))))))
+                            (td (a (@ (href ,derivation-file-name))
+                                   ,(display-store-item-short derivation-file-name))))))
                        derivation-inputs)))))
        (div
         (@ (class "col-md-4"))
@@ -697,14 +697,22 @@
         (@ (class "col-md-10")
            (style "font-family: monospace;"))
         ,@(map (match-lambda*
-                 (((file-name output-name path) count-down)
+                 (((file-name outputs) count-down)
                   `(div
                     (@ (style "margin-left: 3em;"))
                     "(\""
                     (a (@ (href ,file-name))
                        ,(display-store-item file-name))
                     "\",\""
-                    "[\"" ,output-name "\"]"
+                    "[" ,(string-join
+                          (map (lambda (output)
+                                 (string-append
+                                  "\""
+                                  (assoc-ref output "output_name")
+                                  "\""))
+                               (vector->list outputs))
+                          ",")
+                    "]"
                     ")"
                     ,@(if (eq? count-down 0)
                           '()

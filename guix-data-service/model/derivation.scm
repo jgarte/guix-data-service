@@ -605,8 +605,13 @@ VALUES ($1, $2)"
   (define query
     (string-append
      "
-SELECT derivations.file_name, derivation_outputs.name,
-       derivation_output_details.path
+SELECT derivations.file_name,
+       JSON_AGG(
+         json_build_object(
+           'output_name', derivation_outputs.name,
+           'store_filename', derivation_output_details.path
+         )
+       )
 FROM derivation_inputs
 INNER JOIN derivation_outputs
   ON derivation_outputs.id = derivation_inputs.derivation_output_id
@@ -615,9 +620,14 @@ INNER JOIN derivation_output_details
 INNER JOIN derivations
   ON derivation_outputs.derivation_id = derivations.id
 WHERE derivation_inputs.derivation_id = $1
+GROUP BY derivations.file_name
 ORDER BY derivations.file_name"))
 
-  (exec-query conn query (list (number->string id))))
+  (map (match-lambda
+         ((derivation-file-name outputs-json)
+          (list derivation-file-name
+                (json-string->scm outputs-json))))
+       (exec-query conn query (list (number->string id)))))
 
 (define (select-derivation-sources-by-derivation-id conn id)
   (define query
