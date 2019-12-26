@@ -61,10 +61,10 @@
                               result)))
         (option '("narinfo-signing-public-key") #t #f
                 (lambda (opt name arg result)
-                  (alist-cons 'narinfo-signing-public-key-file arg result)))
+                  (alist-cons 'narinfo-signing-public-key arg result)))
         (option '("narinfo-signing-private-key") #t #f
                 (lambda (opt name arg result)
-                  (alist-cons 'narinfo-signing-private-key-file arg result)))
+                  (alist-cons 'narinfo-signing-private-key arg result)))
         (option '("update-database") #f #f
                 (lambda (opt name _ result)
                   (alist-cons 'update-database #t result)))
