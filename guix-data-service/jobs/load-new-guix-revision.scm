@@ -1236,6 +1236,11 @@ SKIP LOCKED")
   (with-postgresql-connection
    (simple-format #f "load-new-guix-revision ~A" id)
    (lambda (conn)
+     ;; Fix the hash encoding of derivation_output_details. This'll only run
+     ;; once on any given database, but is kept here just to make sure any
+     ;; instances have the data updated.
+     (fix-derivation-output-details-hash-encoding conn)
+
      (exec-query conn "BEGIN")
 
      (match (select-job-for-update conn id)

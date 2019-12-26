@@ -4,6 +4,7 @@
   #:use-module (ice-9 match)
   #:use-module (squee)
   #:use-module (json)
+  #:use-module (guix base16)
   #:use-module (guix base32)
   #:use-module (guix inferior)
   #:use-module (guix memoization)
@@ -20,6 +21,7 @@
             select-derivations-using-output
             select-derivations-in-revision
             select-derivation-outputs-in-revision
+            fix-derivation-output-details-hash-encoding
             select-derivations-by-revision-name-and-version
             select-derivation-inputs-by-derivation-id
             select-existing-derivations
@@ -400,6 +402,50 @@ ORDER BY derivation_output_details.path
                                                (list target)
                                                '())))))
 
+(define (fix-derivation-output-details-hash-encoding conn)
+  (define (find-old-derivations-and-hashes conn)
+    (exec-query
+     conn
+     "
+SELECT id, hash
+FROM derivation_output_details
+WHERE hash_algorithm = 'sha256' AND char_length(hash) = 52 LIMIT 100"))
+
+  (define (fix-batch data)
+    (for-each
+     (match-lambda
+       ((id base32-hash)
+        (exec-query
+         conn
+         "
+UPDATE derivation_output_details
+SET hash = $2
+WHERE id = $1"
+         (list id
+               (bytevector->base16-string
+                (nix-base32-string->bytevector base32-hash))))))
+     data))
+
+  (unless (null? (find-old-derivations-and-hashes conn))
+    (with-postgresql-transaction
+     conn
+     (lambda (conn)
+       (exec-query
+        conn
+        "
+LOCK TABLE ONLY derivation_output_details
+  IN SHARE ROW EXCLUSIVE MODE")
+
+       (let loop ((data (find-old-derivations-and-hashes conn)))
+         (unless (null? data)
+           (fix-batch data)
+
+           (simple-format #t "updated ~A old hashes\n"
+                          (length data))
+
+           ;; Recurse in case there are more to fix
+           (loop (find-old-derivations-and-hashes conn))))))))
+
 (define (insert-derivation-outputs conn
                                    derivation-id
                                    names-and-derivation-outputs)
@@ -418,7 +464,7 @@ ORDER BY derivation_output_details.path
                   (value->quoted-string-or-null
                    (and=> hash-algo symbol->string))
                   (value->quoted-string-or-null
-                   (and=> hash bytevector->nix-base32-string))
+                   (and=> hash bytevector->base16-string))
                   (if recursive? "TRUE" "FALSE"))
             ",")
            ")")))
