@@ -141,8 +141,19 @@
                  (assq-ref opts 'port))
 
   (parameterize ((%narinfo-signing-public-key
-                  (and=> (assoc-ref opts 'narinfo-signing-public-key)
-                         read-file-sexp))
+                  (catch
+                    'system-error
+                    (lambda ()
+                      (and=> (assoc-ref opts 'narinfo-signing-public-key)
+                             read-file-sexp))
+                    (lambda (key . args)
+                      (simple-format
+                       (current-error-port)
+                       "warning: failed to load narinfo signing public key from ~A\n"
+                       (assoc-ref opts 'narinfo-signing-private-key))
+                      (simple-format (current-error-port)
+                                     "  ~A: ~A\n"
+                                     key args))))
                  (%narinfo-signing-private-key
                   (catch
                     'system-error
