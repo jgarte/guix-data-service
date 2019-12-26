@@ -307,6 +307,16 @@
          (render-formatted-derivation conn
                                       (string-append "/gnu/store/" filename))
          (not-found (request-uri request))))
+    (('GET "gnu" "store" filename "plain")
+     (if (string-suffix? ".drv" filename)
+         (let ((raw-drv
+                (select-serialized-derivation-by-file-name
+                 conn
+                 (string-append "/gnu/store/" filename))))
+           (if raw-drv
+               (render-text raw-drv)
+               (not-found (request-uri request))))
+         (not-found (request-uri request))))
     (('GET "gnu" "store" filename "narinfos")
      (render-narinfos conn filename))
     (((or 'GET 'POST) "build-server" _ ...)

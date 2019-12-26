@@ -536,7 +536,11 @@
               (a (@ (class "btn btn-lg btn-default")
                     (href ,(string-append file-name "/formatted"))
                     (role "button"))
-                 "Formatted view"))))))
+                 "Formatted view")
+              (a (@ (class "btn btn-lg btn-default")
+                    (href ,(string-append file-name "/plain"))
+                    (role "button"))
+                 "Plain view"))))))
       (div
        (@ (class "row"))
        (div
@@ -640,7 +644,11 @@
               (a (@ (class "btn btn-lg btn-default disabled")
                     (href ,(string-append file-name "/formatted"))
                     (role "button"))
-                 "Formatted view"))))))
+                 "Formatted view")
+              (a (@ (class "btn btn-lg btn-default")
+                    (href ,(string-append file-name "/plain"))
+                    (role "button"))
+                 "Plain view"))))))
       (div
        (@ (class "row"))
        (div
