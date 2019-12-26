@@ -24,6 +24,7 @@
             fix-derivation-output-details-hash-encoding
             select-derivations-by-revision-name-and-version
             select-derivation-inputs-by-derivation-id
+            select-serialized-derivation-by-file-name
             select-existing-derivations
             select-derivations-by-id
             select-derivations-and-build-status
@@ -698,6 +699,88 @@ FROM derivation_source_files
 WHERE store_path = $1")
 
   (map car (exec-query conn query (list store-path))))
+
+(define (select-serialized-derivation-by-file-name conn derivation-file-name)
+  (define (double-quote s)
+    (string-append
+     "\"" s "\""))
+
+  (define (round-brackets-list items)
+    (string-append
+     "("
+     (string-join items ",")
+     ")"))
+
+  (define (square-brackets-list items)
+    (string-append
+     "["
+     (string-join items ",")
+     "]"))
+
+  (let ((derivation (select-derivation-by-file-name conn
+                                                    derivation-file-name)))
+    (if derivation
+        (let ((derivation-inputs (select-derivation-inputs-by-derivation-id
+                                  conn
+                                  (first derivation)))
+              (derivation-outputs (select-derivation-outputs-by-derivation-id
+                                   conn
+                                   (first derivation)))
+              (derivation-sources (select-derivation-sources-by-derivation-id
+                                   conn
+                                   (first derivation))))
+          (string-append
+           "Derive"
+           (round-brackets-list
+            `(;; Outputs
+              ,(square-brackets-list
+                (map (match-lambda
+                       ((output-name path hash-algorithm hash recursive?)
+                        (round-brackets-list
+                         (list
+                          (double-quote output-name)
+                          (double-quote path)
+                          (double-quote
+                           (string-append
+                            (if recursive? "r:" "")
+                            hash-algorithm))
+                          (double-quote hash)))))
+                     derivation-outputs))
+              ;; Inputs
+              ,(square-brackets-list
+                (map (match-lambda
+                       ((file-name outputs)
+                        (round-brackets-list
+                         (list
+                          (double-quote file-name)
+                          (square-brackets-list
+                           (map (lambda (output)
+                                  (double-quote
+                                   (assoc-ref output "output_name")))
+                                (vector->list outputs)))))))
+                     derivation-inputs))
+              ;; Sources
+              ,(square-brackets-list
+                (map double-quote derivation-sources))
+              ;; Other parts
+              ,@(match derivation
+                  ((id file-name builder args env-vars system)
+                   (list
+                    (double-quote system)
+                    (double-quote builder)
+                    (square-brackets-list
+                     (map double-quote args))
+                    (square-brackets-list
+                     (map (lambda (env-var)
+                            (round-brackets-list
+                             (list (with-output-to-string
+                                     (lambda ()
+                                       (write (assq-ref env-var 'key))))
+                                   (with-output-to-string
+                                     (lambda ()
+                                       (write (assq-ref env-var 'value)))))))
+                          env-vars)))))))))
+        #f)))
 
 (define (insert-derivation-inputs conn derivation-id derivation-inputs)
   (define (insert-into-derivation-inputs output-ids)
