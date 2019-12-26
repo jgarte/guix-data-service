@@ -95,7 +95,7 @@ initial connection on which HTTP requests are sent."
           (()
            (match (drop requests processed)
              (()
-              (reverse result))
+              result)
              (remainder
               (connect port remainder result))))
           ((head tail ...)
