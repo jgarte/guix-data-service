@@ -36,6 +36,7 @@
             render-static-asset
             render-html
             render-json
+            render-text
             not-found
             unprocessable-entity
             created
@@ -155,6 +156,16 @@
                              (vary . (accept)))))
         (lambda (port)
           (scm->json json port))))
+
+(define* (render-text text #:key (extra-headers '())
+                      (code 200))
+  (list (build-response
+         #:code code
+         #:headers (append extra-headers
+                           '((content-type . (text/plain))
+                             (vary . (accept)))))
+        (lambda (port)
+          (display text port))))
 
 (define (not-found uri)
   (list (build-response #:code 404)
