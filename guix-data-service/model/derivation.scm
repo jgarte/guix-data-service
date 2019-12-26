@@ -14,6 +14,7 @@
   #:export (valid-systems
             count-derivations
             select-derivation-by-file-name
+            select-derivation-by-file-name-hash
             select-derivation-outputs-by-derivation-id
             select-derivation-sources-by-derivation-id
             select-derivation-source-file-by-store-path
@@ -587,6 +588,28 @@ VALUES ($1, $2)"
       (insert-into-derivation-output-details-sets derivation-output-details-ids)))
 
     derivation-output-details-ids))
+
+(define (select-derivation-by-file-name-hash conn file-name-hash)
+  (define query
+    (string-append
+     "SELECT id, file_name, builder, args, to_json(env_vars), system "
+     "FROM derivations "
+     "WHERE substring(file_name from 12 for 32) = $1"))
+
+  (match (exec-query conn query (list file-name-hash))
+    (()
+     #f)
+    (((id file_name builder args env_vars system))
+     (list (string->number id)
+           file_name
+           builder
+           (parse-postgresql-array-string args)
+           (map (match-lambda
+                  (#(key value)
+                   `((key . ,key)
+                     (value . ,value))))
+                (vector->list (json-string->scm env_vars)))
+           system))))
 
 (define (select-derivation-by-file-name conn file-name)
   (define query
