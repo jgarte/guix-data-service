@@ -255,7 +255,12 @@
                                             (string-append
                                              "/repository/" repository-id
                                              "/branch/" branch-name
-                                             "/latest-processed-revision"))
+                                             "/latest-processed-revision")
+                                            #:version-history-link
+                                            (string-append
+                                             "/repository/" repository-id
+                                             "/branch/" branch-name
+                                             "/package/" name))
            (render-unknown-revision mime-types
                                     conn
                                     commit-hash))))

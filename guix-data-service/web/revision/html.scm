@@ -159,7 +159,8 @@
                                             derivations git-repositories
                                             lint-warnings
                                             #:key header-text
-                                            header-link)
+                                            header-link
+                                            version-history-link)
   (layout
    #:body
    `(,(header)
@@ -175,6 +176,12 @@
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
+        ,@(if version-history-link
+              `((a (@ (class "btn btn-lg btn-default pull-right")
+                      (href ,version-history-link)
+                      (role "button"))
+                   "Version history"))
+              '())
         (h1 "Package " ,name " @ " ,version)))
       (div
        (@ (class "row"))

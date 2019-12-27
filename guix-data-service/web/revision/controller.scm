@@ -548,7 +548,8 @@
                                              (samp ,commit-hash)))
                                           (header-link
                                            (string-append
-                                            "/revision/" commit-hash)))
+                                            "/revision/" commit-hash))
+                                          version-history-link)
   (let ((metadata
          (select-package-metadata-by-revision-name-and-version
           conn
@@ -600,7 +601,9 @@
                                                   git-repositories
                                                   lint-warnings
                                                   #:header-text header-text
-                                                  #:header-link header-link)
+                                                  #:header-link header-link
+                                                  #:version-history-link
+                                                  version-history-link)
         #:extra-headers http-headers-for-unchanging-content)))))
 
 (define* (render-revision-derivations mime-types
