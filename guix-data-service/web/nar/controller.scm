@@ -32,6 +32,7 @@
   #:use-module (guix base64)
   #:use-module (guix serialization)
   #:use-module (guix-data-service web render)
+  #:use-module (guix-data-service web nar html)
   #:use-module (guix-data-service model derivation)
   #:export (nar-controller
 
@@ -66,6 +67,9 @@
               ((key . value)
                (format #f "~a: ~a~%" key value)))
             %nix-cache-info))))
+    (('GET "substitutes")
+     (render-html
+      #:sxml (view-substitutes (%narinfo-signing-public-key))))
     (('GET "nar" derivation)
      (render-nar request
                  mime-types
