@@ -108,8 +108,19 @@
 (define (select-derivations-by-revision-name-and-version
          conn revision-commit-hash name version)
   (define query "
-SELECT derivations.system, package_derivations.target, derivations.file_name,
-  latest_build_status.status
+SELECT derivations.system,
+       package_derivations.target,
+       derivations.file_name,
+       JSON_AGG(
+         json_build_object(
+           'build_server_id', builds.build_server_id,
+           'status',  latest_build_status.status,
+           'timestamp',  latest_build_status.timestamp,
+           'build_for_equivalent_derivation',
+           builds.derivation_file_name != derivations.file_name
+         )
+         ORDER BY latest_build_status.timestamp
+       )
 FROM derivations
 INNER JOIN package_derivations
   ON derivations.id = package_derivations.derivation_id
@@ -124,6 +135,8 @@ INNER JOIN derivations_by_output_details_set
 LEFT OUTER JOIN builds
    ON derivations_by_output_details_set.derivation_output_details_set_id =
       builds.derivation_output_details_set_id
+LEFT OUTER JOIN build_servers
+  ON builds.build_server_id = build_servers.id
 LEFT OUTER JOIN (
   SELECT DISTINCT ON (build_id) *
   FROM build_status
@@ -133,11 +146,25 @@ LEFT OUTER JOIN (
 WHERE guix_revisions.commit = $1
   AND packages.name = $2
   AND packages.version = $3
+GROUP BY derivations.system,
+         package_derivations.target,
+         derivations.file_name
 ORDER BY derivations.system DESC,
          package_derivations.target DESC,
          derivations.file_name")
 
-  (exec-query conn query (list revision-commit-hash name version)))
+  (map (match-lambda
+         ((system target file-name builds-json)
+          (list system
+                target
+                file-name
+                (filter (lambda (build)
+                          (assoc-ref build "status"))
+                        (vector->list
+                         (json-string->scm builds-json))))))
+       (exec-query conn
+                   query
+                   (list revision-commit-hash name version))))
 
 (define* (select-derivations-in-revision conn
                                          commit-hash

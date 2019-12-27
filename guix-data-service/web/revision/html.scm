@@ -237,13 +237,25 @@
          (tbody
           ,@(map
              (match-lambda
-               ((system target file-name status)
+               ((system target file-name builds)
                 `(tr
                   (td (samp ,system))
                   (td (samp ,target))
                   (td (a (@ (href ,file-name))
                          ,(display-store-item-short file-name)))
-                  (td ,(build-status-span status)))))
+                  (td
+                   (ul
+                    (@ (class "list-inline"))
+                    ,@(map (lambda (build)
+                             `(li
+                               (a (@ (href
+                                      ,(simple-format
+                                        #f "/build-server/~A/build?derivation_file_name=~A"
+                                        (assoc-ref build "build_server_id")
+                                        file-name)))
+                                  ,(build-status-span
+                                    (assoc-ref build "status")))))
+                           builds))))))
              derivations)))))
       (div
        (@ (class "row"))
