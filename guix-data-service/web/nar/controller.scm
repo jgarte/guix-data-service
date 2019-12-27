@@ -51,10 +51,10 @@
     ("Priority" . 100)))
 
 (define (nar-controller request
-                          method-and-path-components
-                          mime-types
-                          body
-                          conn)
+                        method-and-path-components
+                        mime-types
+                        body
+                        conn)
   (define (.narinfo-suffix s)
     (string-suffix? ".narinfo" s))
 
