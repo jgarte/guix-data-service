@@ -451,6 +451,9 @@
        (div
         (@ (class "col-md-6"))
         (h3 "Derivations")
+        (a (@ (class "pull-right")
+              (href ,(string-append path-base "/derivations")))
+           "View derivations")
         (table
          (@ (class "table")
             (style "white-space: nowrap;"))
