@@ -198,8 +198,8 @@
                  (parse-query-parameters
                   request
                   `((after_path ,identity)
-                    (reproducibility_status ,identity
-                                            #:default "any")
+                    (output_consistency ,identity
+                                        #:default "any")
                     (system ,parse-system #:default "x86_64-linux")
                     (target ,parse-system #:default "x86_64-linux")
                     (limit_results  ,parse-result-limit
@@ -348,8 +348,8 @@
                                                  conn
                                                  commit-hash
                                                  #:key path-base)
-  (let ((reproducibility-status
-         (select-reproducibility-status-for-revision conn commit-hash)))
+  (let ((output-consistency
+         (select-output-consistency-for-revision conn commit-hash)))
     (case (most-appropriate-mime-type
            '(application/json text/html)
            mime-types)
@@ -360,7 +360,7 @@
        (render-html
         #:sxml (view-revision-package-reproducibility
                 commit-hash
-                reproducibility-status
+                output-consistency
                 #:header-text '("Package reproducibility status")))))))
 
 (define (render-revision-news mime-types
@@ -710,8 +710,8 @@
               (select-derivation-outputs-in-revision
                conn
                commit-hash
-               #:reproducibility-status
-               (assq-ref query-parameters 'reproducibility_status)
+               #:output-consistency
+               (assq-ref query-parameters 'output_consistency)
                #:system (assq-ref query-parameters 'system)
                #:target (assq-ref query-parameters 'target)
                #:limit-results limit-results

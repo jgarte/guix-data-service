@@ -30,7 +30,7 @@
             select-nars-for-output
             select-signing-key
 
-            select-reproducibility-status-for-revision
+            select-output-consistency-for-revision
 
             record-narinfo-details-and-return-ids))
 
@@ -236,7 +236,7 @@ VALUES ($1, $2)")
       (list (list (cons "jsonb"
                         public-key-json-string)))))))
 
-(define (select-reproducibility-status-for-revision conn revision-commit)
+(define (select-output-consistency-for-revision conn revision-commit)
   (define query
     "
 SELECT system, target, reproducible, COUNT(*)
@@ -291,8 +291,8 @@ ORDER BY COUNT(*) DESC")
           ((system target status count)
            (list system
                  (match status
-                   ("t" 'reproducible)
-                   ("f" 'unreproducible)
+                   ("t" 'matching)
+                   ("f" 'not-matching)
                    ("" 'unknown))
                  (string->number count))))
         (exec-query conn query (list revision-commit)))))

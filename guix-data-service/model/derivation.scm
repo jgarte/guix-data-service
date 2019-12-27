@@ -325,7 +325,7 @@ ORDER BY derivations.file_name
 (define* (select-derivation-outputs-in-revision conn
                                                 commit-hash
                                                 #:key
-                                                reproducibility-status
+                                                output-consistency
                                                 system
                                                 target
                                                 limit-results
@@ -387,9 +387,9 @@ WHERE guix_revisions.commit = $1
              criteria
              (iota (length criteria) 2))))
      (cond
-      ((string=? reproducibility-status "any")
+      ((string=? output-consistency "any")
        "")
-      ((string=? reproducibility-status "fixed-output")
+      ((string=? output-consistency "fixed-output")
        " AND derivation_output_details.hash IS NOT NULL")
       (else
        (string-append
@@ -397,15 +397,15 @@ WHERE guix_revisions.commit = $1
   SELECT
 "
         (cond
-         ((string=? reproducibility-status "unknown")
+         ((string=? output-consistency "unknown")
           "COUNT(DISTINCT narinfo_fetch_records.build_server_id) <= 1")
-         ((string=? reproducibility-status "reproducible")
+         ((string=? output-consistency "matching")
           "
     CASE
       WHEN (COUNT(DISTINCT narinfo_fetch_records.build_server_id) <= 1) THEN NULL
       ELSE (COUNT(DISTINCT nars.hash) = 1)
     END")
-         ((string=? reproducibility-status "unreproducible")
+         ((string=? output-consistency "not-matching")
           "
     CASE
       WHEN (COUNT(DISTINCT narinfo_fetch_records.build_server_id) <= 1) THEN NULL

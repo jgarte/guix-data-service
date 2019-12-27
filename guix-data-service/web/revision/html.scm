@@ -647,7 +647,7 @@
             '())))))
 
 (define* (view-revision-package-reproducibility revision-commit-hash
-                                                reproducibility-status
+                                                output-consistency
                                                 #:key path-base
                                                 header-text header-link)
   (layout
@@ -729,18 +729,18 @@ figure {
        ;; https://medium.com/@heyoka/scratch-made-svg-donut-pie-charts-in-html5-2c587e935d72
        ,@(map
            (match-lambda
-             ((system . reproducibility-status)
+             ((system . output-consistency)
 
               (define total
-                (apply + (map cdr reproducibility-status)))
+                (apply + (map cdr output-consistency)))
 
               (define keys
-                '(reproducible unreproducible unknown))
+                '(matching not-matching unknown))
 
-              (define reproducibility-status-percentages
+              (define output-consistency-percentages
                 (map (lambda (key)
                        (exact->inexact
-                        (* 100 (/ (or (assq-ref reproducibility-status key)
+                        (* 100 (/ (or (assq-ref output-consistency key)
                                       0)
                                   total))))
                      keys))
@@ -804,10 +804,10 @@ figure {
                            ;; colour and count
                            ,(format #f "~2,2f%"
                                     (or percentage 0)))))
-                      '(reproducible unreproducible unknown)
-                      '("Reproducible" "Unreproducible" "Unknown")
+                      '(matching not-matching unknown)
+                      '("Matching" "Not matching" "Unknown")
                       '("green" "red" "#d2d3d4")
-                      reproducibility-status-percentages
+                      output-consistency-percentages
                       (cons 25
                             (map (lambda (cumalative-percentage)
                                    (+ (- 100
@@ -821,16 +821,16 @@ figure {
                                      (cons (+ val (first result))
                                            result))
                                    (list
-                                    (first reproducibility-status-percentages))
-                                   (cdr reproducibility-status-percentages))))))
+                                    (first output-consistency-percentages))
+                                   (cdr output-consistency-percentages))))))
                    (g
                     (@ (class "chart-text"))
-                    ,@(if (and (eq? (or (assq-ref reproducibility-status
-                                                  'reproducible)
+                    ,@(if (and (eq? (or (assq-ref output-consistency
+                                                  'matching)
                                         0)
                                     0)
-                               (eq? (or (assq-ref reproducibility-status
-                                                  'unreproducible)
+                               (eq? (or (assq-ref output-consistency
+                                                  'not-matching)
                                         0)
                                     0))
                           `((text
@@ -845,12 +845,12 @@ figure {
                              ,(simple-format
                                #f "~~~A%"
                                (inexact->exact
-                                (round (car reproducibility-status-percentages)))))
+                                (round (car output-consistency-percentages)))))
                             (text
                              (@ (x "50%")
                                 (y "50%")
                                 (class "chart-label"))
-                             "Reproducible"))))))
+                             "Matching"))))))
                  (figcaption
                   (@ (class "figure-key"))
                   (p (@ (class "sr-only"))
@@ -872,21 +872,21 @@ figure {
                                      ,(string-append
                                        "/revision/" revision-commit-hash
                                        "/derivation-outputs?"
-                                       "reproducibility_status=" key
+                                       "output_consistency=" key
                                        "&system=" system
                                        "&target=" system)))
                                  ,(format #f "~a (~d, ~2,2f%)"
                                           label
                                           (or count 0)
                                           (or percentage 0)))))
-                          '("reproducible" "unreproducible" "unknown")
-                          '("Reproducible" "Unreproducible" "Unknown")
+                          '("matching" "not-matching" "unknown")
+                          '("Matching" "Not matching" "Unknown")
                           (map (lambda (key)
-                                 (assq-ref reproducibility-status key))
+                                 (assq-ref output-consistency key))
                                keys)
-                          reproducibility-status-percentages
+                          output-consistency-percentages
                           '("green" "red" "#d2d3d4"))))))))
-           reproducibility-status))))))
+           output-consistency))))))
 
 (define* (view-revision-derivations commit-hash
                                     query-parameters
@@ -1050,13 +1050,13 @@ figure {
             #:help-text
             "List packages where the derivation output path matches this query.")
           ,(form-horizontal-control
-            "Reproducibility status" query-parameters
+            "Output consistency" query-parameters
             #:allow-selecting-multiple-options #f
             #:options '(("Any" . "any")
                         ("Fixed output" . "fixed-output")
                         ("Unknown" . "unknown")
-                        ("Reproducible" . "reproducible")
-                        ("Unreproducible" . "unreproducible"))
+                        ("Matching" . "matching")
+                        ("Not-matching" . "not-matching"))
             #:help-text "Do the known hashes for this output suggest it's reproducible, or not reproducible.")
           ,(form-horizontal-control
             "System" query-parameters
@@ -1098,7 +1098,7 @@ figure {
           (tr
            (th (@ (class "col-sm-5")) "Path")
            (th (@ (class "col-sm-5")) "Data")
-           (th (@ (class "col-sm-2")) "Reproducibility Status")))
+           (th (@ (class "col-sm-2")) "Output consistency")))
          (tbody
           ,@(map
              (match-lambda
@@ -1153,10 +1153,10 @@ figure {
                         "Unknown")
                        ((eq? hash-count 1)
                         '(span (@ (class "text-success"))
-                               "Reproducible"))
+                               "Matching"))
                        ((> hash-count 1)
                         '(span (@ (class "text-danger"))
-                               "Unreproducible"))))))))
+                               "Not matching"))))))))
              derivation-outputs)))
         ,@(if show-next-page?
               `((div
