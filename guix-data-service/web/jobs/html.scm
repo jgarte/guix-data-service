@@ -60,10 +60,10 @@
           ,(form-horizontal-control
             "Before ID" query-parameters
             #:help-text
-            "List packages that are alphabetically after the given name.")
+            "List jobs with identifiers before this value.")
           ,(form-horizontal-control
             "Limit results" query-parameters
-            #:help-text "The maximum number of packages by name to return.")
+            #:help-text "The maximum number of jobs to return.")
           ,(form-horizontal-control
             "All results" query-parameters
             #:type "checkbox"
