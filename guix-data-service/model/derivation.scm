@@ -19,10 +19,15 @@
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 vlist)
   #:use-module (ice-9 match)
+  #:use-module (ice-9 binary-ports)
+  #:use-module (rnrs bytevectors)
+  #:use-module (gcrypt hash)
   #:use-module (squee)
   #:use-module (json)
   #:use-module (guix base16)
   #:use-module (guix base32)
+  #:use-module (guix serialization)
+  #:use-module (guix lzlib)
   #:use-module (guix inferior)
   #:use-module (guix memoization)
   #:use-module (guix derivations)
@@ -983,7 +988,56 @@ WHERE store_path = $1")
                sources)))
 
     (exec-query conn
-                (insert-into-derivation-sources sources-ids))))
+                (insert-into-derivation-sources sources-ids))
+
+    sources-ids))
+
+(define (insert-derivation-source-file-nar conn id source-file)
+  (define missing?
+    (match (exec-query
+            conn
+            "SELECT 1 FROM derivation_source_file_nars WHERE derivation_source_file_id = $1"
+            (list (number->string id)))
+      (() #t)
+      (_ #f)))
+
+  (when missing?
+    (let* ((nar-bytevector   (call-with-values
+                                 (lambda ()
+                                   (open-bytevector-output-port))
+                               (lambda (port get-bytevector)
+                                 (write-file source-file port)
+                                 (get-bytevector))))
+           (data-string       (bytevector->base16-string
+                               (call-with-values
+                                   (lambda ()
+                                     (open-bytevector-output-port))
+                                 (lambda (port get-bytevector)
+                                   (call-with-lzip-output-port port
+                                     (lambda (port)
+                                       (put-bytevector port nar-bytevector))
+                                     #:level 9)
+                                   (get-bytevector)))))
+           (hash              (bytevector->nix-base32-string
+                               (sha256 nar-bytevector)))
+           (uncompressed-size (bytevector-length nar-bytevector)))
+      (exec-query
+       conn
+       "
+INSERT INTO derivation_source_file_nars (
+  derivation_source_file_id,
+  compression,
+  hash_algorithm,
+  hash,
+  uncompressed_size,
+  data
+) VALUES ($1, $2, $3, $4, $5, $6)"
+       (list (number->string id)
+             "lzip"
+             "sha256"
+             hash
+             (number->string uncompressed-size)
+             (string-append "\\x" data-string))))))
 
 (define (insert-missing-derivations conn
                                     derivation-ids-hash-table
@@ -1067,9 +1121,17 @@ WHERE store_path = $1")
     (simple-format
      #t "debug: insert-missing-derivations: inserting sources\n")
     (for-each (lambda (derivation-id derivation)
-                (insert-derivation-sources conn
-                                           derivation-id
-                                           (derivation-sources derivation)))
+                (let* ((sources (derivation-sources derivation))
+                       (sources-ids
+                        (insert-derivation-sources conn
+                                                   derivation-id
+                                                   (derivation-sources derivation))))
+                  (map (lambda (id source-file)
+                         (insert-derivation-source-file-nar conn
+                                                            id
+                                                            source-file))
+                       sources-ids
+                       sources)))
               derivation-ids
               derivations)
 
