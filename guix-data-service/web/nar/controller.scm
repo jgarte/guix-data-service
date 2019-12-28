@@ -70,11 +70,16 @@
     (('GET "substitutes")
      (render-html
       #:sxml (view-substitutes (%narinfo-signing-public-key))))
-    (('GET "nar" derivation)
+    (('GET "nar" file-name)
      (render-nar request
                  mime-types
                  conn
-                 (string-append "/gnu/store/" derivation)))
+                 (string-append "/gnu/store/" file-name)))
+    (('GET "nar" "lzip" file-name)
+     (render-lzip-nar request
+                      mime-types
+                      conn
+                      (string-append "/gnu/store/" file-name)))
     (('GET (? .narinfo-suffix path))
      (let* ((hash (string-drop-right
                    path
@@ -126,31 +131,45 @@
 (define (render-nar request
                     mime-types
                     conn
-                    derivation-file-name)
-  (let ((derivation-text
-         (select-serialized-derivation-by-file-name
-          conn
-          derivation-file-name)))
-    (if derivation-text
-        (let ((derivation-bytevector
-               (string->bytevector derivation-text
-                                   "ISO-8859-1")))
-          (list (build-response
-                 #:code 200
-                 #:headers '((content-type . (application/x-nix-archive
-                                              (charset . "ISO-8859-1")))))
-                (lambda (port)
-                  (write-file-tree
-                   derivation-file-name
-                   port
-                   #:file-type+size
-                   (lambda (file)
-                     (values 'regular
-                             (bytevector-length derivation-bytevector)))
-                   #:file-port
-                   (lambda (file)
-                     (open-bytevector-input-port derivation-bytevector))))))
-        (not-found (request-uri request)))))
+                    file-name)
+  (or
+   (and=> (select-serialized-derivation-by-file-name conn
+                                                     file-name)
+          (lambda (derivation-text)
+            (let ((derivation-bytevector
+                   (string->bytevector derivation-text
+                                       "ISO-8859-1")))
+              (list (build-response
+                     #:code 200
+                     #:headers '((content-type . (application/x-nix-archive
+                                                  (charset . "ISO-8859-1")))))
+                    (lambda (port)
+                      (write-file-tree
+                      file-name
+                       port
+                       #:file-type+size
+                       (lambda (file)
+                         (values 'regular
+                                 (bytevector-length derivation-bytevector)))
+                       #:file-port
+                       (lambda (file)
+                         (open-bytevector-input-port derivation-bytevector))))))))
+   (not-found (request-uri request))))
+
+(define (render-lzip-nar request
+                         mime-types
+                         conn
+                         file-name)
+  (or
+   (and=> (select-derivation-source-file-nar-data-by-file-name conn file-name)
+          (lambda (data)
+            (list (build-response
+                   #:code 200
+                   #:headers '((content-type . (application/x-nix-archive
+                                                (charset . "ISO-8859-1")))))
+                  (lambda (port)
+                    (put-bytevector port data)))))
+   (not-found (request-uri request))))
 
 (define* (narinfo-string store-item
                          nar-bytevector

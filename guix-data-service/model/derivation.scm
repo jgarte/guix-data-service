@@ -41,6 +41,7 @@
             select-derivation-sources-by-derivation-id
             select-derivation-references-by-derivation-id
             select-derivation-source-file-by-store-path
+            select-derivation-source-file-nar-data-by-file-name
             select-derivation-by-output-filename
             select-derivations-using-output
             select-derivations-in-revision
@@ -803,6 +804,23 @@ FROM derivation_source_files
 WHERE store_path = $1")
 
   (map car (exec-query conn query (list store-path))))
+
+(define (select-derivation-source-file-nar-data-by-file-name conn file-name)
+  (match (exec-query
+          conn
+          "
+SELECT data
+FROM derivation_source_file_nars
+INNER JOIN derivation_source_files
+  ON derivation_source_file_nars.derivation_source_file_id =
+     derivation_source_files.id
+WHERE derivation_source_files.store_path = $1"
+          (list file-name))
+    (((data))
+     (base16-string->bytevector
+      ;; Drop \x from the start of the string
+      (string-drop data 2)))
+    (() #f)))
 
 (define (select-serialized-derivation-by-file-name conn derivation-file-name)
   (define (double-quote s)
