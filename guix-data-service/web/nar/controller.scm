@@ -174,6 +174,22 @@
                                                nar-bytevector
                                                derivation-references)
                                port))))))
+   (and=> (select-derivation-source-file-data-by-file-name-hash conn
+                                                                hash)
+          (match-lambda
+            ((store-path compression compressed-size
+                         hash-algorithm hash uncompressed-size)
+             (list (build-response
+                    #:code 200
+                    #:headers '((content-type . (application/x-narinfo))))
+                   (lambda (port)
+                     (display (derivation-source-file-narinfo-string store-path
+                                                                     compression
+                                                                     compressed-size
+                                                                     hash-algorithm
+                                                                     hash
+                                                                     uncompressed-size)
+                              port))))))
    (not-found (request-uri request))))
 
 
@@ -209,6 +225,47 @@ References: ~a~%"
                              hash
                              size
                              references)))
+    (if (%narinfo-signing-private-key)
+        (format #f "~aSignature: 1;~a;~a~%"
+                info
+                (gethostname)
+                (base64-encode
+                 (string->utf8
+                  (canonical-sexp->string (signed-string info)))))
+        info)))
+
+(define* (derivation-source-file-narinfo-string store-item
+                                                compression
+                                                compressed-size
+                                                hash-algorithm
+                                                hash
+                                                uncompressed-size
+                                                #:key (nar-path "nar"))
+  (define (signed-string s)
+    (let* ((public-key (%narinfo-signing-public-key))
+           (hash (bytevector->hash-data (sha256 (string->utf8 s))
+                                        #:key-type (key-type public-key))))
+      (signature-sexp hash (%narinfo-signing-private-key) public-key)))
+
+  (let* ((info (format #f
+                             "\
+StorePath: ~a
+URL: ~a
+Compression: ~a
+FileSize: ~d
+NarHash: ~a:~a
+NarSize: ~d
+References: ~%"
+                             store-item
+                             (encode-and-join-uri-path
+                              (list nar-path
+                                    compression
+                                    (basename store-item)))
+                             compression
+                             compressed-size
+                             hash-algorithm
+                             hash
+                             uncompressed-size)))
     (if (%narinfo-signing-private-key)
         (format #f "~aSignature: 1;~a;~a~%"
                 info

@@ -42,6 +42,7 @@
             select-derivation-references-by-derivation-id
             select-derivation-source-file-by-store-path
             select-derivation-source-file-nar-data-by-file-name
+            select-derivation-source-file-data-by-file-name-hash
             select-derivation-by-output-filename
             select-derivations-using-output
             select-derivations-in-revision
@@ -804,6 +805,31 @@ FROM derivation_source_files
 WHERE store_path = $1")
 
   (map car (exec-query conn query (list store-path))))
+
+(define (select-derivation-source-file-data-by-file-name-hash conn hash)
+  (match (exec-query
+          conn
+          "
+SELECT derivation_source_files.store_path,
+       derivation_source_file_nars.compression,
+       length(derivation_source_file_nars.data) AS compressed_size,
+       derivation_source_file_nars.hash_algorithm,
+       derivation_source_file_nars.hash,
+       derivation_source_file_nars.uncompressed_size
+FROM derivation_source_file_nars
+INNER JOIN derivation_source_files
+  ON derivation_source_file_nars.derivation_source_file_id =
+     derivation_source_files.id
+WHERE substring(derivation_source_files.store_path from 12 for 32) = $1"
+          (list hash))
+    (((store_path compression compressed_size hash_algorithm hash uncompressed_size))
+     (list store_path
+           compression
+           (string->number compressed_size)
+           hash_algorithm
+           hash
+           (string->number uncompressed_size)))
+    (() #f)))
 
 (define (select-derivation-source-file-nar-data-by-file-name conn file-name)
   (match (exec-query
