@@ -81,51 +81,10 @@
                       conn
                       (string-append "/gnu/store/" file-name)))
     (('GET (? .narinfo-suffix path))
-     (let* ((hash (string-drop-right
-                   path
-                   (string-length ".narinfo")))
-            (derivation (select-derivation-by-file-name-hash
-                         conn
-                         hash)))
-       (if derivation
-           (list (build-response
-                  #:code 200
-                  #:headers '((content-type . (application/x-narinfo))))
-                 (let* ((derivation-file-name
-                         (second derivation))
-                        (derivation-text
-                         (select-serialized-derivation-by-file-name
-                          conn
-                          derivation-file-name))
-                        (derivation-bytevector
-                         (string->bytevector derivation-text
-                                             "ISO-8859-1"))
-                        (derivation-references
-                         (select-derivation-references-by-derivation-id
-                          conn
-                          (first derivation)))
-                        (nar-bytevector
-                         (call-with-values
-                             (lambda ()
-                               (open-bytevector-output-port))
-                           (lambda (port get-bytevector)
-                             (write-file-tree
-                              derivation-file-name
-                              port
-                              #:file-type+size
-                              (lambda (file)
-                                (values 'regular
-                                        (bytevector-length derivation-bytevector)))
-                              #:file-port
-                              (lambda (file)
-                                (open-bytevector-input-port derivation-bytevector)))
-                             (get-bytevector)))))
-                 (lambda (port)
-                   (display (narinfo-string derivation-file-name
-                                            nar-bytevector
-                                            derivation-references)
-                            port))))
-           (not-found (request-uri request)))))
+     (render-narinfo request
+                     conn
+                     (string-drop-right path
+                                        (string-length ".narinfo"))))
     (_ #f)))
 
 (define (render-nar request
@@ -170,6 +129,53 @@
                   (lambda (port)
                     (put-bytevector port data)))))
    (not-found (request-uri request))))
+
+(define (render-narinfo request
+                        conn
+                        hash)
+  (or
+   (and=> (select-derivation-by-file-name-hash conn
+                                               hash)
+          (lambda (derivation)
+            (list (build-response
+                   #:code 200
+                   #:headers '((content-type . (application/x-narinfo))))
+                  (let* ((derivation-file-name
+                          (second derivation))
+                         (derivation-text
+                          (select-serialized-derivation-by-file-name
+                           conn
+                           derivation-file-name))
+                         (derivation-bytevector
+                          (string->bytevector derivation-text
+                                              "ISO-8859-1"))
+                         (derivation-references
+                          (select-derivation-references-by-derivation-id
+                           conn
+                           (first derivation)))
+                         (nar-bytevector
+                          (call-with-values
+                              (lambda ()
+                                (open-bytevector-output-port))
+                            (lambda (port get-bytevector)
+                              (write-file-tree
+                               derivation-file-name
+                               port
+                               #:file-type+size
+                               (lambda (file)
+                                 (values 'regular
+                                         (bytevector-length derivation-bytevector)))
+                               #:file-port
+                               (lambda (file)
+                                 (open-bytevector-input-port derivation-bytevector)))
+                              (get-bytevector)))))
+                    (lambda (port)
+                      (display (narinfo-string derivation-file-name
+                                               nar-bytevector
+                                               derivation-references)
+                               port))))))
+   (not-found (request-uri request))))
+
 
 (define* (narinfo-string store-item
                          nar-bytevector
