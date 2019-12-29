@@ -974,18 +974,6 @@ WHERE derivation_source_files.store_path = $1"
    ");"))
 
 (define (insert-derivation-sources conn derivation-id sources)
-  (define (insert-into-derivation-source-files store-paths)
-    (string-append
-     "INSERT INTO derivation_source_files (store_path) VALUES "
-     (string-join
-      (map (lambda (store-path)
-             (simple-format
-              #f "('~A')" store-path))
-           store-paths)
-      ",")
-     " RETURNING id"
-     ";"))
-
   (define (insert-into-derivation-sources derivation-source-file-ids)
     (string-append
      "INSERT INTO derivation_sources "
@@ -998,38 +986,12 @@ WHERE derivation_source_files.store_path = $1"
       ",")
      ";"))
 
-  (let* ((existing-derivation-store-paths
-          (exec-query->vhash
-           conn
-           (select-from-derivation-source-files sources)
-           second ;; store_path
-           first)) ;; id
-
-         (missing-entries (filter
-                           (lambda (store-path)
-                             (not (vhash-assoc store-path
-                                               existing-derivation-store-paths)))
-                           sources))
-
-         (new-derivation-source-file-entries
-          (if (null? missing-entries)
-              '()
-              (exec-query conn
-                          (insert-into-derivation-source-files missing-entries))))
-
-         (new-entries-id-lookup-vhash
-          (two-lists->vhash missing-entries
-                            new-derivation-source-file-entries))
-
-         (sources-ids
-          (map (lambda (store-path)
-                 (cdr
-                  (or (vhash-assoc store-path
-                                   existing-derivation-store-paths)
-                      (vhash-assoc store-path
-                                   new-entries-id-lookup-vhash)
-                      (error "missing derivation source files entry"))))
-               sources)))
+  (let ((sources-ids
+         (insert-missing-data-and-return-all-ids
+          conn
+          "derivation_source_files"
+          '(store_path)
+          (map list sources))))
 
     (exec-query conn
                 (insert-into-derivation-sources sources-ids))
