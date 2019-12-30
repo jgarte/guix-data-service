@@ -177,7 +177,10 @@
            #:code 404))
          ((id)
           (render-html
-           #:sxml (view-derivation-source-file filename)
+           #:sxml (view-derivation-source-file
+                   filename
+                   (select-derivation-source-file-nar-details-by-file-name conn
+                                                                           filename))
            #:extra-headers http-headers-for-unchanging-content))))
       (derivations
        (render-html

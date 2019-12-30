@@ -499,7 +499,14 @@
              derivations
              derivations-using-store-item-list)))))
 
-(define (view-derivation-source-file filename)
+(define (view-derivation-source-file filename details)
+  (define labels
+    '((compression       . "Compression")
+      (hash_algorithm    . "Hash algorithm")
+      (hash              . "Hash")
+      (uncompressed_size . "Uncompressed size")
+      (compressed_size   . "Compressed size")))
+
   (layout
    #:body
    `(,(header)
@@ -510,7 +517,20 @@
        (div
         (@ (class "col-sm-12"))
         ,(display-store-item-title filename)
-        "Derivation source file."))))))
+        (h4 "Derivation source file")
+        ,@(if details
+              `((dl
+                 (@ (class "dl-horizontal"))
+                 ,@(append-map
+                    (match-lambda
+                      ((key . value)
+                       `((dt ,(assq-ref labels key))
+                         (dd ,(if (eq? key 'hash)
+                                  `(span (@ (style "font-family: monospace"))
+                                         ,value)
+                                  value)))))
+                    details)))
+              '())))))))
 
 (define (view-derivation derivation derivation-inputs derivation-outputs
                          builds)
