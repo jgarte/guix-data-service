@@ -1045,6 +1045,33 @@ INSERT INTO derivation_source_file_nars (
              (number->string uncompressed-size)
              (string-append "\\x" data-string))))))
 
+(define (backfill-derivation-source-file-nars conn)
+  (define (missing-batch)
+    (exec-query
+     conn
+     "
+SELECT id, store_path
+FROM derivation_source_files
+WHERE id NOT IN (
+  SELECT derivation_source_file_id FROM derivation_source_file_nars
+)
+LIMIT 1000"))
+
+  (let loop ((batch (missing-batch)))
+    (unless (null? batch)
+      (for-each
+       (match-lambda
+         ((id source-file)
+          (if (file-exists? source-file)
+              (begin
+                (insert-derivation-source-file-nar conn
+                                                   (string->number id)
+                                                   source-file)
+                (simple-format #t "inserting ~A\n" source-file))
+              (simple-format #t "missing ~A\n" source-file))))
+       batch)
+      (loop (missing-batch)))))
+
 (define (insert-missing-derivations conn
                                     derivation-ids-hash-table
                                     derivations)
