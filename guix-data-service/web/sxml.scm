@@ -359,6 +359,8 @@ list ATTRS and the child nodes in BODY."
     ;; Unescaped, raw HTML output
     (('raw html)
      (display html port))
+    (('*ENTITY* name)
+     (simple-format port "&~A;" name))
     (((? symbol? tag) ('@ attrs ...) body ...)
      (element->html tag attrs body port))
     (((? symbol? tag) body ...)
