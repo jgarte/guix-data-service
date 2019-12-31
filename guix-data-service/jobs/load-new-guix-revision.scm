@@ -353,59 +353,82 @@ WHERE job_id = $1"
 
   (define (proc packages system-target-pairs)
     `(lambda (store)
+       (define package-transitive-supported-systems-supports-multiple-arguments? #t)
+
+       (define (get-supported-systems package system)
+         (or (and package-transitive-supported-systems-supports-multiple-arguments?
+                  (catch
+                    'wrong-number-of-args
+                    (lambda ()
+                      (package-transitive-supported-systems package system))
+                    (lambda (key . args)
+                      ;; Older Guix revisions don't support two
+                      ;; arguments to
+                      ;; package-transitive-supported-systems
+                      (simple-format
+                       (current-error-port)
+                       "info: package-transitive-supported-systems doesn't support two arguments, falling back to one\n")
+                      (set! package-transitive-supported-systems-supports-multiple-arguments? #f)
+                      #f)))
+             (catch
+               #t
+               (lambda ()
+                 (package-transitive-supported-systems package))
+               (lambda (key . args)
+                 (simple-format
+                  (current-error-port)
+                  "error: while processing ~A, unable to compute transitive supported systems\n"
+                  (package-name package))
+                 (simple-format
+                  (current-error-port)
+                  "error ~A: ~A\n" key args)
+                 #f))))
+
+       (define (derivations-for-system-and-target inferior-package-id package system target)
+         (catch
+           'misc-error
+           (lambda ()
+             (guard (c ((package-cross-build-system-error? c)
+                        #f))
+               (list inferior-package-id
+                     system
+                     target
+                     (derivation-file-name
+                      (if (string=? system target)
+                          (package-derivation store package system)
+                          (package-cross-derivation store package
+                                                    target
+                                                    system))))))
+           (lambda args
+             ;; misc-error #f ~A ~S (No
+             ;; cross-compilation for
+             ;; clojure-build-system yet:
+             #f)))
+
        (append-map
         (lambda (inferior-package-id)
           (let ((package (hashv-ref %package-table inferior-package-id)))
             (catch
               #t
               (lambda ()
-                (let ((supported-systems
-                       (catch
-                         #t
-                         (lambda ()
-                           (package-transitive-supported-systems package))
-                         (lambda (key . args)
-                           (simple-format
-                            (current-error-port)
-                            "error: while processing ~A, unable to compute transitive supported systems\n"
-                            (package-name package))
-                           (simple-format
-                            (current-error-port)
-                            "error ~A: ~A\n" key args)
-                           #f))))
-                  (if supported-systems
-                      (append-map
-                       (lambda (system)
+                (append-map
+                 (lambda (system)
+                   (let ((supported-systems (get-supported-systems package system)))
+                     (if supported-systems
                          (filter-map
                           (lambda (target)
-                            (catch
-                              'misc-error
-                              (lambda ()
-                                (guard (c ((package-cross-build-system-error? c)
-                                           #f))
-                                  (list inferior-package-id
-                                        system
-                                        target
-                                        (derivation-file-name
-                                         (if (string=? system target)
-                                             (package-derivation store package system)
-                                             (package-cross-derivation store package
-                                                                       target
-                                                                       system))))))
-                              (lambda args
-                                ;; misc-error #f ~A ~S (No
-                                ;; cross-compilation for
-                                ;; clojure-build-system yet:
-                                #f)))
+                            (derivations-for-system-and-target inferior-package-id
+                                                               package
+                                                               system
+                                                               target))
                           (lset-intersection
                            string=?
                            supported-systems
-                           (list ,@(map cdr system-target-pairs)))))
-                       (lset-intersection
-                        string=?
-                        supported-systems
-                        (list ,@(map car system-target-pairs))))
-                      '())))
+                           (list ,@(map cdr system-target-pairs))))
+                         '())))
+                 (delete-duplicates
+                  (list ,@(map car system-target-pairs))
+                  string=?)))
               (lambda (key . args)
                 (if (and (eq? key 'system-error)
                          (eq? (car args) 'fport_write))
