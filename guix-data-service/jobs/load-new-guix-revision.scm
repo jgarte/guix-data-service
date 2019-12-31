@@ -413,7 +413,7 @@ WHERE job_id = $1"
               (lambda ()
                 (append-map
                  (lambda (system)
-                   (let ((supported-systems (get-supported-systems package system)))
+                   (let ((supported-systems (package-supported-systems package)))
                      (if supported-systems
                          (filter-map
                           (lambda (target)
