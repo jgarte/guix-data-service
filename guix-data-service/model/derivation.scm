@@ -1066,7 +1066,7 @@ INSERT INTO derivation_source_file_nars (
              (number->string uncompressed-size)
              (string-append "\\x" data-string))))))
 
-(define (backfill-derivation-source-file-nars conn)
+(define* (backfill-derivation-source-file-nars conn #:key (batch-size 10000))
   (define (missing-batch)
     (exec-query
      conn
@@ -1076,7 +1076,8 @@ FROM derivation_source_files
 WHERE id NOT IN (
   SELECT derivation_source_file_id FROM derivation_source_file_nars
 )
-LIMIT 1000"))
+LIMIT $1"
+     (list (number->string batch-size))))
 
   (let loop ((batch (missing-batch)))
     (unless (null? batch)
