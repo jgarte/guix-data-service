@@ -223,6 +223,7 @@
                                "License"
                                "Licenses"))
                       (dd (ul
+                           (@ (class "list-inline"))
                            ,@(map (lambda (license)
                                     `(li (a (@ (href ,(assoc-ref license "uri")))
                                             ,(assoc-ref license "name"))))
@@ -292,6 +293,7 @@
                   (td
                    ,@(if (and file (not (string-null? file)))
                          `((ul
+                            (@ (class "list-unstyled"))
                             ,@(map
                                (match-lambda
                                  ((id label url cgit-url-base)
@@ -1406,6 +1408,7 @@ figure {
                           `((td
                              ,@(if (and file (not (string-null? file)))
                                    `((ul
+                                     (@ (class "list-unstyled"))
                                       ,@(map
                                          (match-lambda
                                            ((id label url cgit-url-base)

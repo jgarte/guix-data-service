@@ -218,6 +218,7 @@
                      (td ,name)
                      (td
                       (ul
+                       (@ (class "list-unstyled"))
                        ,@(map
                           (match-lambda
                             ((type . versions)
