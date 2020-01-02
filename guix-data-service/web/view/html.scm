@@ -79,11 +79,6 @@
        (@ (rel "stylesheet")
           (media "screen")
           (type "text/css")
-          (href "/assets/css/reset.css")))
-      (link
-       (@ (rel "stylesheet")
-          (media "screen")
-          (type "text/css")
           (href "/assets/css/bootstrap.css")))
       ,@head
       (link
