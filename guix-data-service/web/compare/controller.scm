@@ -460,18 +460,19 @@
             (build-statuses (assq-ref query-parameters 'build_status)))
         (let*
             ((data
-              (package-differences-data conn
-                                        (commit->revision-id conn base-commit)
-                                        (commit->revision-id conn target-commit)
-                                        #:systems systems
-                                        #:targets targets))
+              (package-derivation-differences-data
+               conn
+               (commit->revision-id conn base-commit)
+               (commit->revision-id conn target-commit)
+               #:systems systems
+               #:targets targets))
              (names-and-versions
-              (package-data->names-and-versions data)))
+              (package-derivation-data->names-and-versions data)))
           (let-values
               (((base-packages-vhash target-packages-vhash)
-                (package-data->package-data-vhashes data)))
+                (package-derivation-data->package-derivation-data-vhashes data)))
             (let ((derivation-changes
-                   (package-data-derivation-changes names-and-versions
+                   (package-derivation-data-changes names-and-versions
                                                     base-packages-vhash
                                                     target-packages-vhash)))
               (case (most-appropriate-mime-type
@@ -538,18 +539,18 @@
                                                             target-branch
                                                             target-datetime))
              (data
-              (package-differences-data conn
-                                        (first base-revision-details)
-                                        (first target-revision-details)
-                                        #:systems systems
-                                        #:targets targets))
+              (package-derivation-differences-data conn
+                                                   (first base-revision-details)
+                                                   (first target-revision-details)
+                                                   #:systems systems
+                                                   #:targets targets))
              (names-and-versions
-              (package-data->names-and-versions data)))
+              (package-derivation-data->names-and-versions data)))
           (let-values
               (((base-packages-vhash target-packages-vhash)
-                (package-data->package-data-vhashes data)))
+                (package-derivation-data->package-derivation-data-vhashes data)))
             (let ((derivation-changes
-                   (package-data-derivation-changes names-and-versions
+                   (package-derivation-data-changes names-and-versions
                                                     base-packages-vhash
                                                     target-packages-vhash)))
               (case (most-appropriate-mime-type

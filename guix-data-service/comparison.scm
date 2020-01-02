@@ -27,15 +27,20 @@
   #:use-module (guix-data-service model derivation)
   #:export (derivation-differences-data
 
-            package-data->package-data-vhashes
             package-differences-data
-            package-data-vhash->derivations
-            package-data->names-and-versions
-            package-data-vhash->derivations-and-build-status
+            package-data->package-data-vhashes
+
             package-data-vhashes->new-packages
             package-data-vhashes->removed-packages
             package-data-version-changes
-            package-data-derivation-changes
+
+            package-derivation-differences-data
+            package-derivation-data->package-derivation-data-vhashes
+
+            package-derivation-data->names-and-versions
+            package-derivation-data-vhash->derivations
+            package-derivation-data-vhash->derivations-and-build-status
+            package-derivation-data-changes
 
             lint-warning-differences-data
 
@@ -239,12 +244,12 @@ GROUP BY derivation_source_files.store_path"))
                               '()))))))
        (exec-query conn query)))
 
-(define* (package-differences-data conn
-                                   base_guix_revision_id
-                                   target_guix_revision_id
-                                   #:key
-                                   (systems #f)
-                                   (targets #f))
+(define* (package-derivation-differences-data conn
+                                              base_guix_revision_id
+                                              target_guix_revision_id
+                                              #:key
+                                              (systems #f)
+                                              (targets #f))
   (define extra-constraints
     (string-append
      (if systems
@@ -318,7 +323,70 @@ ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.v
 
   (exec-query conn query (list base_guix_revision_id target_guix_revision_id)))
 
+(define* (package-differences-data conn
+                                   base_guix_revision_id
+                                   target_guix_revision_id)
+  (define query
+    (string-append "
+WITH base_packages AS (
+  SELECT *
+  FROM packages
+  WHERE id IN (
+    SELECT package_id
+    FROM package_derivations
+    INNER JOIN guix_revision_package_derivations
+      ON package_derivations.id =
+         guix_revision_package_derivations.package_derivation_id
+    WHERE guix_revision_package_derivations.revision_id = $1
+  )
+), target_packages AS (
+  SELECT *
+  FROM packages
+  WHERE id IN (
+    SELECT package_id
+    FROM package_derivations
+    INNER JOIN guix_revision_package_derivations
+      ON package_derivations.id =
+         guix_revision_package_derivations.package_derivation_id
+    WHERE guix_revision_package_derivations.revision_id = $2
+  )
+)
+SELECT base_packages.name, base_packages.version,
+  base_packages.package_metadata_id,
+  target_packages.name, target_packages.version,
+  target_packages.package_metadata_id
+FROM base_packages
+FULL OUTER JOIN target_packages
+  ON base_packages.name = target_packages.name
+  AND base_packages.version = target_packages.version
+WHERE
+  base_packages.id IS NULL OR
+  target_packages.id IS NULL OR
+  base_packages.id != target_packages.id
+ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.version, target_packages.version"))
+
+  (exec-query conn query (list base_guix_revision_id target_guix_revision_id)))
+
 (define (package-data->package-data-vhashes package-data)
+  (define (add-data-to-vhash data vhash)
+    (let ((key (first data)))
+      (if (string-null? key)
+          vhash
+          (vhash-cons key
+                      (drop data 1)
+                      vhash))))
+
+  (apply values
+         (fold (lambda (row result)
+                 (let-values (((base-row-part target-row-part) (split-at row 3)))
+                   (match result
+                     ((base-package-data target-package-data)
+                      (list (add-data-to-vhash base-row-part base-package-data)
+                            (add-data-to-vhash target-row-part target-package-data))))))
+               (list vlist-null vlist-null)
+               package-data)))
+
+(define (package-derivation-data->package-derivation-data-vhashes package-data)
   (define (add-data-to-vhash data vhash)
     (let ((key (first data)))
       (if (string-null? key)
@@ -337,7 +405,7 @@ ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.v
                (list vlist-null vlist-null)
                package-data)))
 
-(define (package-data->names-and-versions package-data)
+(define (package-derivation-data->names-and-versions package-data)
   (reverse
    (pair-fold
     (lambda (pair result)
@@ -359,7 +427,7 @@ ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.v
                 (cons base-name base-version))))
          package-data))))
 
-(define (package-data-vhash->derivations conn packages-vhash)
+(define (package-derivation-data-vhash->derivations conn packages-vhash)
   (define (vhash->derivation-ids vhash)
     (vhash-fold (lambda (key value result)
                   (cons (third value)
@@ -373,9 +441,13 @@ ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.v
           (select-derivations-by-id conn derivation-ids)))
     derivation-data))
 
-(define (package-data-vhash->derivations-and-build-status conn packages-vhash
-                                                          systems targets
-                                                          build-statuses)
+(define (package-derivation-data-vhash->derivations-and-build-status
+         conn
+         package-derivation-data-vhash
+         systems
+         targets
+         build-statuses)
+
   (define (vhash->derivation-file-names vhash)
     (vhash-fold (lambda (key value result)
                   (cons (third value)
@@ -384,7 +456,7 @@ ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.v
                 vhash))
 
   (let* ((derivation-file-names
-          (vhash->derivation-file-names packages-vhash)))
+          (vhash->derivation-file-names package-derivation-data-vhash)))
     (if (null? derivation-file-names)
         '()
         (select-derivations-and-build-status
@@ -431,29 +503,13 @@ ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.v
                   base-packages-vhash))))
 
 (define (package-data-vhash->package-versions-hash-table package-data-vhash)
-  (define (system-and-target<? a b)
-    (if (string=? (car a) (car b))
-        (string<? (cdr a) (cdr b))
-        (string<? (car a) (car b))))
-
-  (define (add-version-system-and-target-to-alist alist data)
-    (match data
-      ((version package-metadata-id derivation-id system target)
-       (let ((systems-for-version (or (and=> (assoc version alist) cdr)
-                                      '())))
-         `((,version . ,(sort (cons (cons system target)
-                                    systems-for-version)
-                              system-and-target<?))
-           ,@(alist-delete version alist))))))
-
   (vhash-fold (lambda (name details result)
                 (let ((version (first details))
                       (known-versions (or (hash-ref result name)
                                           '())))
                   (hash-set! result
                              name
-                             (add-version-system-and-target-to-alist known-versions
-                                                                     details))
+                             (cons version known-versions))
                   result))
               (make-hash-table)
               package-data-vhash))
@@ -465,12 +521,12 @@ ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.v
         (target-versions
          (package-data-vhash->package-versions-hash-table
           target-packages-vhash)))
-
+>
     (hash-fold (lambda (name target-versions result)
                  (let ((base-versions (hash-ref base-versions name)))
                    (if base-versions
-                       (let ((base-version-numbers (map car base-versions))
-                             (target-version-numbers (map car target-versions)))
+                       (let ((base-version-numbers base-versions)
+                             (target-version-numbers target-versions))
                          (if (equal? base-version-numbers target-version-numbers)
                              result
                              (cons
@@ -481,7 +537,7 @@ ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.v
                '()
                target-versions)))
 
-(define (package-data-derivation-changes names-and-versions
+(define (package-derivation-data-changes names-and-versions
                                          base-packages-vhash
                                          target-packages-vhash)
 
