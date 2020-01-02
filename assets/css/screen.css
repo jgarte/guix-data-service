@@ -63,11 +63,6 @@ ul.blocks li + li:before {
     content: ", ";
 }
 
-ul {
-    list-style: unset;
-    padding-left: 40px;
-}
-
 p {
     max-width: 70rem;
 }
