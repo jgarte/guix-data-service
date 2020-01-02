@@ -100,7 +100,7 @@ INNER JOIN lint_warning_messages
                         #f " AND to_tsvector(lint_warning_messages.message) @@ plainto_tsquery($~A)"
                         (if package-query "3" "2"))
                        "")
-                   " ORDER BY packages.name"))
+                   " ORDER BY packages.name, packages.version, lint_checkers.name, lint_warnings.id"))
 
   (exec-query conn query `(,commit-hash
                            ,@(if package-query
