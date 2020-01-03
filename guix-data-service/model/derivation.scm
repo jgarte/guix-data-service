@@ -1066,7 +1066,9 @@ INSERT INTO derivation_source_file_nars (
              (number->string uncompressed-size)
              (string-append "\\x" data-string))))))
 
-(define* (backfill-derivation-source-file-nars conn #:key (batch-size 10000))
+(define* (backfill-derivation-source-file-nars conn #:key
+                                               (batch-size 10000)
+                                               (loop? #t))
   (define (missing-batch)
     (exec-query
      conn
@@ -1092,7 +1094,7 @@ LIMIT $1"
                 (simple-format #t "inserting ~A\n" source-file))
               (simple-format #t "missing ~A\n" source-file))))
        batch)
-      (loop (missing-batch)))))
+      (when loop? (loop (missing-batch))))))
 
 (define (insert-missing-derivations conn
                                     derivation-ids-hash-table
