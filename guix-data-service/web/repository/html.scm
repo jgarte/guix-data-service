@@ -348,6 +348,7 @@
            (th (@ (class "col-sm-2")) "Builds")
            (th (@ (class "col-sm-2")) "From")
            (th (@ (class "col-sm-2")) "To")
+           (th (@ (class "col-sm-1")) "")
            (th (@ (class "col-sm-1")) "")))
          (tbody
           ,@(let* ((times-in-seconds
