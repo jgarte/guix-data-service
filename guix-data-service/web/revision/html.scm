@@ -1051,7 +1051,7 @@ figure {
           ,(form-horizontal-control
             "Search query" query-parameters
             #:help-text
-            "List packages where the derivation output path matches this query.")
+            "List outputs where the file name matches this query.")
           ,(form-horizontal-control
             "Output consistency" query-parameters
             #:allow-selecting-multiple-options #f
@@ -1065,21 +1065,21 @@ figure {
             "System" query-parameters
             #:options valid-systems
             #:allow-selecting-multiple-options #f
-            #:help-text "Only include derivations for this system."
+            #:help-text "Only include outputs from derivations for this system."
             #:font-family "monospace")
           ,(form-horizontal-control
             "Target" query-parameters
             #:options valid-systems
             #:allow-selecting-multiple-options #f
-            #:help-text "Only include derivations that are build for this system."
+            #:help-text "Only include outputs from derivations that are build for this system."
             #:font-family "monospace")
           ,(form-horizontal-control
             "After path" query-parameters
             #:help-text
-            "List packages that are alphabetically after the given name.")
+            "List outputs that are alphabetically after the given name.")
           ,(form-horizontal-control
             "Limit results" query-parameters
-            #:help-text "The maximum number of packages by name to return.")
+            #:help-text "The maximum number of outputs to return.")
           ,(form-horizontal-control
             "All results" query-parameters
             #:type "checkbox"
