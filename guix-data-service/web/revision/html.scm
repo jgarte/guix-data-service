@@ -984,6 +984,7 @@ figure {
                       ,target)
                   (td
                    (dl
+                    (@ (style "margin-bottom: 0;"))
                     ,@(append-map
                        (lambda (build)
                          (let ((build-server-id
