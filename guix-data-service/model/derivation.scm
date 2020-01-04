@@ -252,39 +252,7 @@ SELECT derivations.file_name,
            ON builds.id = latest_build_status.build_id
          WHERE builds.derivation_output_details_set_id =
                derivations_by_output_details_set.derivation_output_details_set_id
-       ) AS builds,
-       (
-         SELECT
-           JSON_AGG(
-             json_build_object(
-               'output_name', derivation_outputs.name,
-               'output_path', derivation_output_details.path,
-               'nars',
-               (
-                 SELECT JSON_AGG(
-                   json_build_object(
-                     'build_server_id', narinfo_fetch_records.build_server_id,
-                     'hash_algorithm', nars.hash_algorithm,
-                     'hash', nars.hash,
-                     'size', nars.size
-                   )
-                 )
-                 FROM nars
-                 INNER JOIN narinfo_signatures
-                   ON nars.id = narinfo_signatures.nar_id
-                 INNER JOIN narinfo_signature_data
-                   ON narinfo_signature_data.id = narinfo_signatures.narinfo_signature_data_id
-                 INNER JOIN narinfo_fetch_records
-                   ON narinfo_signature_data.id = narinfo_fetch_records.narinfo_signature_data_id
-                 WHERE nars.store_path = derivation_output_details.path
-               )
-             )
-           )
-         FROM derivation_output_details
-         INNER JOIN derivation_outputs
-           ON derivation_output_details.id = derivation_outputs.derivation_output_details_id
-         WHERE derivation_outputs.derivation_id = derivations.id
-       ) AS outputs
+       ) AS builds
 FROM derivations
 INNER JOIN derivations_by_output_details_set
   ON derivations.id = derivations_by_output_details_set.derivation_id
@@ -313,16 +281,13 @@ ORDER BY derivations.file_name
          "")))
 
   (map (match-lambda
-         ((file_name system target builds outputs)
+         ((file_name system target builds)
           (list file_name
                 system
                 target
                 (if (string-null? builds)
                     #()
-                    (json-string->scm builds))
-                (if (string-null? outputs)
-                    #()
-                    (json-string->scm outputs)))))
+                    (json-string->scm builds)))))
        (exec-query conn
                    query
                    `(,commit-hash

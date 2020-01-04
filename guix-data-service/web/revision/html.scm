@@ -973,7 +973,7 @@ figure {
          (tbody
           ,@(map
              (match-lambda
-               ((file-name system target builds outputs)
+               ((file-name system target builds)
                 `(tr
                   (td (a (@ (href ,file-name))
                          ,(display-store-item-short file-name)))
