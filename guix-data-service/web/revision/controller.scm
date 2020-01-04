@@ -195,7 +195,8 @@
                 (guard-against-mutually-exclusive-query-parameters
                  (parse-query-parameters
                   request
-                  `((after_path ,identity)
+                  `((search_query ,identity)
+                    (after_path ,identity)
                     (output_consistency ,identity
                                         #:default "any")
                     (system ,parse-system #:default "x86_64-linux")
@@ -204,10 +205,7 @@
                                     #:no-default-when (all_results)
                                     #:default 10)
                     (all_results    ,parse-checkbox-value)))
-                 ;; You can't specify a search query, but then also limit the
-                 ;; results by filtering for after a particular output path
-                 '((after_path search_query)
-                   (limit_results all_results)))))
+                 '((limit_results all_results)))))
 
            (render-revision-derivation-outputs mime-types
                                                conn
@@ -723,6 +721,7 @@
               (select-derivation-outputs-in-revision
                conn
                commit-hash
+               #:search-query (assq-ref query-parameters 'search_query)
                #:output-consistency
                (assq-ref query-parameters 'output_consistency)
                #:system (assq-ref query-parameters 'system)

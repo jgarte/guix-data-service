@@ -423,6 +423,7 @@ ORDER BY derivations.file_name
 (define* (select-derivation-outputs-in-revision conn
                                                 commit-hash
                                                 #:key
+                                                search-query
                                                 output-consistency
                                                 system
                                                 target
@@ -477,6 +478,9 @@ WHERE guix_revisions.commit = $1
                     '())
               ,@(if target
                     '(" AND package_derivations.target = ")
+                    '())
+              ,@(if search-query
+                    '(" AND derivation_output_details.path LIKE ")
                     '()))))
        (string-concatenate
         (map (lambda (query count)
@@ -549,6 +553,10 @@ ORDER BY derivation_output_details.path
                                                '())
                                          ,@(if target
                                                (list target)
+                                               '())
+                                         ,@(if search-query
+                                               (list (string-append
+                                                      "%" search-query "%"))
                                                '())))))
 
 (define (fix-derivation-output-details-hash-encoding conn)
