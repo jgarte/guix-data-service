@@ -969,7 +969,8 @@ figure {
           (tr
            (th "File name")
            (th "System")
-           (th "Target")))
+           (th "Target")
+           (th "Builds")))
          (tbody
           ,@(map
              (match-lambda
