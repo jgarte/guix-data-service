@@ -1104,24 +1104,29 @@ LIMIT $1"
       (simple-format
        #t "debug: ensure-input-derivations-exist: processing ~A derivations\n"
        (length input-derivation-file-names))
-      (let* ((existing-derivation-entries
-              (derivation-file-names->vhash conn
-                                            derivation-ids-hash-table
-                                            input-derivation-file-names))
+      (let ((existing-derivation-entries
+             (derivation-file-names->vhash conn
+                                           derivation-ids-hash-table
+                                           input-derivation-file-names)))
+        (simple-format
+         #t
+         "debug: ensure-input-derivations-exist: checking for missing input derivations\n")
+        (let ((missing-derivations-filenames
+               (filter (lambda (derivation-file-name)
+                         (not (vhash-assoc derivation-file-name
+                                           existing-derivation-entries)))
+                       input-derivation-file-names)))
 
-             (missing-derivations-filenames
-              (filter (lambda (derivation-file-name)
-                        (not (vhash-assoc derivation-file-name
-                                          existing-derivation-entries)))
-                      input-derivation-file-names)))
-
-        (unless (null? missing-derivations-filenames)
-          ;; Ensure all the input derivations exist
-          (insert-missing-derivations
-           conn
-           derivation-ids-hash-table
-           (map read-derivation-from-file
-                missing-derivations-filenames))))))
+          (unless (null? missing-derivations-filenames)
+            (simple-format
+             #f
+             "debug: ensure-input-derivations-exist: inserting missing input derivations\n")
+            ;; Ensure all the input derivations exist
+            (insert-missing-derivations
+             conn
+             derivation-ids-hash-table
+             (map read-derivation-from-file
+                  missing-derivations-filenames)))))))
 
   (define (insert-into-derivations)
     (string-append
@@ -1332,13 +1337,10 @@ WHERE " criteria ";"))
        (simple-format
         #t "debug: derivation-file-names->vhash: adding ~A entries to the cache\n"
         (vlist-length result-for-missing-file-names))
-       (vhash-fold (lambda (key value _)
-                     (hash-set! derivation-ids-hash-table key value))
-                   '()
-                   result-for-missing-file-names)
-
        (vhash-fold
         (lambda (key value combined)
+          ;; Update the derivation-ids-hash-table as we go through the vhash
+          (hash-set! derivation-ids-hash-table key value)
           (vhash-cons key value combined))
         result
         result-for-missing-file-names)))))

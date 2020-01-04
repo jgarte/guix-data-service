@@ -916,9 +916,12 @@ WHERE job_id = $1"
                                                       guix-revision-id
                                                       lint-warning-ids)))
               (let ((package-derivation-ids
-                     (inferior-data->package-derivation-ids
-                      conn inf inferior-package-id->package-database-id
-                      inferior-data-4-tuples)))
+                     (log-time
+                      "inferior-data->package-derivation-ids"
+                      (lambda ()
+                        (inferior-data->package-derivation-ids
+                         conn inf inferior-package-id->package-database-id
+                         inferior-data-4-tuples)))))
                 (update-builds-derivation-output-details-set-id
                  conn
                  (map fourth inferior-data-4-tuples))
