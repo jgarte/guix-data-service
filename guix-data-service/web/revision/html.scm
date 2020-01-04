@@ -924,7 +924,7 @@ figure {
           ,(form-horizontal-control
             "Search query" query-parameters
             #:help-text
-            "List packages where the name or synopsis match the query.")
+            "List derivations where part of the file name matches the query.")
           ,(form-horizontal-control
             "System" query-parameters
             #:options valid-systems
@@ -944,10 +944,10 @@ figure {
           ,(form-horizontal-control
             "After name" query-parameters
             #:help-text
-            "List packages that are alphabetically after the given name.")
+            "List derivations that are alphabetically after the given name.")
           ,(form-horizontal-control
             "Limit results" query-parameters
-            #:help-text "The maximum number of packages by name to return.")
+            #:help-text "The maximum number of derivations to return.")
           ,(form-horizontal-control
             "All results" query-parameters
             #:type "checkbox"
