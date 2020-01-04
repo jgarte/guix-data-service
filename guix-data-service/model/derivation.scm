@@ -47,6 +47,7 @@
             select-derivation-by-output-filename
             select-derivations-using-output
             select-derivations-in-revision
+            search-derivations-in-revision
             select-derivation-outputs-in-revision
             fix-derivation-output-details-hash-encoding
             select-derivations-by-revision-name-and-version
@@ -291,6 +292,130 @@ ORDER BY derivations.file_name
        (exec-query conn
                    query
                    `(,commit-hash
+                     ,@(if after-name
+                           (list after-name)
+                           '())))))
+
+(define* (search-derivations-in-revision conn
+                                         commit-hash
+                                         search-query
+                                         #:key
+                                         systems
+                                         targets
+                                         minimum-builds
+                                         maximum-builds
+                                         limit-results
+                                         after-name)
+  (define criteria
+    (string-join
+     `(,@(filter-map
+          (lambda (field values)
+            (if values
+                (string-append
+                 field " IN ("
+                 (string-join (map (lambda (value)
+                                     (simple-format #f "'~A'" value))
+                                   values)
+                              ",")
+                 ")")
+                #f))
+          '("derivations.system"
+            "target")
+          (list systems
+                targets))
+       ,@(if minimum-builds
+             (list
+              (string-append
+               "
+(
+  SELECT COUNT(*)
+  FROM builds
+  WHERE builds.derivation_output_details_set_id =
+        derivations_by_output_details_set.derivation_output_details_set_id
+) >= "
+               (number->string minimum-builds)))
+             '())
+       ,@(if maximum-builds
+             (list
+              (string-append
+               "
+(
+  SELECT COUNT(*)
+  FROM builds
+  WHERE builds.derivation_output_details_set_id =
+        derivations_by_output_details_set.derivation_output_details_set_id
+) <= "
+               (number->string maximum-builds)))
+             '()))
+     " AND "))
+
+  (define query
+    (string-append
+     "
+SELECT derivations.file_name,
+       derivations.system,
+       package_derivations.target,
+       (
+         SELECT JSON_AGG(
+                  json_build_object(
+                    'build_server_id', builds.build_server_id,
+                    'status',  latest_build_status.status,
+                    'timestamp',  latest_build_status.timestamp,
+                    'build_for_equivalent_derivation',
+                    builds.derivation_file_name != derivations.file_name
+                  )
+                  ORDER BY latest_build_status.timestamp
+                )
+         FROM builds
+         INNER JOIN (
+           SELECT DISTINCT ON (build_id) *
+           FROM build_status
+           ORDER BY build_id, timestamp DESC
+         ) AS latest_build_status
+           ON builds.id = latest_build_status.build_id
+         WHERE builds.derivation_output_details_set_id =
+               derivations_by_output_details_set.derivation_output_details_set_id
+       ) AS builds
+FROM derivations
+INNER JOIN derivations_by_output_details_set
+  ON derivations.id = derivations_by_output_details_set.derivation_id
+INNER JOIN package_derivations
+  ON derivations.id = package_derivations.derivation_id
+INNER JOIN guix_revision_package_derivations
+  ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+INNER JOIN guix_revisions
+  ON guix_revision_package_derivations.revision_id = guix_revisions.id
+INNER JOIN packages
+  ON package_derivations.package_id = packages.id
+WHERE guix_revisions.commit = $1
+  AND derivations.file_name LIKE $2
+"
+     (if after-name
+         " AND derivations.file_name > $3"
+         "")
+     (if (string-null? criteria)
+         ""
+         (string-append " AND " criteria))
+     "
+ORDER BY derivations.file_name
+"
+     (if limit-results
+         (string-append
+          " LIMIT " (number->string limit-results))
+         "")))
+
+  (map (match-lambda
+         ((file_name system target builds)
+          (list file_name
+                system
+                target
+                (if (string-null? builds)
+                    #()
+                    (json-string->scm builds)))))
+       (exec-query conn
+                   query
+                   `(,commit-hash
+                     ,(string-append "%" search-query "%")
                      ,@(if after-name
                            (list after-name)
                            '())))))
