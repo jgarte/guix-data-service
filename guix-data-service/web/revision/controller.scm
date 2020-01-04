@@ -360,8 +360,7 @@
        (render-html
         #:sxml (view-revision-package-reproducibility
                 commit-hash
-                output-consistency
-                #:header-text '("Package reproducibility status")))))))
+                output-consistency))))))
 
 (define (render-revision-news mime-types
                               conn

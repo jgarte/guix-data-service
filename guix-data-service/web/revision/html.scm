@@ -649,9 +649,7 @@
             '())))))
 
 (define* (view-revision-package-reproducibility revision-commit-hash
-                                                output-consistency
-                                                #:key path-base
-                                                header-text header-link)
+                                                output-consistency)
   (layout
    #:body
    `(,(header)
@@ -723,8 +721,9 @@ figure {
        (div
         (@ (class "col-sm-12"))
         (h3 (a (@ (style "white-space: nowrap;")
-                  (href ,header-link))
-               ,@header-text))))
+                  (href ,(string-append "/revision/" revision-commit-hash)))
+               "Revision " (samp ,revision-commit-hash)))
+        (h1 "Package reproducibility")))
       (div
        (@ (class "row"))
        ;; Inspired by
@@ -750,7 +749,7 @@ figure {
 
               `(div
                 (@ (class "col-sm-6"))
-                (h2 (@ (style "font-family: monospace;"))
+                (h3 (@ (style "font-family: monospace;"))
                     ,system)
                 (figure
                  (div
