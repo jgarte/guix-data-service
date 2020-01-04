@@ -758,6 +758,7 @@
   (if (any-invalid-query-parameters? query-parameters)
       (render-html
        #:sxml (view-revision-builds query-parameters
+                                    commit-hash
                                     build-status-strings
                                     (valid-systems conn)
                                     '()
@@ -767,6 +768,7 @@
             (target (assq-ref query-parameters 'target)))
         (render-html
          #:sxml (view-revision-builds query-parameters
+                                      commit-hash
                                       build-status-strings
                                       (valid-systems conn)
                                       (map (match-lambda

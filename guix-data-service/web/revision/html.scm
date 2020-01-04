@@ -1172,6 +1172,7 @@ figure {
               '())))))))
 
 (define (view-revision-builds query-parameters
+                              commit-hash
                               build-status-strings
                               valid-systems
                               build-server-options
@@ -1186,6 +1187,9 @@ figure {
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
+        (h3 (a (@ (style "white-space: nowrap;")
+                  (href ,(string-append "/revision/" commit-hash)))
+               "Revision " (samp ,commit-hash)))
         (h1 "Builds")
         (table
          (@ (class "table"))
