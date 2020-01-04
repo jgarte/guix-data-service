@@ -169,7 +169,8 @@
                 (guard-against-mutually-exclusive-query-parameters
                  (parse-query-parameters
                   request
-                  `((system ,parse-system #:multi-value)
+                  `((search_query   ,identity)
+                    (system ,parse-system #:multi-value)
                     (target ,parse-system #:multi-value)
                     (maximum_builds ,parse-number)
                     (minimum_builds ,parse-number)
@@ -178,10 +179,7 @@
                                     #:no-default-when (all_results)
                                     #:default 10)
                     (all_results    ,parse-checkbox-value)))
-                 ;; You can't specify a search query, but then also limit the
-                 ;; results by filtering for after a particular package name
-                 '((after_name search_query)
-                   (limit_results all_results)))))
+                 '((limit_results all_results)))))
 
            (render-revision-derivations mime-types
                                         conn
@@ -637,16 +635,29 @@
               (assq-ref query-parameters 'limit_results))
              (all-results
               (assq-ref query-parameters 'all_results))
+             (search-query
+              (assq-ref query-parameters 'search_query))
              (derivations
-              (select-derivations-in-revision
-               conn
-               commit-hash
-               #:systems (assq-ref query-parameters 'system)
-               #:targets (assq-ref query-parameters 'target)
-               #:maximum-builds (assq-ref query-parameters 'maximum_builds)
-               #:minimum-builds (assq-ref query-parameters 'minimum_builds)
-               #:limit-results limit-results
-               #:after-name (assq-ref query-parameters 'after_name)))
+              (if search-query
+                  (search-derivations-in-revision
+                   conn
+                   commit-hash
+                   search-query
+                   #:systems (assq-ref query-parameters 'system)
+                   #:targets (assq-ref query-parameters 'target)
+                   #:maximum-builds (assq-ref query-parameters 'maximum_builds)
+                   #:minimum-builds (assq-ref query-parameters 'minimum_builds)
+                   #:limit-results limit-results
+                   #:after-name (assq-ref query-parameters 'after_name))
+                  (select-derivations-in-revision
+                   conn
+                   commit-hash
+                   #:systems (assq-ref query-parameters 'system)
+                   #:targets (assq-ref query-parameters 'target)
+                   #:maximum-builds (assq-ref query-parameters 'maximum_builds)
+                   #:minimum-builds (assq-ref query-parameters 'minimum_builds)
+                   #:limit-results limit-results
+                   #:after-name (assq-ref query-parameters 'after_name))))
              (build-server-urls
               (group-to-alist
                (match-lambda
@@ -656,8 +667,9 @@
              (show-next-page?
               (if all-results
                   #f
-                  (>= (length derivations)
-                      limit-results))))
+                  (and (not (null? derivations))
+                       (>= (length derivations)
+                           limit-results)))))
         (case (most-appropriate-mime-type
                '(application/json text/html)
                mime-types)
