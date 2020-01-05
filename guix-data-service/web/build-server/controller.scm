@@ -25,6 +25,7 @@
   #:use-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service jobs load-new-guix-revision)
   #:use-module (guix-data-service model build)
+  #:use-module (guix-data-service model build-server)
   #:use-module (guix-data-service model build-status)
   #:use-module (guix-data-service model nar)
   #:use-module (guix-data-service model build-server-token-seed)
@@ -76,6 +77,12 @@
                      "Build not found"
                      "No build found for this build server and derivation.")
              #:code 404)))))
+
+(define (render-build-server mime-types
+                             build-server)
+  (render-html
+   #:sxml
+   (view-build-server build-server)))
 
 (define (handle-build-event-submission parsed-query-parameters
                                        build-server-id-string
@@ -184,6 +191,13 @@
                                  conn
                                  secret-key-base)
   (match method-and-path-components
+    (('GET "build-server" build-server-id)
+     (let ((build-server (select-build-server conn (string->number
+                                                    build-server-id))))
+       (if build-server
+           (render-build-server mime-types
+                                build-server)
+           (general-not-found "Build server not found" ""))))
     (('GET "build-server" build-server-id "build")
      (let ((parsed-query-parameters
             (parse-query-parameters

@@ -20,6 +20,7 @@
   #:use-module (guix-data-service web view html)
   #:use-module (guix-data-service web html-utils)
   #:export (view-build
+            view-build-server
             view-signing-key))
 
 (define (view-build query-parameters
@@ -87,6 +88,29 @@
                               (td ,(build-status-span status)))))
                          required-failed-builds))))))
             '())))))
+
+(define (view-build-server build-server)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h2 "Build server")
+        ,(match build-server
+           ((url lookup-all-derivations?)
+            `(dl
+              (@ (class "dl-horizontal"))
+              (dt "URL")
+              (dd (a (@ (href ,url))
+                     ,url))
+              (dt "Lookup all " (br) "derivations?")
+              (dd ,(if lookup-all-derivations?
+                       "Yes"
+                       "No")))))))))))
 
 (define (view-signing-key sexp)
   (layout

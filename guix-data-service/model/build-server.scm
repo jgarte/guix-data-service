@@ -18,7 +18,8 @@
 (define-module (guix-data-service model build-server)
   #:use-module (ice-9 match)
   #:use-module (squee)
-  #:export (select-build-servers))
+  #:export (select-build-servers
+            select-build-server))
 
 (define (select-build-servers conn)
   (define query
@@ -34,3 +35,17 @@ ORDER BY id")
             url
             (string=? lookup-all-derivations "t"))))
    (exec-query conn query)))
+
+(define (select-build-server conn id)
+  (define query
+    "
+SELECT url, lookup_all_derivations
+FROM build_servers
+WHERE id = $1")
+
+  (match (exec-query conn query (list (number->string id)))
+    (()
+     #f)
+    (((url lookup_all_derivations))
+     (list url
+           (string=? lookup_all_derivations "t")))))
