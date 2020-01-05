@@ -311,6 +311,7 @@ INNER JOIN derivation_outputs
 INNER JOIN derivation_output_details
   ON derivation_outputs.derivation_output_details_id = derivation_output_details.id
 WHERE derivation_output_details.path NOT IN (
+  -- Ignore outputs that have already been fetched
   SELECT store_path
   FROM nars
   INNER JOIN narinfo_signatures
@@ -328,6 +329,7 @@ WHERE derivation_output_details.path NOT IN (
          (string-append
           "
   AND derivations.id IN (
+    -- Select outputs that are in the relevant revisions
     SELECT derivation_id
     FROM package_derivations
     INNER JOIN guix_revision_package_derivations
