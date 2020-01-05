@@ -364,7 +364,7 @@ LIMIT 15000"))
 
 (define (fetch-narinfo-files conn build-server-id build-server-url revision-commits)
   (define outputs
-    (select-outputs-for-successful-builds-without-known-nar-entries
+    (select-outputs-without-known-nar-entries
      conn
      build-server-id
      revision-commits))

@@ -26,7 +26,7 @@
   #:use-module (gcrypt base16)
   #:use-module (guix scripts substitute)
   #:use-module (guix-data-service model utils)
-  #:export (select-outputs-for-successful-builds-without-known-nar-entries
+  #:export (select-outputs-without-known-nar-entries
             select-nars-for-output
             select-signing-key
 
@@ -297,7 +297,7 @@ ORDER BY COUNT(*) DESC")
                  (string->number count))))
         (exec-query conn query (list revision-commit)))))
 
-(define (select-outputs-for-successful-builds-without-known-nar-entries
+(define (select-outputs-without-known-nar-entries
          conn
          build-server-id
          guix-revision-commits)
