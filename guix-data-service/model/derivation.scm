@@ -59,10 +59,12 @@
             derivation-file-names->derivation-ids))
 
 (define (valid-systems conn)
-  (map car
-       (exec-query
-        conn
-        "SELECT DISTINCT system FROM derivations ORDER BY 1")))
+  ;; TODO, use the database, but make it quick!
+  '("aarch64-linux"
+    "armhf-linux"
+    "i686-linux"
+    "mips64el-linux"
+    "x86_64-linux"))
 
 (define (count-derivations conn)
   (first
