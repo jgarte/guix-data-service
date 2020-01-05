@@ -337,10 +337,14 @@ WHERE derivation_output_details_set_id NOT IN (
   FROM package_derivations
   INNER JOIN derivations_by_output_details_set
     ON package_derivations.derivation_id =
-       derivations_by_output_details_set.derivation_id"
-   (if (null? revision-commits)
-         "
-  WHERE"
+       derivations_by_output_details_set.derivation_id
+  INNER JOIN build_servers_build_config
+    ON build_servers_build_config.build_server_id = $1
+   AND build_servers_build_config.system = package_derivations.system
+   AND build_servers_build_config.target = package_derivations.target
+"
+     (if (null? revision-commits)
+         ""
          (string-append
           "
   INNER JOIN guix_revision_package_derivations
@@ -350,12 +354,8 @@ WHERE derivation_output_details_set_id NOT IN (
     ON guix_revisions.id = guix_revision_package_derivations.revision_id
   WHERE guix_revisions.commit IN ("
           (string-join (map quote-string revision-commits) ",")
-          ")
-  AND"))
-   "
-  -- TODO: Filter better on what systems and targets build servers use
-      package_derivations.system = 'x86_64-linux'
-  AND package_derivations.target = 'x86_64-linux'
+          ")"))
+     "
 )
 ORDER BY derivation_output_details_set_id, derivations.id
 LIMIT 15000"))

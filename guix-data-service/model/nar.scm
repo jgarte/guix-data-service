@@ -322,7 +322,6 @@ WHERE derivation_output_details.path NOT IN (
     ON narinfo_signature_data.id = narinfo_fetch_records.narinfo_signature_data_id
   WHERE narinfo_fetch_records.build_server_id = $1
 )
-  AND derivations.system = 'x86_64-linux'
 "
      (if (null? guix-revision-commits)
          ""
@@ -332,6 +331,10 @@ WHERE derivation_output_details.path NOT IN (
     -- Select outputs that are in the relevant revisions
     SELECT derivation_id
     FROM package_derivations
+    INNER JOIN build_servers_build_config
+      ON build_servers_build_config.build_server_id = $1
+     AND build_servers_build_config.system = package_derivations.system
+     AND build_servers_build_config.target = package_derivations.target
     INNER JOIN guix_revision_package_derivations
       ON guix_revision_package_derivations.package_derivation_id = package_derivations.id
     INNER JOIN guix_revisions
