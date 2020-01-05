@@ -114,48 +114,11 @@
                    package-name
                    package-versions))))))
     (('GET "repository" repository-id "branch" branch-name "package" package-name "derivation-history")
-     (let ((package-derivations
-            (package-derivations-for-branch conn
-                                            (string->number repository-id)
-                                            branch-name
-                                            "x86_64-linux"
-                                            "x86_64-linux"
-                                            package-name))
-           (build-server-urls
-            (group-to-alist
-             (match-lambda
-               ((id url lookup-all-derivations)
-                (cons id url)))
-             (select-build-servers conn))))
-       (case (most-appropriate-mime-type
-              '(application/json text/html)
-              mime-types)
-         ((application/json)
-          (render-json
-           `((derivations . ,(list->vector
-                              (map (match-lambda
-                                     ((package-version derivation-file-name
-                                                       first-guix-revision-commit
-                                                       first-datetime
-                                                       last-guix-revision-commit
-                                                       last-datetime)
-                                      `((version . ,package-version)
-                                        (derivation . ,derivation-file-name)
-                                        (first_revision
-                                         . ((commit . ,first-guix-revision-commit)
-                                            (datetime . ,first-datetime)))
-                                        (last_revision
-                                         . ((commit . ,last-guix-revision-commit)
-                                            (datetime . ,last-datetime))))))
-                                   package-derivations))))))
-         (else
-          (render-html
-           #:sxml (view-branch-package-derivations
-                   repository-id
-                   branch-name
-                   package-name
-                   build-server-urls
-                   package-derivations))))))
+     (render-branch-package-derivation-history mime-types
+                                               conn
+                                               repository-id
+                                               branch-name
+                                               package-name))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision")
      (let ((commit-hash
             (latest-processed-commit-for-branch conn repository-id branch-name)))
@@ -265,3 +228,51 @@
                                     conn
                                     commit-hash))))
     (_ #f)))
+
+(define (render-branch-package-derivation-history mime-types
+                                                  conn
+                                                  repository-id
+                                                  branch-name
+                                                  package-name)
+  (let ((package-derivations
+         (package-derivations-for-branch conn
+                                         (string->number repository-id)
+                                         branch-name
+                                         "x86_64-linux"
+                                         "x86_64-linux"
+                                         package-name))
+        (build-server-urls
+         (group-to-alist
+          (match-lambda
+            ((id url lookup-all-derivations)
+             (cons id url)))
+          (select-build-servers conn))))
+    (case (most-appropriate-mime-type
+           '(application/json text/html)
+           mime-types)
+      ((application/json)
+       (render-json
+        `((derivations . ,(list->vector
+                           (map (match-lambda
+                                  ((package-version derivation-file-name
+                                                    first-guix-revision-commit
+                                                    first-datetime
+                                                    last-guix-revision-commit
+                                                    last-datetime)
+                                   `((version . ,package-version)
+                                     (derivation . ,derivation-file-name)
+                                     (first_revision
+                                      . ((commit . ,first-guix-revision-commit)
+                                         (datetime . ,first-datetime)))
+                                     (last_revision
+                                      . ((commit . ,last-guix-revision-commit)
+                                         (datetime . ,last-datetime))))))
+                                package-derivations))))))
+      (else
+       (render-html
+        #:sxml (view-branch-package-derivations
+                repository-id
+                branch-name
+                package-name
+                build-server-urls
+                package-derivations))))))
