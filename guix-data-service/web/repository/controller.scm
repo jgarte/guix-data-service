@@ -24,6 +24,7 @@
   #:use-module (guix-data-service web util)
   #:use-module (guix-data-service model utils)
   #:use-module (guix-data-service model build-server)
+  #:use-module (guix-data-service model derivation)
   #:use-module (guix-data-service model package)
   #:use-module (guix-data-service model git-branch)
   #:use-module (guix-data-service model git-repository)
@@ -114,7 +115,8 @@
                    package-name
                    package-versions))))))
     (('GET "repository" repository-id "branch" branch-name "package" package-name "derivation-history")
-     (render-branch-package-derivation-history mime-types
+     (render-branch-package-derivation-history request
+                                               mime-types
                                                conn
                                                repository-id
                                                branch-name
@@ -229,50 +231,73 @@
                                     commit-hash))))
     (_ #f)))
 
-(define (render-branch-package-derivation-history mime-types
+(define (parse-build-system conn)
+  (let ((systems
+         (valid-systems conn)))
+    (lambda (s)
+      (if (member s systems)
+          s
+          (make-invalid-query-parameter
+           s "unknown system")))))
+
+(define (render-branch-package-derivation-history request
+                                                  mime-types
                                                   conn
                                                   repository-id
                                                   branch-name
                                                   package-name)
-  (let ((package-derivations
-         (package-derivations-for-branch conn
-                                         (string->number repository-id)
-                                         branch-name
-                                         "x86_64-linux"
-                                         "x86_64-linux"
-                                         package-name))
-        (build-server-urls
-         (group-to-alist
-          (match-lambda
-            ((id url lookup-all-derivations)
-             (cons id url)))
-          (select-build-servers conn))))
-    (case (most-appropriate-mime-type
-           '(application/json text/html)
-           mime-types)
-      ((application/json)
-       (render-json
-        `((derivations . ,(list->vector
-                           (map (match-lambda
-                                  ((package-version derivation-file-name
-                                                    first-guix-revision-commit
-                                                    first-datetime
-                                                    last-guix-revision-commit
-                                                    last-datetime)
-                                   `((version . ,package-version)
-                                     (derivation . ,derivation-file-name)
-                                     (first_revision
-                                      . ((commit . ,first-guix-revision-commit)
-                                         (datetime . ,first-datetime)))
-                                     (last_revision
-                                      . ((commit . ,last-guix-revision-commit)
-                                         (datetime . ,last-datetime))))))
-                                package-derivations))))))
-      (else
-       (render-html
-        #:sxml (view-branch-package-derivations
-                repository-id
-                branch-name
-                package-name
-                build-server-urls
-                package-derivations))))))
+  (let ((parsed-query-parameters
+         (parse-query-parameters
+          request
+          `((system  ,(parse-build-system conn)
+                     #:default "x86_64-linux")
+            (target  ,(parse-build-system conn)
+                     #:default "x86_64-linux")))))
+    (let* ((system
+            (assq-ref parsed-query-parameters 'system))
+           (target
+            (assq-ref parsed-query-parameters 'target))
+           (package-derivations
+            (package-derivations-for-branch conn
+                                            (string->number repository-id)
+                                            branch-name
+                                            system
+                                            target
+                                            package-name))
+           (build-server-urls
+           (group-to-alist
+            (match-lambda
+              ((id url lookup-all-derivations)
+               (cons id url)))
+            (select-build-servers conn))))
+      (case (most-appropriate-mime-type
+             '(application/json text/html)
+             mime-types)
+        ((application/json)
+         (render-json
+          `((derivations . ,(list->vector
+                             (map (match-lambda
+                                    ((package-version derivation-file-name
+                                                      first-guix-revision-commit
+                                                      first-datetime
+                                                      last-guix-revision-commit
+                                                      last-datetime)
+                                     `((version . ,package-version)
+                                       (derivation . ,derivation-file-name)
+                                       (first_revision
+                                        . ((commit . ,first-guix-revision-commit)
+                                           (datetime . ,first-datetime)))
+                                       (last_revision
+                                        . ((commit . ,last-guix-revision-commit)
+                                           (datetime . ,last-datetime))))))
+                                  package-derivations))))))
+        (else
+         (render-html
+          #:sxml (view-branch-package-derivations
+                  parsed-query-parameters
+                  repository-id
+                  branch-name
+                  package-name
+                  (valid-systems conn)
+                  build-server-urls
+                  package-derivations)))))))

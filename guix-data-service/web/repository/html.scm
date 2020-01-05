@@ -290,9 +290,11 @@
                                 (rationalize width 1)))))))))))
                versions-by-revision-range))))))))))
 
-(define (view-branch-package-derivations git-repository-id
+(define (view-branch-package-derivations query-parameters
+                                         git-repository-id
                                          branch-name
                                          package-name
+                                         valid-systems
                                          build-server-urls
                                          derivations-by-revision-range)
   (define versions-list
@@ -334,6 +336,29 @@
            "View JSON")
         (h1 (@ (style "white-space: nowrap;"))
             (samp ,package-name))))
+      (div
+       (@ (class "col-md-12"))
+       (div
+        (@ (class "well"))
+        (form
+         (@ (method "get")
+            (action "")
+            (class "form-horizontal"))
+         ,(form-horizontal-control
+           "System" query-parameters
+           #:options valid-systems
+           #:allow-selecting-multiple-options #f
+           #:help-text "Show derivations with this system.")
+         ,(form-horizontal-control
+           "Target" query-parameters
+           #:options valid-systems
+           #:allow-selecting-multiple-options #f
+           #:help-text "Show derivations with this target.")
+         (div (@ (class "form-group form-group-lg"))
+              (div (@ (class "col-sm-offset-2 col-sm-10"))
+                   (button (@ (type "submit")
+                              (class "btn btn-lg btn-primary"))
+                           "Update results"))))))
       (div
        (@ (class "row"))
        (div
