@@ -90,14 +90,6 @@
   ;;     (render-html (error-page message))))
   )
 
-(define (assoc-ref-multiple alist key)
-  (filter-map
-   (match-lambda
-     ((k . value)
-      (and (string=? k key)
-           value)))
-   alist))
-
 (define (render-derivation conn derivation-file-name)
   (let ((derivation (select-derivation-by-file-name conn
                                                     derivation-file-name)))
