@@ -23,9 +23,6 @@
   #:use-module (guix-data-service jobs load-new-guix-revision)
   #:export (enqueue-job-for-email))
 
-(define %repository-url-for-repo
-  '(("guix" . "https://git.savannah.gnu.org/git/guix.git")))
-
 (define (enqueue-job-for-email conn email)
   (let* ((headers       (email-headers email))
          (date          (assq-ref headers 'date))
@@ -35,30 +32,29 @@
          (x-git-newrev  (assq-ref headers 'x-git-newrev)))
     (when (and (and (string? x-git-reftype)
                     (string=? x-git-reftype "branch"))
-               (and (string? x-git-repo)
-                    (string=? x-git-repo "guix"))
                (string? x-git-newrev))
 
       (let ((branch-name
              (string-drop x-git-refname 11))
             (git-repository-id
-             (git-repository-url->git-repository-id
+             (git-repository-x-git-repo-header->git-repository-id
               conn
-              (assoc-ref %repository-url-for-repo x-git-repo))))
+              x-git-repo)))
 
-        (insert-git-branch-entry conn
-                                 branch-name
-                                 (if (string=? "0000000000000000000000000000000000000000"
-                                               x-git-newrev)
-                                     ""
-                                     x-git-newrev)
-                                 git-repository-id
-                                 date)
+        (when git-repository-id
+          (insert-git-branch-entry conn
+                                   branch-name
+                                   (if (string=? "0000000000000000000000000000000000000000"
+                                                 x-git-newrev)
+                                       ""
+                                       x-git-newrev)
+                                   git-repository-id
+                                   date)
 
-        (unless (string=? "0000000000000000000000000000000000000000"
-                          x-git-newrev)
-          (enqueue-load-new-guix-revision-job
-           conn
-           git-repository-id
-           x-git-newrev
-           (string-append x-git-repo " " x-git-refname " updated")))))))
+          (unless (string=? "0000000000000000000000000000000000000000"
+                            x-git-newrev)
+            (enqueue-load-new-guix-revision-job
+             conn
+             git-repository-id
+             x-git-newrev
+             (string-append x-git-repo " " x-git-refname " updated"))))))))

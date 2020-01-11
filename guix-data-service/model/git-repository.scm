@@ -22,6 +22,7 @@
   #:export (all-git-repositories
             select-git-repository
             git-repository-id->url
+            git-repository-x-git-repo-header->git-repository-id
             git-repository-url->git-repository-id
             git-repositories-containing-commit
 
@@ -58,6 +59,17 @@
         "SELECT url FROM git_repositories WHERE id = $1;")
        (list id))
     (((url)) url)))
+
+(define (git-repository-x-git-repo-header->git-repository-id conn header)
+  (match
+      (exec-query
+       conn
+       (string-append
+        "SELECT id FROM git_repositories WHERE x_git_repo_header = $1;")
+       (list header))
+    (() #f)
+    (((id))
+     (string->number id))))
 
 (define (git-repository-url->git-repository-id conn url)
   (let ((existing-id
