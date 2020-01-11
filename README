@@ -138,5 +138,3 @@ order.
 ** Load in the derivations for system tests within Guix
 ** Provide data in RDF formats (TTL, XML, ...)
 ** Provide statistics about Guix over time (with graphs)
-** Pull in data from build servers about derivation builds
-** Provide a way to compare two derivations
