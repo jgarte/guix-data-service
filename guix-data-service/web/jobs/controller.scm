@@ -64,11 +64,13 @@
          (jobs (select-jobs-and-events
                 conn
                 (assq-ref query-parameters 'before_id)
-                limit-results)))
+                limit-results))
+         (recent-events (select-recent-job-events conn)))
     (render-html
      #:sxml (view-jobs
              query-parameters
              jobs
+             recent-events
              (and limit-results
                   (>= (length jobs)
                       limit-results))))))

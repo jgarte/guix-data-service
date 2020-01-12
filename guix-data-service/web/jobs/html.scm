@@ -26,6 +26,7 @@
 
 (define (view-jobs query-parameters
                    jobs-and-events
+                   recent-events
                    show-next-page?)
   (layout
    #:body
@@ -46,6 +47,38 @@
                (href "/jobs/queue")
                (role "button"))
             "Queue"))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-1")))
+       (div
+        (@ (class "col-sm-10"))
+        (table
+         (@ (class "table"))
+         (thead
+          (tr
+           (th "Job")
+           (th "Event")
+           (th "Occurred at")))
+         (tbody
+          ,@(map
+             (match-lambda
+               ((id commit source git-repository-id event occurred-at)
+                `(tr
+                  (td (a (@ (href
+                             ,(string-append
+                               "/revision/" commit)))
+                         (samp ,commit)))
+                  (td ,@(let ((classes '(("start" . "info")
+                                         ("success" . "success")
+                                         ("failure" . "danger"))))
+                          (or (and=> (assoc-ref classes event)
+                                     (lambda (class)
+                                       `((@ (class ,class)))))
+                              '()))
+                      ,event)
+                  (td ,occurred-at))))
+             recent-events)))))
       (div
        (@ (class "row"))
        (div

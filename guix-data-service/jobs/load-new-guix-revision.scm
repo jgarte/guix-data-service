@@ -56,6 +56,7 @@
             process-load-new-guix-revision-job
             select-job-for-commit
             select-jobs-and-events
+            select-recent-job-events
             select-unprocessed-jobs-and-events
             select-jobs-and-events-for-commit
             record-job-event
@@ -1075,6 +1076,26 @@ RETURNING id;")
            "FROM load_new_guix_revision_jobs WHERE commit = $1")
           (list commit))))
     result))
+
+(define* (select-recent-job-events conn
+                                   #:key (limit 8))
+  (define query
+    (string-append
+     "
+SELECT
+  load_new_guix_revision_jobs.id,
+  load_new_guix_revision_jobs.commit,
+  load_new_guix_revision_jobs.source,
+  load_new_guix_revision_jobs.git_repository_id,
+  load_new_guix_revision_job_events.event,
+  load_new_guix_revision_job_events.occurred_at
+FROM load_new_guix_revision_jobs
+INNER JOIN load_new_guix_revision_job_events
+  ON load_new_guix_revision_job_events.job_id = load_new_guix_revision_jobs.id
+ORDER BY load_new_guix_revision_job_events.occurred_at DESC
+LIMIT " (number->string limit)))
+
+  (exec-query conn query))
 
 (define (select-jobs-and-events conn before-id limit)
   (define query
