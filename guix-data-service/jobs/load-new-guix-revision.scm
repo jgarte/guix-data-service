@@ -794,6 +794,10 @@ WHERE job_id = $1"
 
     (let* ((guix-locpath (getenv "GUIX_LOCPATH"))
            (inf (let ((guix-locpath
+                       ;; Augment the GUIX_LOCPATH to include glibc-locales from
+                       ;; the Guix at store-path, this should mean that the
+                       ;; inferior Guix works, even if it's build using a different
+                       ;; glibc version
                        (string-append
                         (glibc-locales-for-guix-store-path store store-path)
                         "/lib/locale"
@@ -807,11 +811,6 @@ WHERE job_id = $1"
                   ;; Guix (like the new (guix lint) module
                   (unsetenv "GUILE_LOAD_PATH")
                   (unsetenv "GUILE_LOAD_COMPILED_PATH")
-                  ;; Augment the GUIX_LOCPATH to include glibc-locales from
-                  ;; the Guix at store-path, this should mean that the
-                  ;; inferior Guix works, even if it's build using a different
-                  ;; glibc version
-                  (setenv "GUIX_LOCPATH" guix-locpath)
                   (simple-format (current-error-port) "debug: set GUIX_LOCPATH to ~A\n"
                                  guix-locpath)
                   (if (defined?
@@ -819,8 +818,13 @@ WHERE job_id = $1"
                       (resolve-module '(guix inferior)))
                     (open-inferior/container store store-path
                                              #:extra-shared-directories
-                                             '("/gnu/store"))
+                                             '("/gnu/store")
+                                             #:extra-environment-variables
+                                             (list (string-append
+                                                    "GUIX_LOCPATH="
+                                                    guix-locpath)))
                     (begin
+                      (setenv "GUIX_LOCPATH" guix-locpath)
                       (simple-format #t "debug: using open-inferior\n")
                       (open-inferior store-path
                                      #:error-port (real-error-port)))))))
