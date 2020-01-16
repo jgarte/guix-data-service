@@ -382,19 +382,24 @@ UPDATE builds SET derivation_output_details_set_id = (
 (define (insert-build conn build-server-id derivation-file-name)
   (match (exec-query
           conn
-          "
+          (string-append
+           "
 INSERT INTO builds
   (build_server_id, derivation_file_name, derivation_output_details_set_id)
-VALUES ($1, $2, $3)
-RETURNING (id)"
-          (list (number->string build-server-id)
-                derivation-file-name
-                (or
-                 (and=> (select-derivations-by-output-details-set-id-by-derivation-file-name
-                         conn
-                         derivation-file-name)
-                        number->string)
-                 "NULL")))
+VALUES ("
+           (number->string build-server-id)
+           ", "
+           (quote-string derivation-file-name)
+           ", "
+           (or
+            (and=>
+             (select-derivations-by-output-details-set-id-by-derivation-file-name
+              conn
+              derivation-file-name)
+             number->string)
+            "NULL")
+           ")
+RETURNING (id)"))
     (((id))
      (string->number id))))
 
