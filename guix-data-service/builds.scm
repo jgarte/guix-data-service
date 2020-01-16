@@ -132,7 +132,7 @@ initial connection on which HTTP requests are sent."
   (simple-format #t "\nFetching pending builds\n")
   (process-pending-builds conn id url)
   (simple-format #t "\nFetching unseen derivations\n")
-  (process-derivations conn id url revision-commits)
+  (process-derivation-outputs conn id url revision-commits)
   (simple-format #t "\nFetching narinfo files\n")
   (fetch-narinfo-files conn id url revision-commits))
 
@@ -144,7 +144,9 @@ initial connection on which HTTP requests are sent."
 
   (let* ((status-string
           (assq-ref build-statuses
-                    (assoc-ref data "buildstatus")))
+                    (or (assoc-ref data "buildstatus")
+                        ;; status is for the /output/ requests
+                        (assoc-ref data "status"))))
          (finished?
           (member status-string stop-statuses))
          (existing-status-entries
@@ -199,6 +201,31 @@ initial connection on which HTTP requests are sent."
       ;; Try not to make to many requests at once
       (usleep 200)))
    (select-pending-builds conn build-server-id)))
+
+(define (process-derivation-outputs conn build-server-id url revision-commits)
+  (define derivation-outputs
+    (select-derivation-outputs-with-no-known-build conn
+                                                   build-server-id
+                                                   revision-commits))
+
+  (simple-format (current-error-port) "Fetching ~A derivation outputs\n"
+                 (length derivation-outputs))
+  (fetch-builds-by-output
+   url
+   derivation-outputs
+   (lambda (data)
+     (if data
+         (let ((build-id
+                (ensure-build-exists conn
+                                     build-server-id
+                                     (assoc-ref data "derivation"))))
+           (insert-build-statuses-from-data
+            conn
+            build-server-id
+            build-id
+            (assoc-ref data "build"))
+           (display "-"))
+         (display ".")))))
 
 (define (process-derivations conn build-server-id url revision-commits)
   (define derivations
@@ -289,6 +316,40 @@ initial connection on which HTTP requests are sent."
            #:headers '((User-Agent . "Guix Data Service"))))
         derivation-file-names)))
 
+(define (fetch-builds-by-output url derivation-outputs handler)
+  (define (read-to-eof port)
+    "Read from PORT until EOF is reached.  The data are discarded."
+    (dump-port port (%make-void-port "w")))
+
+  (http-multiple-get
+   (string->uri url)
+   (lambda (request response port result)
+     (let* ((len (response-content-length response))
+            (response-body
+             (if len
+                 (get-bytevector-n port len)
+                 (read-to-eof port))))
+       (handler
+        (cond
+         ((eq? (response-code response) 200)
+          (json-string->scm
+           (bytevector->string response-body
+                               "utf-8")))
+         (else
+          #f)))))
+   '()
+   (map (lambda (output-file-name)
+          (build-request
+           (string->uri
+            (string-append url
+                           "output"
+                           (string-drop
+                            output-file-name
+                            (string-length "/gnu/store"))))
+           #:method 'GET
+           #:headers '((User-Agent . "Guix Data Service"))))
+        derivation-outputs)))
+
 (define (select-pending-builds conn build-server-id)
   (define query
     "
@@ -361,6 +422,57 @@ ORDER BY derivation_output_details_set_id, derivations.id
 LIMIT 15000"))
 
   (exec-query conn query (list (number->string build-server-id))))
+
+
+(define (select-derivation-outputs-with-no-known-build conn
+                                                       build-server-id
+                                                       revision-commits)
+  (define query
+    ;; Only select derivations that are in the package_derivations table, as
+    ;; Cuirass doesn't build the intermediate derivations
+    (string-append
+     "
+SELECT derivation_output_details.path
+FROM derivation_output_details
+INNER JOIN derivation_output_details_sets
+  ON derivation_output_details.id =
+     derivation_output_details_sets.derivation_output_details_ids[1]
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM builds
+  WHERE builds.derivation_output_details_set_id =
+        derivation_output_details_sets.id
+    AND build_server_id = $1
+) AND derivation_output_details_sets.id IN (
+  SELECT derivation_output_details_set_id
+  FROM package_derivations
+  INNER JOIN derivations_by_output_details_set
+    ON package_derivations.derivation_id =
+       derivations_by_output_details_set.derivation_id
+  INNER JOIN build_servers_build_config
+    ON build_servers_build_config.build_server_id = $1
+   AND build_servers_build_config.system = package_derivations.system
+   AND build_servers_build_config.target = package_derivations.target
+"
+     (if (null? revision-commits)
+         ""
+         (string-append
+          "
+  INNER JOIN guix_revision_package_derivations
+    ON package_derivations.id =
+       guix_revision_package_derivations.package_derivation_id
+  INNER JOIN guix_revisions
+    ON guix_revisions.id = guix_revision_package_derivations.revision_id
+  WHERE guix_revisions.commit IN ("
+          (string-join (map quote-string revision-commits) ",")
+          ")"))
+     "
+)
+ORDER BY derivation_output_details_sets.id, derivation_output_details.id
+LIMIT 15000"))
+
+  (map first
+       (exec-query conn query (list (number->string build-server-id)))))
 
 (define (fetch-narinfo-files conn build-server-id build-server-url revision-commits)
   (define outputs
