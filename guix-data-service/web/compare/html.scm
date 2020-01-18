@@ -970,16 +970,26 @@
      (div (@ (class "container"))
           (h1 "Unknown commit")
           ,(if (invalid-query-parameter? base-commit)
-               `(p "No known revision with commit "
-                   (strong (samp ,(invalid-query-parameter-value base-commit)))
-                   ,(if (null? base-job)
-                        " and it is not currently queued for processing"
-                        " but it is queued for processing"))
+               (if (null? base-job)
+                   `(p "No known revision with commit "
+                       (strong (samp ,(invalid-query-parameter-value base-commit)))
+                       ".")
+                   `(p "Revision "
+                     (a (@ (href
+                            ,(string-append "/revision/"
+                                            (invalid-query-parameter-value base-commit))))
+                        (strong (samp ,(invalid-query-parameter-value base-commit))))
+                     " is queued for processing."))
                '())
           ,(if (invalid-query-parameter? target-commit)
-               `(p "No known revision with commit "
-                   (strong (samp ,(invalid-query-parameter-value target-commit)))
-                   ,(if (null? target-job)
-                        " and it is not currently queued for processing"
-                        " but it is queued for processing"))
+               (if (null? target-job)
+                   `(p "No known revision with commit "
+                       (strong (samp ,(invalid-query-parameter-value target-commit)))
+                       ".")
+                   `(p "Revision "
+                       (a (@ (href
+                              ,(string-append "/revision/"
+                                              (invalid-query-parameter-value target-commit))))
+                          (strong (samp ,(invalid-query-parameter-value target-commit))))
+                       " is queued for processing."))
                '())))))
