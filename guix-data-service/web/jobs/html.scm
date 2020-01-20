@@ -53,11 +53,12 @@
         (@ (class "col-sm-1")))
        (div
         (@ (class "col-sm-10"))
+        (h3 "Recent events")
         (table
          (@ (class "table"))
          (thead
           (tr
-           (th "Job")
+           (th "Commit")
            (th "Event")
            (th "Occurred at")))
          (tbody
