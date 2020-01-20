@@ -21,6 +21,7 @@
   #:use-module (guix-data-service web html-utils)
   #:use-module (guix-data-service web view html)
   #:export (view-jobs
+            view-job-events
             view-job-queue
             view-job))
 
@@ -170,6 +171,74 @@
                                          (car (last jobs-and-events)))))
                     "Next page")))
               '())))))))
+
+(define (view-job-events query-parameters
+                         recent-events)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (a (@ (href "/jobs"))
+           (h3 "Jobs"))
+        (h1 "Recent events")))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (div
+         (@ (class "well"))
+         (form
+          (@ (method "get")
+             (action "")
+             (style "padding-bottom: 0")
+             (class "form-horizontal"))
+          ,(form-horizontal-control
+            "Limit results" query-parameters
+            #:help-text "The maximum number of jobs to return.")
+          ,(form-horizontal-control
+            "All results" query-parameters
+            #:type "checkbox"
+            #:help-text "Return all results.")
+          (div (@ (class "form-group form-group-lg"))
+               (div (@ (class "col-sm-offset-2 col-sm-10"))
+                    (button (@ (type "submit")
+                               (class "btn btn-lg btn-primary"))
+                            "Update results")))))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (table
+         (@ (class "table"))
+         (thead
+          (tr
+           (th "Commit")
+           (th "Event")
+           (th "Occurred at")))
+         (tbody
+          ,@(map
+             (match-lambda
+               ((id commit source git-repository-id event occurred-at)
+                `(tr
+                  (td (a (@ (href
+                             ,(string-append
+                               "/revision/" commit)))
+                         (samp ,commit)))
+                  (td ,@(let ((classes '(("start" . "info")
+                                         ("success" . "success")
+                                         ("failure" . "danger"))))
+                          (or (and=> (assoc-ref classes event)
+                                     (lambda (class)
+                                       `((@ (class ,class)))))
+                              '()))
+                      ,event)
+                  (td ,occurred-at))))
+             recent-events)))))))))
 
 (define (view-job-queue jobs-and-events)
   (layout

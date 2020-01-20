@@ -43,6 +43,19 @@
        (render-jobs mime-types
                     conn
                     parsed-query-parameters)))
+    (('GET "jobs" "events")
+     (let ((parsed-query-parameters
+            (guard-against-mutually-exclusive-query-parameters
+             (parse-query-parameters
+              request
+              `((limit_results  ,parse-result-limit
+                                #:no-default-when (all_results)
+                                #:default 50)
+                (all_results    ,parse-checkbox-value)))
+             '((limit_results all_results)))))
+       (render-job-events mime-types
+                          conn
+                          parsed-query-parameters)))
     (('GET "jobs" "queue")
      (render-job-queue mime-types
                        conn))
@@ -74,6 +87,18 @@
              (and limit-results
                   (>= (length jobs)
                       limit-results))))))
+
+(define (render-job-events mime-types conn query-parameters)
+  (let* ((limit-results
+          (assq-ref query-parameters 'limit_results))
+         (recent-events (select-recent-job-events
+                         conn
+                         ;; TODO Ideally there wouldn't be a limit
+                         #:limit (or limit-results 1000000))))
+    (render-html
+     #:sxml (view-job-events
+             query-parameters
+             recent-events))))
 
 (define (render-job-queue mime-types conn)
   (render-html
