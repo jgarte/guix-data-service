@@ -499,8 +499,18 @@ WHERE job_id = $1"
            (let ((a-name (inferior-package-name a))
                  (b-name (inferior-package-name b)))
              (if (string=? a-name b-name)
-                 (string<? (inferior-package-version a)
-                           (inferior-package-version b))
+                 (let ((a-version (inferior-package-version a))
+                       (b-version (inferior-package-version b)))
+                   (if (string=? a-version b-version)
+                       ;; The name and version are the same, so try and pick
+                       ;; the same package each time, by looking at the
+                       ;; location.
+                       (let ((a-location (inferior-package-location a))
+                             (b-location (inferior-package-location b)))
+                         (< (location-line a-location)
+                            (location-line b-location)))
+                       (string<? (inferior-package-version a)
+                                 (inferior-package-version b))))
                  (string<? a-name
                            b-name)))))))
 
