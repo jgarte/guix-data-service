@@ -896,7 +896,13 @@ WHERE job_id = $1"
                                  packages
                                  package-ids))))
                       (lambda (inferior-id)
-                        (hashq-ref lookup-table inferior-id)))))
+                        (or
+                         (hashq-ref lookup-table inferior-id)
+                         (error
+                          (simple-format
+                           #f
+                           "error: inferior-package-id->package-database-id: ~A missing\n"
+                           inferior-id)))))))
 
               (simple-format
                #t "debug: finished loading information from inferior\n")
