@@ -59,6 +59,7 @@
   (native-inputs
    `(("autoconf" ,autoconf)
      ("automake" ,automake)
+     ("ephemeralpg" ,ephemeralpg)
      ("pkg-config" ,pkg-config)
      ("ruby-rerun" ,ruby-rerun)))
   (synopsis "TODO")
