@@ -247,6 +247,48 @@ WHERE job_id = $1"
                                     ',checker-name))
                              %local-checkers))
               (check (lint-checker-check checker)))
+
+         (define (process-lint-warning lint-warning)
+           (list
+            (match (lint-warning-location lint-warning)
+              (($ <location> file line column)
+               (list (if (string-prefix? "/gnu/store/" file)
+                         ;; Convert a string like
+                         ;; /gnu/store/53xh0mpigin2rffg31s52x5dc08y0qmr-guix-module-union/share/guile/site/2.2/gnu/packages/xdisorg.scm
+                         ;;
+                         ;; This happens when the checker uses
+                         ;; package-field-location.
+                         (string-join (drop (string-split file #\/) 8) "/")
+                         file)
+                     line
+                     column)))
+            (let* ((source-locale "en_US.utf8")
+                   (source-message
+                    (begin
+                      (setlocale LC_MESSAGES source-locale)
+                      (lint-warning-message lint-warning)))
+                   (messages-by-locale
+                    (filter-map
+                     (lambda (locale)
+                       (catch 'system-error
+                         (lambda ()
+                           (setlocale LC_MESSAGES locale))
+                         (lambda (key . args)
+                           (error
+                            (simple-format
+                             #f
+                             "error changing locale to ~A: ~A ~A"
+                             locale key args))))
+                       (let ((message
+                              (lint-warning-message lint-warning)))
+                         (setlocale LC_MESSAGES source-locale)
+                         (if (string=? message source-message)
+                             #f
+                             (cons locale message))))
+                     (list ,@locales))))
+              (cons (cons source-locale source-message)
+                    messages-by-locale))))
+
          (filter
           (match-lambda
             ((package-id . warnings)
@@ -255,48 +297,8 @@ WHERE job_id = $1"
            (lambda (package-id package)
              (cons
               package-id
-              (map
-               (lambda (lint-warning)
-                 (list
-                  (match (lint-warning-location lint-warning)
-                    (($ <location> file line column)
-                     (list (if (string-prefix? "/gnu/store/" file)
-                               ;; Convert a string like
-                               ;; /gnu/store/53xh0mpigin2rffg31s52x5dc08y0qmr-guix-module-union/share/guile/site/2.2/gnu/packages/xdisorg.scm
-                               ;;
-                               ;; This happens when the checker uses
-                               ;; package-field-location.
-                               (string-join (drop (string-split file #\/) 8) "/")
-                               file)
-                           line
-                           column)))
-                  (let* ((source-locale "en_US.utf8")
-                         (source-message
-                          (begin
-                            (setlocale LC_MESSAGES source-locale)
-                            (lint-warning-message lint-warning)))
-                         (messages-by-locale
-                          (filter-map
-                           (lambda (locale)
-                             (catch 'system-error
-                               (lambda ()
-                                 (setlocale LC_MESSAGES locale))
-                               (lambda (key . args)
-                                 (error
-                                  (simple-format
-                                   #f
-                                   "error changing locale to ~A: ~A ~A"
-                                   locale key args))))
-                             (let ((message
-                                    (lint-warning-message lint-warning)))
-                               (setlocale LC_MESSAGES source-locale)
-                               (if (string=? message source-message)
-                                   #f
-                                   (cons locale message))))
-                           (list ,@locales))))
-                    (cons (cons source-locale source-message)
-                          messages-by-locale))))
-               (check package))))
+              (map process-lint-warning
+                   (check package))))
            %package-table)))))
 
   (and
