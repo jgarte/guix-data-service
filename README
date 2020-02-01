@@ -6,6 +6,26 @@ time.
 It's written in Guile, stores data in a PostgreSQL database, and provides a
 web interface and API to browse and access the data.
 
+* Overview
+
+The aim of the Guix Data Service is to provide a complementary interface to
+Guix itself, providing a different way of interacting with Guix data, which
+hopefully enables tools and services that otherwise wouldn't be feasible to
+write.
+
+For example, with the command line tooling or Guile API for Guix, you can
+quickly and easily access information about packages, and manipulate
+derivations. However, if you wish to compare two revisions of Guix, or look at
+the history of the derivations for a package over recent Guix revisions, it
+could take some time until you have the information you're looking for.
+
+However, with the Guix Data Service, this information can be gathered
+continuously, and stored in a a manor that makes these kind of queries much
+quicker to answer. By storing data abount multiple Guix revisions in a SQL
+database (PostgreSQL), it becomes possible to quickly compare the data for
+different revisions. By configuring the Guix Data Service to listen for
+changes in the Guix Git repository, the database can be kept up to date.
+
 * Local Development
 
 There's no one right way of doing local development, but outlined here is a
