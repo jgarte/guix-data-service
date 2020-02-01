@@ -104,7 +104,7 @@
                                                   (charset . "ISO-8859-1")))))
                     (lambda (port)
                       (write-file-tree
-                      file-name
+                       file-name
                        port
                        #:file-type+size
                        (lambda (file)
