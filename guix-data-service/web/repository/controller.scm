@@ -42,6 +42,11 @@
     (uri-path (request-uri request)))
 
   (match method-and-path-components
+    (('GET "repositories")
+     (let ((git-repositories (all-git-repositories conn)))
+       (render-html
+        #:sxml
+        (view-git-repositories git-repositories))))
     (('GET "repository" id)
      (match (select-git-repository conn id)
        ((label url cgit-url-base)

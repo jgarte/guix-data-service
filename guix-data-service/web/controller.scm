@@ -289,6 +289,8 @@
                               (count-derivations conn))))
     (('GET "revision" args ...)
      (delegate-to revision-controller))
+    (('GET "repositories")
+     (delegate-to repository-controller))
     (('GET "repository" _ ...)
      (delegate-to repository-controller))
     (('GET "gnu" "store" filename)

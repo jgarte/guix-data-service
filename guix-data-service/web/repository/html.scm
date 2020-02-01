@@ -21,11 +21,43 @@
   #:use-module (ice-9 match)
   #:use-module (guix-data-service web html-utils)
   #:use-module (guix-data-service web view html)
-  #:export (view-git-repository
+  #:export (view-git-repositories
+            view-git-repository
             view-branches
             view-branch
             view-branch-package
             view-branch-package-derivations))
+
+(define* (view-git-repositories git-repositories)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (h1 "Git repositories")))
+      ,@(map
+         (match-lambda
+           ((id label url cgit-base-url)
+            `(div
+              (@ (class "row"))
+              (div
+               (@ (class "col-md-12"))
+               (h3 ,url)
+               (a (@ (href ,(string-append "/repository/" (number->string id))))
+                  "View repository")
+               (dl
+                (@ (class "dl-horizontal"))
+                (dt "Label")
+                (dd ,label)
+                (dt "URL")
+                (dd ,url)
+                (dt "cgit base URL")
+                (dd ,cgit-base-url))))))
+         git-repositories)))))
 
 (define* (view-git-repository git-repository-id
                               label url cgit-url-base
