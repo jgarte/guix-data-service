@@ -28,11 +28,22 @@
              (squee)
              (email email)
              (guix-data-service database)
+             (guix-data-service model git-repository)
              (guix-data-service branch-updated-emails))
 
 (with-postgresql-connection
  "process-branch-updated-mbox"
  (lambda (conn)
+   (let ((count
+          (count-git-repositories-with-x-git-repo-header-values conn)))
+     (when (eq? count 0)
+       (display
+        "\nerror: no git_repositories exist with a value for x_git_repo_header
+error: to match emails to repositories, the git_repositories entry must have
+a x_git_repo_header value\n"
+        (current-error-port))
+       (exit 1)))
+
    (for-each
     (lambda (file)
       (simple-format (current-error-port)
