@@ -22,6 +22,7 @@
   #:export (all-git-repositories
             select-git-repository
             git-repository-id->url
+            count-git-repositories-with-x-git-repo-header-values
             git-repository-x-git-repo-header->git-repository-id
             git-repository-url->git-repository-id
             git-repositories-containing-commit
@@ -59,6 +60,13 @@
         "SELECT url FROM git_repositories WHERE id = $1;")
        (list id))
     (((url)) url)))
+
+(define (count-git-repositories-with-x-git-repo-header-values conn)
+  (match (exec-query
+          conn
+          "SELECT COUNT(*) FROM git_repositories WHERE x_git_repo_header IS NOT NULL")
+    (((count))
+     (string->number count))))
 
 (define (git-repository-x-git-repo-header->git-repository-id conn header)
   (match
