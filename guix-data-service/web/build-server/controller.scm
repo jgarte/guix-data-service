@@ -78,6 +78,12 @@
                      "No build found for this build server and derivation.")
              #:code 404)))))
 
+(define (render-build-servers mime-types
+                              build-servers)
+  (render-html
+   #:sxml
+   (view-build-servers build-servers)))
+
 (define (render-build-server mime-types
                              build-server)
   (render-html
@@ -191,6 +197,10 @@
                                  conn
                                  secret-key-base)
   (match method-and-path-components
+    (('GET "build-servers")
+     (let ((build-servers (select-build-servers conn)))
+       (render-build-servers mime-types
+                             build-servers)))
     (('GET "build-server" build-server-id)
      (let ((build-server (select-build-server conn (string->number
                                                     build-server-id))))

@@ -315,6 +315,8 @@
          (not-found (request-uri request))))
     (('GET "gnu" "store" filename "narinfos")
      (render-narinfos conn filename))
+    (('GET "build-servers")
+     (delegate-to-with-secret-key-base build-server-controller))
     (((or 'GET 'POST) "build-server" _ ...)
      (delegate-to-with-secret-key-base build-server-controller))
     (('GET "compare" _ ...)             (delegate-to compare-controller))
