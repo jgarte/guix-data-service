@@ -224,6 +224,18 @@ WHERE job_id = $1"
        (simple-format #t "debug: Finished ~A, took ~A seconds\n"
                       action time-taken)))))
 
+(define (with-advisory-session-lock/log-time conn lock f)
+  (simple-format #t "debug: Acquiring advisory session lock: ~A\n" lock)
+  (let ((start-time (current-time)))
+    (with-advisory-session-lock
+     conn
+     lock
+     (lambda ()
+       (let ((time-taken (- (current-time) start-time)))
+         (simple-format #t "debug: Finished aquiring lock ~A, took ~A seconds\n"
+                        lock time-taken))
+       (f)))))
+
 (define (all-inferior-lint-warnings inf store)
   (define locales
     '("cs_CZ.utf8"
@@ -738,7 +750,7 @@ WHERE job_id = $1"
            (lambda ()
              ;; Obtain a session level lock here, to avoid conflicts with
              ;; other jobs over the Git repository.
-             (with-advisory-session-lock
+             (with-advisory-session-lock/log-time
               conn
               'channel->manifest-store-item
               (lambda ()
