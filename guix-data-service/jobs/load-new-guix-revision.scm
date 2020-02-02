@@ -984,13 +984,16 @@ WHERE job_id = $1"
           (display-backtrace (make-stack #t) (current-error-port)))))))
 
 (define (update-package-versions-table conn git-repository-id commit)
-  ;; Lock the table to wait for other transactions to commit before updating
-  ;; the table
-  (exec-query
-   conn
-   "
+  (log-time
+   "lock table: package_versions_by_guix_revision_range"
+   (lambda ()
+     ;; Lock the table to wait for other transactions to commit before updating
+     ;; the table
+     (exec-query
+      conn
+      "
 LOCK TABLE ONLY package_versions_by_guix_revision_range
-  IN SHARE ROW EXCLUSIVE MODE")
+  IN SHARE ROW EXCLUSIVE MODE")))
 
   (for-each
    (match-lambda
