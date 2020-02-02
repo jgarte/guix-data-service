@@ -907,10 +907,13 @@ WHERE job_id = $1"
                    (lambda ()
                      (all-inferior-package-derivations store inf packages)))))
 
-            ;; Wait until this is the only transaction inserting data, to
-            ;; avoid any concurrency issues
-            (obtain-advisory-transaction-lock conn
-                                              'load-new-guix-revision-inserts)
+            (log-time
+             "acquiring advisory transaction lock: load-new-guix-revision-inserts"
+             (lambda ()
+               ;; Wait until this is the only transaction inserting data, to
+               ;; avoid any concurrency issues
+               (obtain-advisory-transaction-lock conn
+                                                 'load-new-guix-revision-inserts)))
 
             (let* ((package-ids
                     (insert-packages conn inf packages))
