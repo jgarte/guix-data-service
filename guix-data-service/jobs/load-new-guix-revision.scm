@@ -396,12 +396,15 @@ WHERE job_id = $1"
                (list inferior-package-id
                      system
                      target
-                     (derivation-file-name
-                      (if (string=? system target)
-                          (package-derivation store package system)
-                          (package-cross-derivation store package
-                                                    target
-                                                    system))))))
+                     (let ((file-name
+                            (derivation-file-name
+                             (if (string=? system target)
+                                 (package-derivation store package system)
+                                 (package-cross-derivation store package
+                                                           target
+                                                           system)))))
+                       (add-temp-root store file-name)
+                       file-name))))
            (lambda args
              ;; misc-error #f ~A ~S (No
              ;; cross-compilation for
