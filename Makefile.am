@@ -93,6 +93,7 @@ SOURCES =									\
   guix-data-service/model/package-derivation.scm				\
   guix-data-service/model/package-metadata.scm					\
   guix-data-service/model/package.scm						\
+  guix-data-service/model/system-test.scm					\
   guix-data-service/model/utils.scm						\
   guix-data-service/web/build-server/controller.scm				\
   guix-data-service/web/build-server/html.scm					\

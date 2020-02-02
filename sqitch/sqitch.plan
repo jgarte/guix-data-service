@@ -43,3 +43,4 @@ add_derivation_source_file_nars 2019-12-28T20:37:06Z Christopher Baines <mail@cb
 derivation_source_files_store_path_hash_index 2019-12-29T17:53:08Z Christopher Baines <mail@cbaines.net> # Add index on the hash part of the derivation source files store path
 build_servers_build_config 2020-01-05T12:06:13Z Christopher Baines <mail@cbaines.net> # Add build_servers_build_config table
 git-repositories-x-git-repo-header 2020-01-11T16:39:32Z Christopher Baines <mail@cbaines.net> # Add x_git_repo_header to git_repositories
+system_test_tables 2020-02-02T11:36:20Z Christopher Baines <mail@cbaines.net> # Add tables for storing system tests

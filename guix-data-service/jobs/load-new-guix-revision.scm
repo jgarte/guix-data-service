@@ -49,6 +49,7 @@
   #:use-module (guix-data-service model location)
   #:use-module (guix-data-service model package-metadata)
   #:use-module (guix-data-service model derivation)
+  #:use-module (guix-data-service model system-test)
   #:export (log-for-job
             count-log-parts
             combine-log-parts!
@@ -235,6 +236,36 @@ WHERE job_id = $1"
          (simple-format #t "debug: Finished aquiring lock ~A, took ~A seconds\n"
                         lock time-taken))
        (f)))))
+
+(define (all-inferior-system-tests inf store)
+  (define extract
+    '(lambda (store)
+       (map
+        (lambda (system-test)
+          (list (system-test-name system-test)
+                (system-test-description system-test)
+                (derivation-file-name
+                 (run-with-store store
+                   (mbegin %store-monad
+                     (system-test-value system-test))))
+                (match (system-test-location system-test)
+                  (($ <location> file line column)
+                   (list file
+                         line
+                         column)))))
+        (all-system-tests))))
+
+  (let ((system-test-data
+         (log-time
+          "getting system tests"
+          (lambda ()
+            (inferior-eval-with-store inf store extract)))))
+
+    (for-each (lambda (derivation-file-name)
+                (add-temp-root store derivation-file-name))
+              (map third system-test-data))
+
+    system-test-data))
 
 (define (all-inferior-lint-warnings inf store)
   (define locales
@@ -883,7 +914,8 @@ WHERE job_id = $1"
       (inferior-eval '(use-modules (srfi srfi-1)
                                    (srfi srfi-34)
                                    (guix grafts)
-                                   (guix derivations))
+                                   (guix derivations)
+                                   (gnu tests))
                      inf)
       (inferior-eval '(when (defined? '%graft?) (%graft? #f)) inf)
 
@@ -905,7 +937,12 @@ WHERE job_id = $1"
                   (log-time
                    "getting inferior derivations"
                    (lambda ()
-                     (all-inferior-package-derivations store inf packages)))))
+                     (all-inferior-package-derivations store inf packages))))
+                 (inferior-system-tests
+                  (log-time
+                   "getting inferior system tests"
+                   (lambda ()
+                     (all-inferior-system-tests inf store)))))
 
             (log-time
              "acquiring advisory transaction lock: load-new-guix-revision-inserts"
@@ -914,7 +951,6 @@ WHERE job_id = $1"
                ;; avoid any concurrency issues
                (obtain-advisory-transaction-lock conn
                                                  'load-new-guix-revision-inserts)))
-
             (let* ((package-ids
                     (insert-packages conn inf packages))
                    (inferior-package-id->package-database-id
@@ -956,6 +992,11 @@ WHERE job_id = $1"
                   (insert-guix-revision-lint-warnings conn
                                                       guix-revision-id
                                                       lint-warning-ids)))
+
+              (insert-system-tests-for-guix-revision conn
+                                                     guix-revision-id
+                                                     inferior-system-tests)
+
               (let ((package-derivation-ids
                      (log-time
                       "inferior-data->package-derivation-ids"
