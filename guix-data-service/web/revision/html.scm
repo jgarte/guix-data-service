@@ -35,6 +35,7 @@
             view-revision-packages
             view-revision-derivations
             view-revision-derivation-outputs
+            view-revision-system-tests
             view-revision-builds
             view-revision-lint-warnings
             unknown-revision))
@@ -647,6 +648,80 @@
                                        (car (last packages)))))
                   "Next page")))
             '())))))
+
+(define* (view-revision-system-tests commit-hash
+                                     system-tests
+                                     git-repositories
+                                     #:key (path-base "/revision/")
+                                     header-text header-link)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h3 (a (@ (style "white-space: nowrap;")
+                  (href ,header-link))
+               ,@header-text))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (h1 "System tests")
+        (table
+         (@ (class "table"))
+         (thead
+          (tr
+           (th "Name")
+           (th "Description")
+           (th "Location")
+           (th "Derivation")
+           (th "Build status")))
+         (tbody
+          ,@(map
+             (match-lambda
+               ((name description
+                      file line column-number
+                      derivation-file-name
+                      builds)
+                `(tr
+                  (td ,name)
+                  (td
+                   ,(stexi->shtml
+                     (texi-fragment->stexi description)))
+                  (td ,@(map
+                         (match-lambda
+                           ((id label url cgit-url-base)
+                            (if
+                             (and cgit-url-base
+                                  (not (string-null? cgit-url-base)))
+                             `(a (@ (href
+                                     ,(string-append
+                                       cgit-url-base "tree/"
+                                       file "?id=" commit-hash
+                                       "#n" (number->string line))))
+                                 ,file
+                                 " (line: " ,line
+                                 ", column: " ,column-number ")")
+                             '())))
+                         git-repositories))
+                  (td (a (@ (href ,derivation-file-name))
+                         ,(display-store-item-short derivation-file-name)))
+                  (td ,@(map
+                         (lambda (build)
+                           (let ((build-server-id
+                                  (assoc-ref build "build_server_id")))
+                             `(a (@ (href
+                                     ,(simple-format
+                                       #f "/build-server/~A/build?derivation_file_name=~A"
+                                       build-server-id
+                                       derivation-file-name)))
+                                 ,(build-status-alist->build-icon build))))
+                         (peek builds))))))
+             system-tests)))))))))
 
 (define* (view-revision-package-reproducibility revision-commit-hash
                                                 output-consistency)

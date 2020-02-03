@@ -43,6 +43,7 @@
   #:use-module (guix-data-service model lint-checker)
   #:use-module (guix-data-service model lint-warning)
   #:use-module (guix-data-service model guix-revision)
+  #:use-module (guix-data-service model system-test)
   #:use-module (guix-data-service model nar)
   #:use-module (guix-data-service web revision html)
   #:export (revision-controller
@@ -215,6 +216,15 @@
          (render-unknown-revision mime-types
                                   conn
                                   commit-hash)))
+    (('GET "revision" commit-hash "system-tests")
+     (if (guix-commit-exists? conn commit-hash)
+         (render-revision-system-tests mime-types
+                                       conn
+                                       commit-hash
+                                       #:path-base path)
+         (render-unknown-revision mime-types
+                                  conn
+                                  commit-hash)))
     (('GET "revision" commit-hash "package-reproducibility")
      (if (guix-commit-exists? conn commit-hash)
          (render-revision-package-reproduciblity mime-types
@@ -339,6 +349,34 @@
                 #:path-base path-base
                 #:header-text header-text)
         #:extra-headers http-headers-for-unchanging-content)))))
+
+(define* (render-revision-system-tests mime-types
+                                       conn
+                                       commit-hash
+                                       #:key
+                                       (path-base "/revision/")
+                                       (header-text
+                                        `("Revision " (samp ,commit-hash)))
+                                       (header-link
+                                        (string-append "/revision/" commit-hash)))
+  (let ((system-tests
+         (select-system-tests-for-guix-revision conn commit-hash)))
+    (case (most-appropriate-mime-type
+           '(application/json text/html)
+           mime-types)
+      ((application/json)
+       (render-json
+        '()))                           ; TODO
+      (else
+       (render-html
+        #:sxml (view-revision-system-tests
+                commit-hash
+                system-tests
+                (git-repositories-containing-commit conn
+                                                    commit-hash)
+                #:path-base path-base
+                #:header-text header-text
+                #:header-link header-link))))))
 
 (define* (render-revision-package-reproduciblity mime-types
                                                  conn
