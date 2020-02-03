@@ -467,6 +467,23 @@ WHERE NOT EXISTS (
           (string-join (map quote-string revision-commits) ",")
           ")"))
      "
+  UNION ALL
+  SELECT derivations_by_output_details_set.derivation_output_details_set_id
+  FROM guix_revision_system_test_derivations
+  INNER JOIN derivations_by_output_details_set
+    ON guix_revision_system_test_derivations.derivation_id =
+       derivations_by_output_details_set.derivation_id
+  INNER JOIN guix_revisions
+    ON guix_revisions.id = guix_revision_system_test_derivations.guix_revision_id
+"
+     (if (null? revision-commits)
+         ""
+         (string-append
+          "
+  WHERE guix_revisions.commit IN ("
+         (string-join (map quote-string revision-commits) ",")
+         ")"))
+     "
 )
 ORDER BY derivation_output_details_sets.id, derivation_output_details.id
 LIMIT 15000"))
