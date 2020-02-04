@@ -120,7 +120,8 @@
           data
           #:key
           sets-of-data?
-          delete-duplicates?)
+          delete-duplicates?
+          use-temporary-table?)
   (define field-strings
     (map symbol->string fields))
 
@@ -177,7 +178,28 @@
            field-strings)
       " AND ")))
 
-  (define (insert-sql missing-data)
+  (define (temp-table-select-query temp-table-name)
+    (string-append
+     "SELECT " table-name ".id, "
+     (string-join (map (lambda (field)
+                         (string-append table-name "." field))
+                       field-strings)
+                  ", ")
+     " FROM " table-name
+     " INNER JOIN " temp-table-name
+     " ON "
+     (string-join
+      (map (lambda (field)
+             (string-append
+              "(" table-name "." field " = " temp-table-name "." field
+              " OR (" table-name "." field " IS NULL AND"
+              " " temp-table-name "." field " IS NULL))"))
+           field-strings)
+      " AND ")))
+
+  (define* (insert-sql missing-data
+                       #:key
+                       (table-name table-name))
     (string-append
      "INSERT INTO " table-name " ("
      (string-join field-strings ", ")
@@ -226,12 +248,66 @@
             (error (simple-format #f "normalise-values: error: ~A\n" unknown))))
          data))
 
+  (define (log-time action f)
+    (simple-format #t "debug: Starting ~A\n" action)
+    (let* ((start-time (current-time))
+           (result (f))
+           (time-taken (- (current-time) start-time)))
+      (simple-format #t "debug: Finished ~A, took ~A seconds\n"
+                     action time-taken)
+      result))
+
   (let* ((existing-entries
-          (exec-query->vhash conn
-                             select-query
-                             cdr
-                             (lambda (result)
-                               (string->number (first result)))))
+          (if use-temporary-table?
+              (let ((temp-table-name
+                     (string-append "temp_" table-name))
+                    (data
+                     (if sets-of-data?
+                         (delete-duplicates (concatenate data))
+                         (if delete-duplicates?
+                             (delete-duplicates data)
+                             data))))
+                ;; Create a temporary table to store the data
+                (exec-query
+                 conn
+                 (string-append "CREATE TEMPORARY TABLE "
+                                temp-table-name
+                                " (LIKE "
+                                table-name
+                                " INCLUDING ALL)"))
+                (exec-query
+                 conn
+                 (string-append
+                  "ANALYZE " temp-table-name))
+
+                ;; Populate the temporary table
+                (log-time
+                 (string-append "populating " temp-table-name)
+                 (lambda ()
+                   (exec-query conn
+                               (insert-sql data
+                                           #:table-name temp-table-name))))
+                ;; Use the temporary table to find the existing values
+                (let ((result
+                       (log-time
+                        (string-append "querying the " temp-table-name)
+                        (lambda ()
+                          (exec-query->vhash
+                           conn
+                           (temp-table-select-query temp-table-name)
+                           cdr
+                           (lambda (result)
+                             (string->number (first result))))))))
+
+                  (exec-query conn (string-append "DROP TABLE " temp-table-name))
+                  result))
+
+              ;; If not using a temporary table, just do a single SELECT query
+              (exec-query->vhash conn
+                                 select-query
+                                 cdr
+                                 (lambda (result)
+                                   (string->number (first result))))))
          (missing-entries
           (filter (lambda (field-values)
                     (not (vhash-assoc
