@@ -179,4 +179,7 @@ WHERE packages.id IN (
    ;; you have one package definition which interits from another, and just
    ;; overrides the version and the source, the package_metadata entries for
    ;; both definitions will be the same.
-   #:delete-duplicates? #t))
+   #:delete-duplicates? #t
+   ;; There is so much package metadata that it's worth creating a temporary
+   ;; table
+   #:use-temporary-table? #t))
