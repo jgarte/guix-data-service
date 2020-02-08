@@ -25,6 +25,9 @@
   #:use-module (guix-data-service jobs load-new-guix-revision)
   #:export (enqueue-job-for-email))
 
+(define commit-all-zeros
+  "0000000000000000000000000000000000000000")
+
 (define (enqueue-job-for-email conn email)
   (let* ((headers       (email-headers email))
          (date          (assq-ref headers 'date))
@@ -58,17 +61,17 @@
                              included-branch?))
                 (insert-git-branch-entry conn
                                          branch-name
-                                         (if (string=? "0000000000000000000000000000000000000000"
+                                         (if (string=? commit-all-zeros
                                                        x-git-newrev)
                                              ""
                                              x-git-newrev)
                                          git-repository-id
                                          date)
 
-                (unless (string=? "0000000000000000000000000000000000000000"
-                                  x-git-newrev)
+                (unless (string=? commit-all-zeros x-git-newrev)
                   (enqueue-load-new-guix-revision-job
                    conn
                    git-repository-id
                    x-git-newrev
-                   (string-append x-git-repo " " x-git-refname " updated")))))))))))
+                   (string-append x-git-repo " "
+                                  x-git-refname " updated")))))))))))
