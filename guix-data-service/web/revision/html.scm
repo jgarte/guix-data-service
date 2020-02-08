@@ -967,6 +967,7 @@ figure {
 (define* (view-revision-derivations commit-hash
                                     query-parameters
                                     valid-systems
+                                    valid-targets
                                     derivations
                                     build-server-urls
                                     show-next-page?
@@ -1007,7 +1008,7 @@ figure {
             #:font-family "monospace")
           ,(form-horizontal-control
             "Target" query-parameters
-            #:options valid-systems
+            #:options valid-targets
             #:help-text "Only include derivations that are build for this system."
             #:font-family "monospace")
           ,(form-horizontal-control
@@ -1096,6 +1097,7 @@ figure {
                                            derivation-outputs
                                            build-server-urls
                                            valid-systems
+                                           valid-targets
                                            show-next-page?
                                            #:key (path-base "/revision/")
                                            header-text
@@ -1144,7 +1146,7 @@ figure {
             #:font-family "monospace")
           ,(form-horizontal-control
             "Target" query-parameters
-            #:options valid-systems
+            #:options valid-targets
             #:allow-selecting-multiple-options #f
             #:help-text "Only include outputs from derivations that are build for this system."
             #:font-family "monospace")

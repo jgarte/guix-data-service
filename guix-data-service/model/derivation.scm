@@ -34,6 +34,7 @@
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service model utils)
   #:export (valid-systems
+            valid-targets
             count-derivations
             select-derivation-by-file-name
             select-derivation-by-file-name-hash
@@ -65,6 +66,14 @@
     "i686-linux"
     "mips64el-linux"
     "x86_64-linux"))
+
+(define (valid-targets conn)
+  '("" ;; no target
+    "arm-linux-gnueabihf"
+    "aarch64-linux-gnu"
+    "powerpc-linux-gnu"
+    "riscv64-linux-gnu"
+    "i586-pc-gnu"))
 
 (define (count-derivations conn)
   (first

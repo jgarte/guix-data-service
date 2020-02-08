@@ -327,6 +327,7 @@
                                          branch-name
                                          package-name
                                          valid-systems
+                                         valid-targets
                                          build-server-urls
                                          derivations-by-revision-range)
   (define versions-list
@@ -383,7 +384,7 @@
            #:help-text "Show derivations with this system.")
          ,(form-horizontal-control
            "Target" query-parameters
-           #:options valid-systems
+           #:options valid-targets
            #:allow-selecting-multiple-options #f
            #:help-text "Show derivations with this target.")
          (div (@ (class "form-group form-group-lg"))

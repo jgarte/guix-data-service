@@ -384,21 +384,37 @@ WHERE job_id = $1"
   (define inferior-%supported-systems
     (inferior-eval '(@ (guix packages) %supported-systems) inf))
 
+  (define cross-derivations
+    `(("x86_64-linux" . ("arm-linux-gnueabihf"
+                         "aarch64-linux-gnu"
+                         "powerpc-linux-gnu"
+                         "riscv64-linux-gnu"
+                         "i586-pc-gnu"))))
+
   (define supported-system-pairs
     (map (lambda (system)
-           (cons system system))
+           (cons system #f))
          inferior-%supported-systems))
 
   (define supported-system-cross-build-pairs
-    (map (lambda (system)
-           (filter-map (lambda (target)
-                         (and (not (string=? system target))
-                              (cons system target)))
-                       inferior-%supported-systems))
-         inferior-%supported-systems))
+    (append-map
+     (match-lambda
+       ((system . targets)
+        (list
+         (map (lambda (target)
+                (cons system target))
+              targets))))
+     cross-derivations))
 
   (define (proc packages system-target-pairs)
     `(lambda (store)
+       (define target-system-alist
+         '(("arm-linux-gnueabihf" . "armhf-linux")
+           ("aarch64-linux-gnu" . "aarch64-linux")
+           ("powerpc-linux-gnu" . "")   ; TODO I don't know?
+           ("riscv64-linux-gnu" . "")   ; TODO I don't know?
+           ("i586-pc-gnu" . "i586-gnu")))
+
        (define package-transitive-supported-systems-supports-multiple-arguments? #t)
 
        (define (get-supported-systems package system)
@@ -441,11 +457,11 @@ WHERE job_id = $1"
                      target
                      (let ((file-name
                             (derivation-file-name
-                             (if (string=? system target)
-                                 (package-derivation store package system)
+                             (if target
                                  (package-cross-derivation store package
                                                            target
-                                                           system)))))
+                                                           system)
+                                 (package-derivation store package system)))))
                        (add-temp-root store file-name)
                        file-name))))
            (lambda args
@@ -470,9 +486,16 @@ WHERE job_id = $1"
                                                                package
                                                                system
                                                                target))
-                          (lset-intersection
-                           string=?
-                           supported-systems
+                          (filter
+                           (match-lambda
+                             (#f #t)  ; No target
+                             (target
+                              (let ((system-for-target
+                                     (assoc-ref target-system-alist
+                                                target)))
+                                (member system-for-target
+                                        supported-systems
+                                        string=?))))
                            (list ,@(map cdr system-target-pairs))))
                          '())))
                  (delete-duplicates
@@ -639,7 +662,7 @@ WHERE job_id = $1"
              (list (inferior-package-id->package-database-id
                     inferior-package-id)
                    system
-                   target)))
+                   (or target ""))))
           inferior-data-4-tuples)))
 
 
