@@ -16,6 +16,8 @@
 ;;; <http://www.gnu.org/licenses/>.
 
 (define-module (guix-data-service branch-updated-emails)
+  #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-19)
   #:use-module (email email)
   #:use-module (guix-data-service model git-repository)
@@ -42,19 +44,31 @@
               x-git-repo)))
 
         (when git-repository-id
-          (insert-git-branch-entry conn
-                                   branch-name
-                                   (if (string=? "0000000000000000000000000000000000000000"
-                                                 x-git-newrev)
-                                       ""
-                                       x-git-newrev)
-                                   git-repository-id
-                                   date)
+          (let-values
+              (((included-branches excluded-branches)
+                (select-includes-and-excluded-branches-for-git-repository
+                 conn
+                 git-repository-id)))
+            (let ((excluded-branch?
+                   (member branch-name excluded-branches string=?))
+                  (included-branch?
+                   (member branch-name included-branches string=?)))
+              (when (and (not excluded-branch?)
+                         (or (null? included-branches)
+                             included-branch?))
+                (insert-git-branch-entry conn
+                                         branch-name
+                                         (if (string=? "0000000000000000000000000000000000000000"
+                                                       x-git-newrev)
+                                             ""
+                                             x-git-newrev)
+                                         git-repository-id
+                                         date)
 
-          (unless (string=? "0000000000000000000000000000000000000000"
-                            x-git-newrev)
-            (enqueue-load-new-guix-revision-job
-             conn
-             git-repository-id
-             x-git-newrev
-             (string-append x-git-repo " " x-git-refname " updated"))))))))
+                (unless (string=? "0000000000000000000000000000000000000000"
+                                  x-git-newrev)
+                  (enqueue-load-new-guix-revision-job
+                   conn
+                   git-repository-id
+                   x-git-newrev
+                   (string-append x-git-repo " " x-git-refname " updated")))))))))))

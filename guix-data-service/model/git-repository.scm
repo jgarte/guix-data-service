@@ -19,9 +19,11 @@
   #:use-module (ice-9 match)
   #:use-module (json)
   #:use-module (squee)
+  #:use-module (guix-data-service model utils)
   #:export (all-git-repositories
             select-git-repository
             git-repository-id->url
+            select-includes-and-excluded-branches-for-git-repository
             count-git-repositories-with-x-git-repo-header-values
             git-repository-x-git-repo-header->git-repository-id
             git-repository-url->git-repository-id
@@ -60,6 +62,22 @@
         "SELECT url FROM git_repositories WHERE id = $1;")
        (list id))
     (((url)) url)))
+
+(define (select-includes-and-excluded-branches-for-git-repository conn id)
+  (match (exec-query
+          conn
+          "
+SELECT included_branches, excluded_branches
+FROM git_repositories WHERE id = $1"
+          (list (number->string id)))
+    (((included_branches excluded_branches))
+     (values
+      (if (string=? included_branches "")
+          '()
+          (parse-postgresql-array-string included_branches))
+      (if (string=? excluded_branches "")
+          '()
+          (parse-postgresql-array-string excluded_branches))))))
 
 (define (count-git-repositories-with-x-git-repo-header-values conn)
   (match (exec-query

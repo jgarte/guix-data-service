@@ -48,3 +48,4 @@ change_package_derivations_target 2020-02-07T19:29:50Z Christopher Baines <mail@
 remove_old_cross_derivations 2020-02-07T19:42:54Z Christopher Baines <mail@cbaines.net> # Remove old cross derivations
 increase_fillfactor_for_some_indexes 2020-02-07T20:49:17Z Christopher Baines <mail@cbaines.net> # Increase the fillfactor for some btree indexes
 change_package_derivations_by_guix_revision_range_target 2020-02-08T10:13:07Z Christopher Baines <mail@cbaines.net> # Change the values for package_derivations_by_guix_revision_range target
+allow_including_and_excluding_branches_for_repositories 2020-02-08T11:30:02Z Christopher Baines <mail@cbaines.net> # Allow including and excluding branches for repositories
