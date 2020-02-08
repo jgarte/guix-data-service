@@ -720,7 +720,7 @@
                                        build-server-id
                                        derivation-file-name)))
                                  ,(build-status-alist->build-icon build))))
-                         (peek builds))))))
+                         builds)))))
              system-tests)))))))))
 
 (define* (view-revision-package-reproducibility revision-commit-hash
