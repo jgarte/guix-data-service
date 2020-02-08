@@ -59,6 +59,6 @@ WHERE package_derivations.id IN (
  WHERE guix_revisions.commit = $1
 )
 GROUP BY package_derivations.system, package_derivations.target
-ORDER BY package_derivations.system DESC, package_derivations.target DESC")
+ORDER BY package_derivations.system DESC, package_derivations.target ASC")
 
   (exec-query conn query (list commit-hash)))
