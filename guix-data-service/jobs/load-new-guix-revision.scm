@@ -719,6 +719,24 @@ WHERE job_id = $1"
                            'open-inferior/container
                            (resolve-module '(guix inferior))))
 
+  (define inferior-code
+    `(lambda (store)
+       (let ((instances
+              (list
+               (channel-instance
+                (channel (name ',(channel-name channel))
+                         (url    ,(channel-url channel))
+                         (branch ,(channel-branch channel))
+                         (commit ,(channel-commit channel)))
+                ,(channel-instance-commit channel-instance)
+                ,(channel-instance-checkout channel-instance)))))
+         (run-with-store store
+           (mlet* %store-monad ((manifest (channel-instances->manifest
+                                           instances))
+                                (derv (profile-derivation manifest)))
+             (mbegin %store-monad
+               (return (derivation-file-name derv))))))))
+
   (define (start-inferior-and-return-derivation-file-names)
     ;; /etc is only missing if open-inferior/container has been used
     (when use-container?
@@ -745,30 +763,15 @@ WHERE job_id = $1"
                         (@@ (guix channels) channel-instance))
                      inferior)
 
-      (let ((file-name
+      (let ((result
              (inferior-eval-with-store
               inferior
               store
-              `(lambda (store)
-                 (let ((instances
-                        (list
-                         (channel-instance
-                          (channel (name ',(channel-name channel))
-                                   (url    ,(channel-url channel))
-                                   (branch ,(channel-branch channel))
-                                   (commit ,(channel-commit channel)))
-                          ,(channel-instance-commit channel-instance)
-                          ,(channel-instance-checkout channel-instance)))))
-                   (run-with-store store
-                     (mlet* %store-monad ((manifest (channel-instances->manifest
-                                                     instances))
-                                          (derv (profile-derivation manifest)))
-                       (mbegin %store-monad
-                         (return (derivation-file-name derv))))))))))
+              inferior-code)))
 
         (close-inferior inferior)
 
-        file-name)))
+        result)))
 
   (let ((inferior
          (if use-container?
