@@ -719,6 +719,57 @@ WHERE job_id = $1"
                            'open-inferior/container
                            (resolve-module '(guix inferior))))
 
+  (define (start-inferior-and-return-derivation-file-names)
+    ;; /etc is only missing if open-inferior/container has been used
+    (when use-container?
+      (inferior-eval
+       '(begin
+          ;; Create /etc/pass, as %known-shorthand-profiles in (guix
+          ;; profiles) tries to read from this file. Because the environment
+          ;; is cleaned in build-self.scm, xdg-directory in (guix utils)
+          ;; falls back to accessing /etc/passwd.
+          (mkdir "/etc")
+          (call-with-output-file "/etc/passwd"
+            (lambda (port)
+              (display "root:x:0:0::/root:/bin/bash" port))))
+       inferior))
+
+    (let ((channel-instance
+           (first
+            (latest-channel-instances store
+                                      (list channel)))))
+      (inferior-eval '(use-modules (guix channels)
+                                   (guix profiles))
+                     inferior)
+      (inferior-eval '(define channel-instance
+                        (@@ (guix channels) channel-instance))
+                     inferior)
+
+      (let ((file-name
+             (inferior-eval-with-store
+              inferior
+              store
+              `(lambda (store)
+                 (let ((instances
+                        (list
+                         (channel-instance
+                          (channel (name ',(channel-name channel))
+                                   (url    ,(channel-url channel))
+                                   (branch ,(channel-branch channel))
+                                   (commit ,(channel-commit channel)))
+                          ,(channel-instance-commit channel-instance)
+                          ,(channel-instance-checkout channel-instance)))))
+                   (run-with-store store
+                     (mlet* %store-monad ((manifest (channel-instances->manifest
+                                                     instances))
+                                          (derv (profile-derivation manifest)))
+                       (mbegin %store-monad
+                         (return (derivation-file-name derv))))))))))
+
+        (close-inferior inferior)
+
+        file-name)))
+
   (let ((inferior
          (if use-container?
              (open-inferior/container
@@ -738,55 +789,7 @@ WHERE job_id = $1"
       #t
       (lambda ()
         (with-throw-handler #t
-          (lambda ()
-            ;; /etc is only missing if open-inferior/container has been used
-            (when use-container?
-              (inferior-eval
-               '(begin
-                  ;; Create /etc/pass, as %known-shorthand-profiles in (guix
-                  ;; profiles) tries to read from this file. Because the environment
-                  ;; is cleaned in build-self.scm, xdg-directory in (guix utils)
-                  ;; falls back to accessing /etc/passwd.
-                  (mkdir "/etc")
-                  (call-with-output-file "/etc/passwd"
-                    (lambda (port)
-                      (display "root:x:0:0::/root:/bin/bash" port))))
-               inferior))
-
-            (let ((channel-instance
-                   (first
-                    (latest-channel-instances store
-                                              (list channel)))))
-              (inferior-eval '(use-modules (guix channels)
-                                           (guix profiles))
-                             inferior)
-              (inferior-eval '(define channel-instance
-                                (@@ (guix channels) channel-instance))
-                             inferior)
-
-              (let ((file-name
-                     (inferior-eval-with-store
-                      inferior
-                      store
-                      `(lambda (store)
-                         (let ((instances
-                                (list
-                                 (channel-instance
-                                  (channel (name ',(channel-name channel))
-                                           (url    ,(channel-url channel))
-                                           (branch ,(channel-branch channel))
-                                           (commit ,(channel-commit channel)))
-                                  ,(channel-instance-commit channel-instance)
-                                  ,(channel-instance-checkout channel-instance)))))
-                           (run-with-store store
-                             (mlet* %store-monad ((manifest (channel-instances->manifest instances))
-                                                  (derv (profile-derivation manifest)))
-                               (mbegin %store-monad
-                                 (return (derivation-file-name derv))))))))))
-
-                (close-inferior inferior)
-
-                file-name)))
+          start-inferior-and-return-derivation-file-names
           (lambda (key . parameters)
             (display (backtrace) (current-error-port))
             (display "\n" (current-error-port))
