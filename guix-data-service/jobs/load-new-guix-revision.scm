@@ -884,16 +884,18 @@ WHERE job_id = $1"
        (build-derivations store (list derivation))))
     (derivation->output-path derivation)))
 
-(define (channel->guix-store-item conn store channel)
+(define (channel->guix-store-item conn channel)
   (catch
     #t
     (lambda ()
-      (dirname
-       (readlink
-        (string-append (channel->manifest-store-item conn
-                                                     store
-                                                     channel)
-                       "/bin"))))
+      (with-store store
+        (set-build-options store #:fallback? #t)
+        (dirname
+         (readlink
+          (string-append (channel->manifest-store-item conn
+                                                       store
+                                                       channel)
+                         "/bin")))))
     (lambda args
       (simple-format #t "guix-data-service: load-new-guix-revision: error: ~A\n" args)
       #f)))
@@ -1177,13 +1179,6 @@ ORDER BY packages.name, packages.version"
 
   #t)
 
-(define (store-item-for-channel conn channel)
-  (with-store store
-    (set-build-options store #:fallback? #t)
-    (channel->guix-store-item conn
-                              store
-                              channel)))
-
 (define (load-new-guix-revision conn git-repository-id commit)
   (let* ((channel-for-commit
           (channel (name 'guix)
@@ -1192,7 +1187,7 @@ ORDER BY packages.name, packages.version"
                          git-repository-id))
                    (commit commit)))
          (store-item
-          (store-item-for-channel conn channel-for-commit)))
+          (channel->guix-store-item conn channel-for-commit)))
     (if store-item
         (let ((guix-revision-id
                (insert-guix-revision conn git-repository-id
