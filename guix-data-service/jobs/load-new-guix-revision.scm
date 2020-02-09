@@ -1135,18 +1135,21 @@ ORDER BY packages.name, packages.version"
                                      commit store-item)))
           (and
            guix-revision-id
+           (extract-information-from conn guix-revision-id
+                                     commit store-item)
            (if (defined? 'channel-news-for-commit
                  (resolve-module '(guix channels)))
-               (insert-channel-news-entries-for-guix-revision
-                conn
-                guix-revision-id
-                (channel-news-for-commit channel-for-commit commit))
+               (log-time
+                "inserting channel news entries"
+                (lambda ()
+                  (insert-channel-news-entries-for-guix-revision
+                   conn
+                   guix-revision-id
+                   (channel-news-for-commit channel-for-commit commit))))
                (begin
                  (simple-format #t "debug: importing channel news not supported\n")
                  #t))
 
-           (extract-information-from conn guix-revision-id
-                                     commit store-item)
            (update-package-versions-table conn git-repository-id commit)
            (update-package-derivations-table conn
                                              git-repository-id
