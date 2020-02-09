@@ -714,7 +714,7 @@ WHERE job_id = $1"
        (build-derivations store (list derivation))))
     (derivation->output-path derivation)))
 
-(define (channel->derivation-file-names-by-system store channel)
+(define (channel->derivation-file-names-by-system channel)
   (define use-container? (defined?
                            'open-inferior/container
                            (resolve-module '(guix inferior))))
@@ -732,128 +732,130 @@ WHERE job_id = $1"
                  ,(channel-instance-checkout channel-instance)))))
          (map
           (lambda (system)
-            (log-time
-             (simple-format
-              #f "computing the derivation-file-name for ~A"
-              system)
-             (lambda ()
-               (with-store store
-                 ((set-current-system system) store)
-                 (let ((manifest
-                        (catch #t
-                          (lambda ()
-                            ((channel-instances->manifest instances) store))
-                          (lambda (key . args)
-                            (simple-format
-                             (current-error-port)
-                             "error: while computing manifest entry derivation for ~A\n"
-                             system)
-                            (simple-format
-                             (current-error-port)
-                             "error ~A: ~A\n" key args)
-                            #f))))
-                   `(,system
-                     .
-                     ((manifest-entry-item
-                       . ,(and manifest
-                               (derivation-file-name
-                                (manifest-entry-item
-                                 (first
-                                  (manifest-entries manifest))))))
-                      (profile
-                       . ,(catch #t
-                            (lambda ()
-                              (and manifest
-                                   (derivation-file-name
-                                    (run-with-store store
-                                      (profile-derivation
-                                       manifest
-                                       #:hooks %channel-profile-hooks)))))
-                            (lambda (key . args)
-                              (simple-format
-                               (current-error-port)
-                               "error: while computing profile derivation for ~A\n"
-                               system)
-                              (simple-format
-                               (current-error-port)
-                               "error ~A: ~A\n" key args)
-                              #f))))))))))
+            (simple-format
+             (current-error-port)
+             "guix-data-service: computing the derivation-file-name for ~A\n"
+             system)
+
+            ((set-current-system system) store)
+            (let ((manifest
+                   (catch #t
+                     (lambda ()
+                       ((channel-instances->manifest instances) store))
+                     (lambda (key . args)
+                       (simple-format
+                        (current-error-port)
+                        "error: while computing manifest entry derivation for ~A\n"
+                        system)
+                       (simple-format
+                        (current-error-port)
+                        "error ~A: ~A\n" key args)
+                       #f))))
+              `(,system
+                .
+                ((manifest-entry-item
+                  . ,(and manifest
+                          (derivation-file-name
+                           (manifest-entry-item
+                            (first
+                             (manifest-entries manifest))))))
+                 (profile
+                  . ,(catch #t
+                       (lambda ()
+                         (and manifest
+                              (derivation-file-name
+                               (run-with-store store
+                                 (profile-derivation
+                                  manifest
+                                  #:hooks %channel-profile-hooks)))))
+                       (lambda (key . args)
+                         (simple-format
+                          (current-error-port)
+                          "error: while computing profile derivation for ~A\n"
+                          system)
+                         (simple-format
+                          (current-error-port)
+                          "error ~A: ~A\n" key args)
+                         #f)))))))
           (list ,@systems)))))
 
-  (let ((inferior
-         (if use-container?
-             (open-inferior/container
-              store
-              (guix-store-path store)
-              #:extra-shared-directories
-              '("/gnu/store")
-              #:extra-environment-variables
-              (list (string-append
-                     "SSL_CERT_DIR=" (nss-certs-store-path store))))
-             (begin
-               (simple-format #t "debug: using open-inferior\n")
-               (open-inferior (guix-store-path store)
-                              #:error-port (real-error-port))))))
+  (with-store store
+    (set-build-options store #:fallback? #t)
 
-    (define (start-inferior-and-return-derivation-file-names)
-      ;; /etc is only missing if open-inferior/container has been used
-      (when use-container?
-        (inferior-eval
-         '(begin
-            ;; Create /etc/pass, as %known-shorthand-profiles in (guix
-            ;; profiles) tries to read from this file. Because the environment
-            ;; is cleaned in build-self.scm, xdg-directory in (guix utils)
-            ;; falls back to accessing /etc/passwd.
-            (mkdir "/etc")
-            (call-with-output-file "/etc/passwd"
-              (lambda (port)
-                (display "root:x:0:0::/root:/bin/bash" port))))
-         inferior))
+    (let ((inferior
+           (if use-container?
+               (open-inferior/container
+                store
+                (guix-store-path store)
+                #:extra-shared-directories
+                '("/gnu/store")
+                #:extra-environment-variables
+                (list (string-append
+                       "SSL_CERT_DIR=" (nss-certs-store-path store))))
+               (begin
+                 (simple-format #t "debug: using open-inferior\n")
+                 (open-inferior (guix-store-path store)
+                                #:error-port (real-error-port))))))
 
-      (let ((channel-instance
-             (first
-              (latest-channel-instances store
-                                        (list channel)))))
-        (inferior-eval '(use-modules (srfi srfi-1)
-                                     (guix channels)
-                                     (guix grafts)
-                                     (guix profiles))
-                       inferior)
-        (inferior-eval '(when (defined? '%graft?) (%graft? #f))
-                       inferior)
-        (inferior-eval '(define channel-instance
-                          (@@ (guix channels) channel-instance))
-                       inferior)
+      (define (start-inferior-and-return-derivation-file-names)
+        ;; /etc is only missing if open-inferior/container has been used
+        (when use-container?
+          (inferior-eval
+           '(begin
+              ;; Create /etc/pass, as %known-shorthand-profiles in (guix
+              ;; profiles) tries to read from this file. Because the environment
+              ;; is cleaned in build-self.scm, xdg-directory in (guix utils)
+              ;; falls back to accessing /etc/passwd.
+              (mkdir "/etc")
+              (call-with-output-file "/etc/passwd"
+                (lambda (port)
+                  (display "root:x:0:0::/root:/bin/bash" port))))
+           inferior))
 
-        (let* ((systems
-                (inferior-eval '(@ (guix packages) %supported-systems)
-                               inferior))
-               (result
-                (inferior-eval-with-store
-                 inferior
-                 store
-                 (inferior-code channel-instance systems))))
+        (let ((channel-instance
+               (first
+                (latest-channel-instances store
+                                          (list channel)))))
+          (inferior-eval '(use-modules (srfi srfi-1)
+                                       (guix channels)
+                                       (guix grafts)
+                                       (guix profiles))
+                         inferior)
+          (inferior-eval '(when (defined? '%graft?) (%graft? #f))
+                         inferior)
+          (inferior-eval '(define channel-instance
+                            (@@ (guix channels) channel-instance))
+                         inferior)
 
+          (let* ((systems
+                  (inferior-eval '(@ (guix packages) %supported-systems)
+                                 inferior))
+                 (result
+                  (inferior-eval-with-store
+                   inferior
+                   store
+                   (inferior-code channel-instance systems))))
+
+            (close-inferior inferior)
+
+            result)))
+
+      (catch
+        #t
+        (lambda ()
+          (with-throw-handler #t
+            start-inferior-and-return-derivation-file-names
+            (lambda (key . parameters)
+              (display (backtrace) (current-error-port))
+              (display "\n" (current-error-port))
+              (simple-format (current-error-port)
+                             "error: channel->derivation-file-names-by-system: ~A: ~A\n"
+                             key parameters))))
+        (lambda args
           (close-inferior inferior)
+          #f)))))
 
-          result)))
-
-    (catch
-      #t
-      (lambda ()
-        (with-throw-handler #t
-          start-inferior-and-return-derivation-file-names
-          (lambda (key . parameters)
-            (display (backtrace) (current-error-port))
-            (display "\n" (current-error-port))
-            (simple-format (current-error-port)
-                           "error: channel->derivation-file-names-by-system: ~A: ~A\n"
-                           key parameters))))
-      (lambda args
-        (close-inferior inferior)
-        #f))))
-
-(define (channel->manifest-store-item conn store channel)
+(define (channel->derivations-by-system conn channel)
   (let* ((derivation-file-names-by-system
           (log-time
            "computing the channel derivation"
@@ -864,12 +866,7 @@ WHERE job_id = $1"
               conn
               'channel->manifest-store-item
               (lambda ()
-                (channel->derivation-file-names-by-system store channel))))))
-         (derivation
-          (read-derivation-from-file (assoc-ref
-                                      (assoc-ref derivation-file-names-by-system
-                                                 (%current-system))
-                                      'profile))))
+                (channel->derivation-file-names-by-system channel)))))))
     (for-each
      (match-lambda
        ((system . derivation-file-name)
@@ -878,27 +875,36 @@ WHERE job_id = $1"
                        system
                        derivation-file-name)))
      derivation-file-names-by-system)
-    (log-time
-     "building the channel derivation"
-     (lambda ()
-       (build-derivations store (list derivation))))
-    (derivation->output-path derivation)))
 
-(define (channel->guix-store-item conn channel)
-  (catch
-    #t
-    (lambda ()
-      (with-store store
-        (set-build-options store #:fallback? #t)
-        (dirname
-         (readlink
-          (string-append (channel->manifest-store-item conn
-                                                       store
-                                                       channel)
-                         "/bin")))))
-    (lambda args
-      (simple-format #t "guix-data-service: load-new-guix-revision: error: ~A\n" args)
-      #f)))
+    derivation-file-names-by-system))
+
+(define (channel-derivations-by-system->guix-store-item
+         channel-derivations-by-system)
+
+  (define (store-item->guix-store-item filename)
+    (dirname
+     (readlink
+      (string-append filename "/bin"))))
+
+  (let ((derivation-file-name-for-current-system
+         (assoc-ref
+          (assoc-ref channel-derivations-by-system
+                     (%current-system))
+          'profile)))
+    (if derivation-file-name-for-current-system
+        (let ((derivation-for-current-system
+               (read-derivation-from-file derivation-file-name-for-current-system)))
+          (with-store store
+            (set-build-options store #:fallback? #t)
+
+            (log-time
+             "building the channel derivation"
+             (lambda ()
+               (build-derivations store (list derivation-for-current-system)))))
+
+          (store-item->guix-store-item
+           (derivation->output-path derivation-for-current-system)))
+        #f)))
 
 (define (glibc-locales-for-guix-store-path store store-path)
   (let ((inf (if (defined?
@@ -1186,8 +1192,12 @@ ORDER BY packages.name, packages.version"
                          conn
                          git-repository-id))
                    (commit commit)))
+         (channel-derivations-by-system
+          (channel->derivations-by-system conn
+                                          channel-for-commit))
          (store-item
-          (channel->guix-store-item conn channel-for-commit)))
+          (channel-derivations-by-system->guix-store-item
+           channel-derivations-by-system)))
     (if store-item
         (let ((guix-revision-id
                (insert-guix-revision conn git-repository-id
