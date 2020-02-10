@@ -24,29 +24,38 @@
      #t
      (mock
       ((guix-data-service jobs load-new-guix-revision)
-       store-item-for-channel
+       channel->derivations-by-system
        (lambda (conn channel)
-         "/gnu/store/test"))
+         '((x86_64-linux
+            .
+            ((manifest-entry-item . /gnu/store/foo.drv)
+             (profile . /gnu/store/bar.drv))))))
 
       (mock
        ((guix-data-service jobs load-new-guix-revision)
-        extract-information-from
-        (lambda (conn guix-revision-id commit store-path)
-          #t))
+        channel-derivations-by-system->guix-store-item
+        (lambda (channel-derivations-by-system)
+          "/gnu/store/test"))
 
        (mock
-        ((guix channels)
-         channel-news-for-commit
-         (lambda (channel commit)
-           '()))
+        ((guix-data-service jobs load-new-guix-revision)
+         extract-information-from
+         (lambda (conn guix-revision-id commit store-path)
+           #t))
 
-        (match (enqueue-load-new-guix-revision-job
-                conn
-                (git-repository-url->git-repository-id conn "test-url")
-                "test-commit"
-                "test-source")
-          ((id)
-           (process-load-new-guix-revision-job id)))))))
+        (mock
+         ((guix channels)
+          channel-news-for-commit
+          (lambda (channel commit)
+            '()))
+
+         (match (enqueue-load-new-guix-revision-job
+                 conn
+                 (git-repository-url->git-repository-id conn "test-url")
+                 "test-commit"
+                 "test-source")
+           ((id)
+            (process-load-new-guix-revision-job id))))))))
 
    (exec-query conn "TRUNCATE guix_revisions CASCADE")
    (exec-query conn "TRUNCATE load_new_guix_revision_jobs CASCADE")
@@ -55,17 +64,26 @@
      #f
      (mock
       ((guix-data-service jobs load-new-guix-revision)
-       store-item-for-channel
+       channel->derivations-by-system
        (lambda (conn channel)
-         #f))
+         '(x86_64-linux
+           .
+           ((manifest-entry-item . /gnu/store/foo.drv)
+            (profile . /gnu/store/bar.drv)))))
 
-      (match (enqueue-load-new-guix-revision-job
-              conn
-              (git-repository-url->git-repository-id conn "test-url")
-              "test-commit"
-              "test-source")
-        ((id)
-         (process-load-new-guix-revision-job id)))))
+      (mock
+       ((guix-data-service jobs load-new-guix-revision)
+        channel-derivations-by-system->guix-store-item
+        (lambda (channel-derivations-by-system)
+          #f))
+
+       (match (enqueue-load-new-guix-revision-job
+               conn
+               (git-repository-url->git-repository-id conn "test-url")
+               "test-commit"
+               "test-source")
+         ((id)
+          (process-load-new-guix-revision-job id))))))
 
    (exec-query conn "TRUNCATE load_new_guix_revision_jobs CASCADE")
 
@@ -73,29 +91,38 @@
      #f
      (mock
       ((guix-data-service jobs load-new-guix-revision)
-       store-item-for-channel
+       channel->derivations-by-system
        (lambda (conn channel)
-         "/gnu/store/test"))
+         '(x86_64-linux
+           .
+           ((manifest-entry-item . /gnu/store/foo.drv)
+            (profile . /gnu/store/bar.drv)))))
 
       (mock
        ((guix-data-service jobs load-new-guix-revision)
-        extract-information-from
-        (lambda (conn git-repository-id commit store-path)
-          #f))
+        channel-derivations-by-system->guix-store-item
+        (lambda (channel-derivations-by-system)
+          "/gnu/store/test"))
 
        (mock
-        ((guix channels)
-         channel-news-for-commit
-         (lambda (channel commit)
-           '()))
+        ((guix-data-service jobs load-new-guix-revision)
+         extract-information-from
+         (lambda (conn git-repository-id commit store-path)
+           #f))
 
-        (match (enqueue-load-new-guix-revision-job
-                conn
-                (git-repository-url->git-repository-id conn "test-url")
-                "test-commit"
-                "test-source")
-          ((id)
-           (process-load-new-guix-revision-job id)))))))
+        (mock
+         ((guix channels)
+          channel-news-for-commit
+          (lambda (channel commit)
+            '()))
+
+         (match (enqueue-load-new-guix-revision-job
+                 conn
+                 (git-repository-url->git-repository-id conn "test-url")
+                 "test-commit"
+                 "test-source")
+           ((id)
+            (process-load-new-guix-revision-job id))))))))
 
    (exec-query conn "TRUNCATE load_new_guix_revision_jobs CASCADE")
 
