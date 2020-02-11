@@ -34,12 +34,7 @@
                              #:key revision-commit
                              system target)
   (define criteria
-    `(,@(if revision-commit
-            ;; Ignore cross built derivations, as I'm not aware of a build server
-            ;; that builds them
-            '("package_derivations.system = package_derivations.target")
-            '())
-      ,@(if build-servers
+    `(,@(if build-servers
             (list
              (string-append
               "builds.build_server_id IN ("
