@@ -1253,6 +1253,7 @@ figure {
                               commit-hash
                               build-status-strings
                               valid-systems
+                              valid-targets
                               build-server-options
                               stats
                               builds)
@@ -1323,7 +1324,7 @@ figure {
             #:font-family "monospace")
           ,(form-horizontal-control
             "Target" query-parameters
-            #:options valid-systems
+            #:options valid-targets
             #:allow-selecting-multiple-options #f
             #:help-text "Only include derivations that are build for this system."
             #:font-family "monospace")

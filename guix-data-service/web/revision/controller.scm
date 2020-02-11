@@ -815,6 +815,7 @@
                                     commit-hash
                                     build-status-strings
                                     (valid-systems conn)
+                                    (valid-targets conn)
                                     '()
                                     '()
                                     '()))
@@ -825,6 +826,7 @@
                                       commit-hash
                                       build-status-strings
                                       (valid-systems conn)
+                                      (valid-targets conn)
                                       (map (match-lambda
                                              ((id url lookup-all-derivations)
                                               (cons url id)))
