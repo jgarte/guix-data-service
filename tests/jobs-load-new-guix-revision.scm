@@ -44,18 +44,24 @@
            #t))
 
         (mock
-         ((guix channels)
-          channel-news-for-commit
-          (lambda (channel commit)
-            '()))
+         ((guix-data-service model channel-instance)
+          insert-channel-instances
+          (lambda (conn guix-revision-id derivations-by-system)
+            #t))
 
-         (match (enqueue-load-new-guix-revision-job
-                 conn
-                 (git-repository-url->git-repository-id conn "test-url")
-                 "test-commit"
-                 "test-source")
-           ((id)
-            (process-load-new-guix-revision-job id))))))))
+         (mock
+          ((guix channels)
+           channel-news-for-commit
+           (lambda (channel commit)
+             '()))
+
+          (match (enqueue-load-new-guix-revision-job
+                  conn
+                  (git-repository-url->git-repository-id conn "test-url")
+                  "test-commit"
+                  "test-source")
+            ((id)
+             (process-load-new-guix-revision-job id)))))))))
 
    (exec-query conn "TRUNCATE guix_revisions CASCADE")
    (exec-query conn "TRUNCATE load_new_guix_revision_jobs CASCADE")

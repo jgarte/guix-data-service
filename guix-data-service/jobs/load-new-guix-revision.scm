@@ -35,6 +35,7 @@
   #:use-module (guix-data-service config)
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service model build)
+  #:use-module (guix-data-service model channel-instance)
   #:use-module (guix-data-service model channel-news)
   #:use-module (guix-data-service model package)
   #:use-module (guix-data-service model package-derivation-by-guix-revision-range)
@@ -1206,6 +1207,17 @@ ORDER BY packages.name, packages.version"
            guix-revision-id
            (extract-information-from conn guix-revision-id
                                      commit store-item)
+           (insert-channel-instances conn
+                                     guix-revision-id
+                                     (filter-map
+                                      (match-lambda
+                                        ((system . derivations)
+                                         (and=>
+                                          (assoc-ref derivations
+                                                     'manifest-entry-item)
+                                          (lambda (drv)
+                                            (cons system drv)))))
+                                      channel-derivations-by-system))
            (if (defined? 'channel-news-for-commit
                  (resolve-module '(guix channels)))
                (log-time
