@@ -274,7 +274,7 @@ FROM (
     ON narinfo_fetch_records.narinfo_signature_data_id = narinfo_signature_data.id
   WHERE derivation_output_details.hash IS NULL AND
         guix_revisions.commit = $1 AND
-        package_derivations.system = package_derivations.target -- Exclude cross builds
+        package_derivations.target = '' -- Exclude cross builds
   GROUP BY derivation_output_details.path,
            package_derivations.system,
            package_derivations.target
