@@ -737,46 +737,46 @@ WHERE job_id = $1"
              "guix-data-service: computing the derivation-file-name for ~A\n"
              system)
 
-            ((set-current-system system) store)
-            (let ((manifest
-                   (catch #t
-                     (lambda ()
-                       ((channel-instances->manifest instances) store))
-                     (lambda (key . args)
-                       (simple-format
-                        (current-error-port)
-                        "error: while computing manifest entry derivation for ~A\n"
-                        system)
-                       (simple-format
-                        (current-error-port)
-                        "error ~A: ~A\n" key args)
-                       #f))))
-              `(,system
-                .
-                ((manifest-entry-item
-                  . ,(and manifest
-                          (derivation-file-name
-                           (manifest-entry-item
-                            (first
-                             (manifest-entries manifest))))))
-                 (profile
-                  . ,(catch #t
+            (parameterize ((%current-system system))
+              (let ((manifest
+                     (catch #t
                        (lambda ()
-                         (and manifest
-                              (derivation-file-name
-                               (run-with-store store
-                                 (profile-derivation
-                                  manifest
-                                  #:hooks %channel-profile-hooks)))))
+                         ((channel-instances->manifest instances) store))
                        (lambda (key . args)
                          (simple-format
                           (current-error-port)
-                          "error: while computing profile derivation for ~A\n"
+                          "error: while computing manifest entry derivation for ~A\n"
                           system)
                          (simple-format
                           (current-error-port)
                           "error ~A: ~A\n" key args)
-                         #f)))))))
+                         #f))))
+                `(,system
+                  .
+                  ((manifest-entry-item
+                    . ,(and manifest
+                            (derivation-file-name
+                             (manifest-entry-item
+                              (first
+                               (manifest-entries manifest))))))
+                   (profile
+                    . ,(catch #t
+                         (lambda ()
+                           (and manifest
+                                (derivation-file-name
+                                 (run-with-store store
+                                   (profile-derivation
+                                    manifest
+                                    #:hooks %channel-profile-hooks)))))
+                         (lambda (key . args)
+                           (simple-format
+                            (current-error-port)
+                            "error: while computing profile derivation for ~A\n"
+                            system)
+                           (simple-format
+                            (current-error-port)
+                            "error ~A: ~A\n" key args)
+                           #f))))))))
           (list ,@systems)))))
 
   (with-store store
