@@ -34,6 +34,7 @@
   #:use-module (guix-data-service model build-server)
   #:use-module (guix-data-service model build-status)
   #:use-module (guix-data-service model channel-news)
+  #:use-module (guix-data-service model channel-instance)
   #:use-module (guix-data-service model package)
   #:use-module (guix-data-service model git-branch)
   #:use-module (guix-data-service model git-repository)
@@ -225,6 +226,15 @@
          (render-unknown-revision mime-types
                                   conn
                                   commit-hash)))
+    (('GET "revision" commit-hash "channel-instances")
+     (if (guix-commit-exists? conn commit-hash)
+         (render-revision-channel-instances mime-types
+                                            conn
+                                            commit-hash
+                                            #:path-base path)
+         (render-unknown-revision mime-types
+                                  conn
+                                  commit-hash)))
     (('GET "revision" commit-hash "package-reproducibility")
      (if (guix-commit-exists? conn commit-hash)
          (render-revision-package-reproduciblity mime-types
@@ -374,6 +384,33 @@
                 system-tests
                 (git-repositories-containing-commit conn
                                                     commit-hash)
+                #:path-base path-base
+                #:header-text header-text
+                #:header-link header-link))))))
+
+(define* (render-revision-channel-instances mime-types
+                                            conn
+                                            commit-hash
+                                            #:key
+                                            (path-base "/revision/")
+                                            (header-text
+                                             `("Revision " (samp ,commit-hash)))
+                                            (header-link
+                                             (string-append "/revision/"
+                                                            commit-hash)))
+  (let ((channel-instances
+         (select-channel-instances-for-guix-revision conn commit-hash)))
+    (case (most-appropriate-mime-type
+           '(application/json text/html)
+           mime-types)
+      ((application/json)
+       (render-json
+        '()))                           ; TODO
+      (else
+       (render-html
+        #:sxml (view-revision-channel-instances
+                commit-hash
+                channel-instances
                 #:path-base path-base
                 #:header-text header-text
                 #:header-link header-link))))))

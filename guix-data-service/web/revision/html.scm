@@ -36,6 +36,7 @@
             view-revision-derivations
             view-revision-derivation-outputs
             view-revision-system-tests
+            view-revision-channel-instances
             view-revision-builds
             view-revision-lint-warnings
             unknown-revision))
@@ -722,6 +723,56 @@
                                  ,(build-status-alist->build-icon build))))
                          builds)))))
              system-tests)))))))))
+
+(define* (view-revision-channel-instances commit-hash
+                                          channel-instances
+                                          #:key (path-base "/revision/")
+                                          header-text header-link)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h3 (a (@ (style "white-space: nowrap;")
+                  (href ,header-link))
+               ,@header-text))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (h1 "Channel instances")
+        (table
+         (@ (class "table"))
+         (thead
+          (tr
+           (th "System")
+           (th "Derivation")
+           (th "Build status")))
+         (tbody
+          ,@(map
+             (match-lambda
+               ((system derivation-file-name builds)
+                `(tr
+                  (td (@ (style "font-family: monospace;"))
+                      ,system)
+                  (td (a (@ (href ,derivation-file-name))
+                         ,(display-store-item-short derivation-file-name)))
+                  (td ,@(map
+                         (lambda (build)
+                           (let ((build-server-id
+                                  (assoc-ref build "build_server_id")))
+                             `(a (@ (href
+                                     ,(simple-format
+                                       #f "/build-server/~A/build?derivation_file_name=~A"
+                                       build-server-id
+                                       derivation-file-name)))
+                                 ,(build-status-alist->build-icon build))))
+                         builds)))))
+             channel-instances)))))))))
 
 (define* (view-revision-package-reproducibility revision-commit-hash
                                                 output-consistency)
