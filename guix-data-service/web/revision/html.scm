@@ -1000,8 +1000,7 @@ figure {
                                        "/revision/" revision-commit-hash
                                        "/derivation-outputs?"
                                        "output_consistency=" key
-                                       "&system=" system
-                                       "&target=" system)))
+                                       "&system=" system)))
                                  ,(format #f "~a (~d, ~2,2f%)"
                                           label
                                           (or count 0)
