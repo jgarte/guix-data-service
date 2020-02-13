@@ -715,7 +715,7 @@ WHERE job_id = $1"
        (build-derivations store (list derivation))))
     (derivation->output-path derivation)))
 
-(define (channel->derivation-file-names-by-system channel)
+(define (channel->derivation-file-names-by-system store channel)
   (define use-container? (defined?
                            'open-inferior/container
                            (resolve-module '(guix inferior))))
@@ -779,9 +779,6 @@ WHERE job_id = $1"
                             "error ~A: ~A\n" key args)
                            #f))))))))
           (list ,@systems)))))
-
-  (with-store store
-    (set-build-options store #:fallback? #t)
 
     (let ((inferior
            (if use-container?
@@ -854,9 +851,9 @@ WHERE job_id = $1"
                              key parameters))))
         (lambda args
           (close-inferior inferior)
-          #f)))))
+          #f))))
 
-(define (channel->derivations-by-system conn channel)
+(define (channel->derivations-by-system conn store channel)
   (let* ((derivation-file-names-by-system
           (log-time
            "computing the channel derivation"
@@ -867,7 +864,7 @@ WHERE job_id = $1"
               conn
               'channel->manifest-store-item
               (lambda ()
-                (channel->derivation-file-names-by-system channel)))))))
+                (channel->derivation-file-names-by-system store channel)))))))
     (for-each
      (match-lambda
        ((system . derivation-file-name)
@@ -880,6 +877,7 @@ WHERE job_id = $1"
     derivation-file-names-by-system))
 
 (define (channel-derivations-by-system->guix-store-item
+         store
          channel-derivations-by-system)
 
   (define (store-item->guix-store-item filename)
@@ -895,13 +893,10 @@ WHERE job_id = $1"
     (if derivation-file-name-for-current-system
         (let ((derivation-for-current-system
                (read-derivation-from-file derivation-file-name-for-current-system)))
-          (with-store store
-            (set-build-options store #:fallback? #t)
-
-            (log-time
-             "building the channel derivation"
-             (lambda ()
-               (build-derivations store (list derivation-for-current-system)))))
+          (log-time
+           "building the channel derivation"
+           (lambda ()
+             (build-derivations store (list derivation-for-current-system))))
 
           (store-item->guix-store-item
            (derivation->output-path derivation-for-current-system)))
@@ -939,35 +934,30 @@ WHERE job_id = $1"
 
       output)))
 
-(define (extract-information-from conn guix-revision-id commit store-path)
-  (simple-format
-   #t "debug: extract-information-from: ~A\n" store-path)
-  (with-store store
-    (set-build-options store
-                       #:fallback? #t)
-
-    (let* ((guix-locpath (getenv "GUIX_LOCPATH"))
-           (inf (let ((guix-locpath
-                       ;; Augment the GUIX_LOCPATH to include glibc-locales from
-                       ;; the Guix at store-path, this should mean that the
-                       ;; inferior Guix works, even if it's build using a different
-                       ;; glibc version
-                       (string-append
-                        (glibc-locales-for-guix-store-path store store-path)
-                        "/lib/locale"
-                        ":" guix-locpath)))
-                  ;; Unset the GUILE_LOAD_PATH and GUILE_LOAD_COMPILED_PATH to
-                  ;; avoid the values for these being used in the
-                  ;; inferior. Even though the inferior %load-path and
-                  ;; %load-compiled-path has the inferior modules first, this
-                  ;; can cause issues when there are modules present outside
-                  ;; of the inferior Guix which aren't present in the inferior
-                  ;; Guix (like the new (guix lint) module
-                  (unsetenv "GUILE_LOAD_PATH")
-                  (unsetenv "GUILE_LOAD_COMPILED_PATH")
-                  (simple-format (current-error-port) "debug: set GUIX_LOCPATH to ~A\n"
-                                 guix-locpath)
-                  (if (defined?
+(define (extract-information-from conn store guix-revision-id commit store-path)
+  (simple-format #t "debug: extract-information-from: ~A\n" store-path)
+  (let* ((guix-locpath (getenv "GUIX_LOCPATH"))
+         (inf (let ((guix-locpath
+                     ;; Augment the GUIX_LOCPATH to include glibc-locales from
+                     ;; the Guix at store-path, this should mean that the
+                     ;; inferior Guix works, even if it's build using a different
+                     ;; glibc version
+                     (string-append
+                      (glibc-locales-for-guix-store-path store store-path)
+                      "/lib/locale"
+                      ":" guix-locpath)))
+                ;; Unset the GUILE_LOAD_PATH and GUILE_LOAD_COMPILED_PATH to
+                ;; avoid the values for these being used in the
+                ;; inferior. Even though the inferior %load-path and
+                ;; %load-compiled-path has the inferior modules first, this
+                ;; can cause issues when there are modules present outside
+                ;; of the inferior Guix which aren't present in the inferior
+                ;; Guix (like the new (guix lint) module
+                (unsetenv "GUILE_LOAD_PATH")
+                (unsetenv "GUILE_LOAD_COMPILED_PATH")
+                (simple-format (current-error-port) "debug: set GUIX_LOCPATH to ~A\n"
+                               guix-locpath)
+                (if (defined?
                       'open-inferior/container
                       (resolve-module '(guix inferior)))
                     (open-inferior/container store store-path
@@ -982,143 +972,143 @@ WHERE job_id = $1"
                       (simple-format #t "debug: using open-inferior\n")
                       (open-inferior store-path
                                      #:error-port (real-error-port)))))))
-      (setenv "GUIX_LOCPATH" guix-locpath) ; restore GUIX_LOCPATH
+    (setenv "GUIX_LOCPATH" guix-locpath) ; restore GUIX_LOCPATH
 
-      (when (eq? inf #f)
-        (error "error: inferior is #f"))
+    (when (eq? inf #f)
+      (error "error: inferior is #f"))
 
-      ;; Normalise the locale for the inferior process
-      (catch
-        'system-error
-        (lambda ()
-          (inferior-eval '(setlocale LC_ALL "en_US.utf8") inf))
-        (lambda (key . args)
-          (simple-format (current-error-port)
-                         "warning: failed to set locale to en_US.utf8: ~A ~A\n"
-                         key args)
-          (display "trying to setlocale to en_US.UTF-8 instead\n"
-                   (current-error-port))
-          (with-exception-handler
+    ;; Normalise the locale for the inferior process
+    (catch
+      'system-error
+      (lambda ()
+        (inferior-eval '(setlocale LC_ALL "en_US.utf8") inf))
+      (lambda (key . args)
+        (simple-format (current-error-port)
+                       "warning: failed to set locale to en_US.utf8: ~A ~A\n"
+                       key args)
+        (display "trying to setlocale to en_US.UTF-8 instead\n"
+                 (current-error-port))
+        (with-exception-handler
             (lambda (key . args)
               (simple-format
                (current-error-port)
                "warning: failed to set locale to en_US.UTF-8: ~A ~A\n"
                key args))
-            (lambda ()
-              (inferior-eval '(setlocale LC_ALL "en_US.UTF-8") inf)))))
+          (lambda ()
+            (inferior-eval '(setlocale LC_ALL "en_US.UTF-8") inf)))))
 
-      (inferior-eval '(use-modules (srfi srfi-1)
-                                   (srfi srfi-34)
-                                   (guix grafts)
-                                   (guix derivations)
-                                   (gnu tests))
-                     inf)
-      (inferior-eval '(when (defined? '%graft?) (%graft? #f)) inf)
+    (inferior-eval '(use-modules (srfi srfi-1)
+                                 (srfi srfi-34)
+                                 (guix grafts)
+                                 (guix derivations)
+                                 (gnu tests))
+                   inf)
+    (inferior-eval '(when (defined? '%graft?) (%graft? #f)) inf)
 
-      (catch
-        #t
-        (lambda ()
-          (let* ((packages
-                  (log-time
-                   "fetching inferior packages"
-                   (lambda ()
-                     (deduplicate-inferior-packages
-                      (inferior-packages inf)))))
-                 (inferior-lint-warnings
-                  (log-time
-                   "fetching inferior lint warnings"
-                   (lambda ()
-                     (all-inferior-lint-warnings inf store))))
-                 (inferior-data-4-tuples
-                  (log-time
-                   "getting inferior derivations"
-                   (lambda ()
-                     (all-inferior-package-derivations store inf packages))))
-                 (inferior-system-tests
-                  (log-time
-                   "getting inferior system tests"
-                   (lambda ()
-                     (all-inferior-system-tests inf store)))))
+    (catch
+      #t
+      (lambda ()
+        (let* ((packages
+                (log-time
+                 "fetching inferior packages"
+                 (lambda ()
+                   (deduplicate-inferior-packages
+                    (inferior-packages inf)))))
+               (inferior-lint-warnings
+                (log-time
+                 "fetching inferior lint warnings"
+                 (lambda ()
+                   (all-inferior-lint-warnings inf store))))
+               (inferior-data-4-tuples
+                (log-time
+                 "getting inferior derivations"
+                 (lambda ()
+                   (all-inferior-package-derivations store inf packages))))
+               (inferior-system-tests
+                (log-time
+                 "getting inferior system tests"
+                 (lambda ()
+                   (all-inferior-system-tests inf store)))))
 
-            (log-time
-             "acquiring advisory transaction lock: load-new-guix-revision-inserts"
-             (lambda ()
-               ;; Wait until this is the only transaction inserting data, to
-               ;; avoid any concurrency issues
-               (obtain-advisory-transaction-lock conn
-                                                 'load-new-guix-revision-inserts)))
-            (let* ((package-ids
-                    (insert-packages conn inf packages))
-                   (inferior-package-id->package-database-id
-                    (let ((lookup-table
-                           (alist->hashq-table
-                            (map (lambda (package package-id)
-                                   (cons (inferior-package-id package)
-                                         package-id))
-                                 packages
-                                 package-ids))))
-                      (lambda (inferior-id)
-                        (or
-                         (hashq-ref lookup-table inferior-id)
-                         (error
-                          (simple-format
-                           #f
-                           "error: inferior-package-id->package-database-id: ~A missing\n"
-                           inferior-id)))))))
+          (log-time
+           "acquiring advisory transaction lock: load-new-guix-revision-inserts"
+           (lambda ()
+             ;; Wait until this is the only transaction inserting data, to
+             ;; avoid any concurrency issues
+             (obtain-advisory-transaction-lock conn
+                                               'load-new-guix-revision-inserts)))
+          (let* ((package-ids
+                  (insert-packages conn inf packages))
+                 (inferior-package-id->package-database-id
+                  (let ((lookup-table
+                         (alist->hashq-table
+                          (map (lambda (package package-id)
+                                 (cons (inferior-package-id package)
+                                       package-id))
+                               packages
+                               package-ids))))
+                    (lambda (inferior-id)
+                      (or
+                       (hashq-ref lookup-table inferior-id)
+                       (error
+                        (simple-format
+                         #f
+                         "error: inferior-package-id->package-database-id: ~A missing\n"
+                         inferior-id)))))))
 
+            (simple-format
+             #t "debug: finished loading information from inferior\n")
+            (close-inferior inf)
+
+            (when inferior-lint-warnings
+              (let* ((lint-checker-ids
+                      (lint-checkers->lint-checker-ids
+                       conn
+                       (map car inferior-lint-warnings)))
+                     (lint-warning-ids
+                      (insert-lint-warnings
+                       conn
+                       inferior-package-id->package-database-id
+                       lint-checker-ids
+                       inferior-lint-warnings)))
+                (insert-guix-revision-lint-checkers conn
+                                                    guix-revision-id
+                                                    lint-checker-ids)
+
+                (insert-guix-revision-lint-warnings conn
+                                                    guix-revision-id
+                                                    lint-warning-ids)))
+
+            (insert-system-tests-for-guix-revision conn
+                                                   guix-revision-id
+                                                   inferior-system-tests)
+
+            (let ((package-derivation-ids
+                   (log-time
+                    "inferior-data->package-derivation-ids"
+                    (lambda ()
+                      (inferior-data->package-derivation-ids
+                       conn inf inferior-package-id->package-database-id
+                       inferior-data-4-tuples)))))
+              (update-builds-derivation-output-details-set-id
+               conn
+               (map fourth inferior-data-4-tuples))
+
+              (insert-guix-revision-package-derivations conn
+                                                        guix-revision-id
+                                                        package-derivation-ids)
               (simple-format
-               #t "debug: finished loading information from inferior\n")
-              (close-inferior inf)
-
-              (when inferior-lint-warnings
-                (let* ((lint-checker-ids
-                        (lint-checkers->lint-checker-ids
-                         conn
-                         (map car inferior-lint-warnings)))
-                       (lint-warning-ids
-                        (insert-lint-warnings
-                         conn
-                         inferior-package-id->package-database-id
-                         lint-checker-ids
-                         inferior-lint-warnings)))
-                  (insert-guix-revision-lint-checkers conn
-                                                      guix-revision-id
-                                                      lint-checker-ids)
-
-                  (insert-guix-revision-lint-warnings conn
-                                                      guix-revision-id
-                                                      lint-warning-ids)))
-
-              (insert-system-tests-for-guix-revision conn
-                                                     guix-revision-id
-                                                     inferior-system-tests)
-
-              (let ((package-derivation-ids
-                     (log-time
-                      "inferior-data->package-derivation-ids"
-                      (lambda ()
-                        (inferior-data->package-derivation-ids
-                         conn inf inferior-package-id->package-database-id
-                         inferior-data-4-tuples)))))
-                (update-builds-derivation-output-details-set-id
-                 conn
-                 (map fourth inferior-data-4-tuples))
-
-                (insert-guix-revision-package-derivations conn
-                                                          guix-revision-id
-                                                          package-derivation-ids)
-                (simple-format
-                 #t "Successfully loaded ~A package/derivation pairs\n"
-                 (length package-derivation-ids)))))
-          #t)
-        (lambda (key . args)
-          (simple-format (current-error-port)
-                         "Failed extracting information from commit: ~A\n\n" commit)
-          (simple-format (current-error-port)
-                         "  ~A ~A\n\n" key args)
-          #f)
-        (lambda (key . args)
-          (display-backtrace (make-stack #t) (current-error-port)))))))
+               #t "Successfully loaded ~A package/derivation pairs\n"
+               (length package-derivation-ids)))))
+        #t)
+      (lambda (key . args)
+        (simple-format (current-error-port)
+                       "Failed extracting information from commit: ~A\n\n" commit)
+        (simple-format (current-error-port)
+                       "  ~A ~A\n\n" key args)
+        #f)
+      (lambda (key . args)
+        (display-backtrace (make-stack #t) (current-error-port))))))
 
 (define (update-package-versions-table conn git-repository-id commit)
   (log-time
@@ -1186,7 +1176,7 @@ ORDER BY packages.name, packages.version"
 
   #t)
 
-(define (load-new-guix-revision conn git-repository-id commit)
+(define (load-new-guix-revision conn store git-repository-id commit)
   (let* ((channel-for-commit
           (channel (name 'guix)
                    (url (git-repository-id->url
@@ -1195,9 +1185,11 @@ ORDER BY packages.name, packages.version"
                    (commit commit)))
          (channel-derivations-by-system
           (channel->derivations-by-system conn
+                                          store
                                           channel-for-commit))
          (store-item
           (channel-derivations-by-system->guix-store-item
+           store
            channel-derivations-by-system)))
     (if store-item
         (let ((guix-revision-id
@@ -1205,7 +1197,8 @@ ORDER BY packages.name, packages.version"
                                      commit store-item)))
           (and
            guix-revision-id
-           (extract-information-from conn guix-revision-id
+           (extract-information-from conn store
+                                     guix-revision-id
                                      commit store-item)
            (insert-channel-instances conn
                                      guix-revision-id
@@ -1524,44 +1517,49 @@ SKIP LOCKED")
         (simple-format #t "Processing job ~A (commit: ~A, source: ~A)\n\n"
                        id commit source)
 
-        (if (or (guix-revision-exists? conn git-repository-id commit)
-                (eq? (log-time
-                      (string-append "loading revision " commit)
-                      (lambda ()
-                        (let* ((previous-output-port (current-output-port))
-                               (previous-error-port (current-error-port))
-                               (result
-                                (with-postgresql-connection
-                                 (simple-format #f "load-new-guix-revision ~A logging" id)
-                                 (lambda (logging-conn)
-                                   (insert-empty-log-entry logging-conn id)
-                                   (let ((logging-port (log-port id logging-conn)))
-                                     (set-current-output-port logging-port)
-                                     (set-current-error-port logging-port)
-                                     (let ((result
-                                            (parameterize ((current-build-output-port logging-port)
-                                                           (real-error-port previous-error-port))
-                                              (catch #t
-                                                (lambda ()
-                                                  (load-new-guix-revision conn
-                                                                          git-repository-id
-                                                                          commit))
-                                                (lambda (key . args)
-                                                  (simple-format
-                                                   (current-error-port)
-                                                   "error: load-new-guix-revision: ~A ~A\n"
-                                                   key args)
-                                                  #f)))))
-                                       (combine-log-parts! logging-conn id)
+        (if (or
+             (guix-revision-exists? conn git-repository-id commit)
+             (eq?
+              (log-time
+               (string-append "loading revision " commit)
+               (lambda ()
+                 (let* ((previous-output-port (current-output-port))
+                        (previous-error-port (current-error-port))
+                        (result
+                         (with-postgresql-connection
+                          (simple-format #f "load-new-guix-revision ~A logging" id)
+                          (lambda (logging-conn)
+                            (insert-empty-log-entry logging-conn id)
+                            (let ((logging-port (log-port id logging-conn)))
+                              (set-current-output-port logging-port)
+                              (set-current-error-port logging-port)
+                              (let ((result
+                                     (parameterize ((current-build-output-port logging-port)
+                                                    (real-error-port previous-error-port))
+                                       (catch #t
+                                         (lambda ()
+                                           (with-store store
+                                             (set-build-options store #:fallback? #t)
+                                             (load-new-guix-revision conn
+                                                                     store
+                                                                     git-repository-id
+                                                                     commit)))
+                                         (lambda (key . args)
+                                           (simple-format
+                                            (current-error-port)
+                                            "error: load-new-guix-revision: ~A ~A\n"
+                                            key args)
+                                           #f)))))
+                                (combine-log-parts! logging-conn id)
 
-                                       ;; This can happen with GC, so do it explicitly
-                                       (close-port logging-port)
+                                ;; This can happen with GC, so do it explicitly
+                                (close-port logging-port)
 
-                                       result))))))
-                          (set-current-output-port previous-output-port)
-                          (set-current-error-port previous-error-port)
-                          result)))
-                     #t))
+                                result))))))
+                   (set-current-output-port previous-output-port)
+                   (set-current-error-port previous-error-port)
+                   result)))
+              #t))
             (begin
               (record-job-succeeded conn id)
               (record-job-event conn id "success")

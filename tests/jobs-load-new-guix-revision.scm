@@ -25,7 +25,7 @@
      (mock
       ((guix-data-service jobs load-new-guix-revision)
        channel->derivations-by-system
-       (lambda (conn channel)
+       (lambda (conn store channel)
          '((x86_64-linux
             .
             ((manifest-entry-item . /gnu/store/foo.drv)
@@ -34,13 +34,13 @@
       (mock
        ((guix-data-service jobs load-new-guix-revision)
         channel-derivations-by-system->guix-store-item
-        (lambda (channel-derivations-by-system)
+        (lambda (store channel-derivations-by-system)
           "/gnu/store/test"))
 
        (mock
         ((guix-data-service jobs load-new-guix-revision)
          extract-information-from
-         (lambda (conn guix-revision-id commit store-path)
+         (lambda (conn store guix-revision-id commit store-path)
            #t))
 
         (mock
@@ -71,7 +71,7 @@
      (mock
       ((guix-data-service jobs load-new-guix-revision)
        channel->derivations-by-system
-       (lambda (conn channel)
+       (lambda (conn store channel)
          '(x86_64-linux
            .
            ((manifest-entry-item . /gnu/store/foo.drv)
@@ -80,7 +80,7 @@
       (mock
        ((guix-data-service jobs load-new-guix-revision)
         channel-derivations-by-system->guix-store-item
-        (lambda (channel-derivations-by-system)
+        (lambda (store channel-derivations-by-system)
           #f))
 
        (match (enqueue-load-new-guix-revision-job
@@ -98,7 +98,7 @@
      (mock
       ((guix-data-service jobs load-new-guix-revision)
        channel->derivations-by-system
-       (lambda (conn channel)
+       (lambda (conn store channel)
          '(x86_64-linux
            .
            ((manifest-entry-item . /gnu/store/foo.drv)
@@ -107,13 +107,13 @@
       (mock
        ((guix-data-service jobs load-new-guix-revision)
         channel-derivations-by-system->guix-store-item
-        (lambda (channel-derivations-by-system)
+        (lambda (store channel-derivations-by-system)
           "/gnu/store/test"))
 
        (mock
         ((guix-data-service jobs load-new-guix-revision)
          extract-information-from
-         (lambda (conn git-repository-id commit store-path)
+         (lambda (conn store git-repository-id commit store-path)
            #f))
 
         (mock
