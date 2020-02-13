@@ -42,7 +42,11 @@
             parse-datetime
             parse-checkbox-value
             parse-number
-            parse-result-limit))
+            parse-result-limit
+            parse-system
+            parse-target
+
+            valid-targets->options))
 
 (define (parse-query-string query)
   "Parse and decode the URI query string QUERY and return an alist."
@@ -218,6 +222,19 @@
     ((? number? num) num)))
 
 (define parse-result-limit parse-number)
+
+(define parse-system identity)
+
+(define (parse-target target)
+  (if (string=? target "none")
+      ""
+      target))
+
+(define (valid-targets->options targets)
+  `(("" . "none")
+    ,@(map (lambda (target)
+             (cons target target))
+           targets)))
 
 (define (any-invalid-query-parameters? query-parameters)
   (->bool (any (lambda (val)

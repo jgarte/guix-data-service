@@ -68,8 +68,7 @@
     "x86_64-linux"))
 
 (define (valid-targets conn)
-  '("" ;; no target
-    "arm-linux-gnueabihf"
+  '("arm-linux-gnueabihf"
     "aarch64-linux-gnu"
     "powerpc-linux-gnu"
     "riscv64-linux-gnu"

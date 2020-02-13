@@ -44,9 +44,6 @@
      . (public
         (max-age . ,cache-control-default-max-age)))))
 
-(define (parse-system s)
-  s)
-
 (define (parse-build-status s)
   s)
 
@@ -106,7 +103,7 @@
               `((base_commit   ,(parse-commit conn) #:required)
                 (target_commit ,(parse-commit conn) #:required)
                 (system        ,parse-system #:multi-value)
-                (target        ,parse-system #:multi-value)
+                (target        ,parse-target #:multi-value)
                 (build_status  ,parse-build-status #:multi-value)))))
        (render-compare/derivations mime-types
                                    conn
@@ -121,7 +118,7 @@
                  (target_branch   ,identity #:required)
                  (target_datetime ,parse-datetime #:required)
                  (system          ,parse-system #:multi-value)
-                 (target          ,parse-system #:multi-value)
+                 (target          ,parse-target #:multi-value)
                  (build_status    ,parse-build-status #:multi-value)))
               '((base_commit base_datetime)
                 (target_commit target_datetime)))))

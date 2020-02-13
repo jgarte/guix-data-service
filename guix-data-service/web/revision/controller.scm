@@ -64,9 +64,6 @@
      . (public
         (max-age . ,cache-control-default-max-age)))))
 
-(define (parse-system s)
-  s)
-
 (define (parse-build-status status)
   (if (member status build-status-strings)
       status
@@ -173,7 +170,7 @@
                   request
                   `((search_query   ,identity)
                     (system ,parse-system #:multi-value)
-                    (target ,identity #:multi-value)
+                    (target ,parse-target #:multi-value)
                     (maximum_builds ,parse-number)
                     (minimum_builds ,parse-number)
                     (after_name ,identity)
@@ -202,7 +199,7 @@
                     (output_consistency ,identity
                                         #:default "any")
                     (system ,parse-system #:default "x86_64-linux")
-                    (target ,identity)
+                    (target ,parse-target)
                     (limit_results  ,parse-result-limit
                                     #:no-default-when (all_results)
                                     #:default 10)
@@ -252,7 +249,7 @@
                  `((build_status ,parse-build-status #:multi-value)
                    (build_server ,(parse-build-server conn) #:multi-value)
                    (system ,parse-system #:default "x86_64-linux")
-                   (target ,identity)))))
+                   (target ,parse-target)))))
 
            (render-revision-builds mime-types
                                    conn
@@ -698,7 +695,8 @@
           #:sxml (view-revision-derivations commit-hash
                                             query-parameters
                                             (valid-systems conn)
-                                            (valid-targets conn)
+                                            (valid-targets->options
+                                             (valid-targets conn))
                                             '()
                                             '()
                                             #f
@@ -755,7 +753,8 @@
             #:sxml (view-revision-derivations commit-hash
                                               query-parameters
                                               (valid-systems conn)
-                                              (valid-targets conn)
+                                              (valid-targets->options
+                                               (valid-targets conn))
                                               derivations
                                               build-server-urls
                                               show-next-page?
@@ -830,7 +829,8 @@
                                                      derivation-outputs
                                                      build-server-urls
                                                      (valid-systems conn)
-                                                     (valid-targets conn)
+                                                     (valid-targets->options
+                                                      (valid-targets conn))
                                                      show-next-page?
                                                      #:path-base path-base
                                                      #:header-text header-text
@@ -852,7 +852,8 @@
                                     commit-hash
                                     build-status-strings
                                     (valid-systems conn)
-                                    (valid-targets conn)
+                                    (valid-targets->options
+                                     (valid-targets conn))
                                     '()
                                     '()
                                     '()))
@@ -863,7 +864,8 @@
                                       commit-hash
                                       build-status-strings
                                       (valid-systems conn)
-                                      (valid-targets conn)
+                                      (valid-targets->options
+                                       (valid-targets conn))
                                       (map (match-lambda
                                              ((id url lookup-all-derivations)
                                               (cons url id)))

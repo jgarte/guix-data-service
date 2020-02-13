@@ -104,7 +104,8 @@
                                   options
                                   (allow-selecting-multiple-options #t)
                                   font-family
-                                  (type "text"))
+                                  (type "text")
+                                  (null-string-value "none"))
   (define (value->text value)
     (match value
       (#f "")
@@ -163,14 +164,26 @@
                    (map (match-lambda
                           ((option-label . option-value)
                            `(option
-                             (@ ,@(if (member option-value selected-options)
+                             (@ ,@(if (member (if (and
+                                                   (string? option-value)
+                                                   (string=? option-value
+                                                             null-string-value))
+                                                  ""
+                                                  option-value)
+                                              selected-options)
                                       '((selected ""))
                                       '())
                                 (value ,option-value))
                              ,(value->text option-label)))
                           (option-value
                            `(option
-                             (@ ,@(if (member option-value selected-options)
+                             (@ ,@(if (member (if (and
+                                                   (string? option-value)
+                                                   (string=? option-value
+                                                             null-string-value))
+                                                  ""
+                                                  option-value)
+                                              selected-options)
                                       '((selected ""))
                                       '()))
                              ,(value->text option-value))))
