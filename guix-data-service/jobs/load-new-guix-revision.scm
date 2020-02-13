@@ -752,23 +752,29 @@ WHERE job_id = $1"
                           (current-error-port)
                           "error ~A: ~A\n" key args)
                          #f))))
+                (define (add-tmp-root-and-return-drv drv)
+                  (add-temp-root store drv)
+                  drv)
+
                 `(,system
                   .
                   ((manifest-entry-item
                     . ,(and manifest
-                            (derivation-file-name
-                             (manifest-entry-item
-                              (first
-                               (manifest-entries manifest))))))
+                            (add-tmp-root-and-return-drv
+                             (derivation-file-name
+                              (manifest-entry-item
+                               (first
+                                (manifest-entries manifest)))))))
                    (profile
                     . ,(catch #t
                          (lambda ()
                            (and manifest
-                                (derivation-file-name
-                                 (run-with-store store
-                                   (profile-derivation
-                                    manifest
-                                    #:hooks %channel-profile-hooks)))))
+                                (add-tmp-root-and-return-drv
+                                 (derivation-file-name
+                                  (run-with-store store
+                                    (profile-derivation
+                                     manifest
+                                     #:hooks %channel-profile-hooks))))))
                          (lambda (key . args)
                            (simple-format
                             (current-error-port)
