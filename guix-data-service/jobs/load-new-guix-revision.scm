@@ -1499,6 +1499,12 @@ SKIP LOCKED")
             (string=? priority "t"))))
    (exec-query conn query)))
 
+(define (with-store-connection f)
+  (with-store store
+    (set-build-options store #:fallback? #t)
+
+    (f store)))
+
 (define (process-load-new-guix-revision-job id)
   (with-postgresql-connection
    (simple-format #f "load-new-guix-revision ~A" id)
@@ -1544,12 +1550,12 @@ SKIP LOCKED")
                                                     (real-error-port previous-error-port))
                                        (catch #t
                                          (lambda ()
-                                           (with-store store
-                                             (set-build-options store #:fallback? #t)
-                                             (load-new-guix-revision conn
-                                                                     store
-                                                                     git-repository-id
-                                                                     commit)))
+                                           (with-store-connection
+                                            (lambda (store)
+                                              (load-new-guix-revision conn
+                                                                      store
+                                                                      git-repository-id
+                                                                      commit))))
                                          (lambda (key . args)
                                            (simple-format
                                             (current-error-port)
