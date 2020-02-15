@@ -818,13 +818,15 @@ VALUES ($1, $2)"
 (define (select-derivation-outputs-by-derivation-id conn id)
   (define query
     (string-append
-     "SELECT derivation_outputs.name, derivation_output_details.path, "
-     "derivation_output_details.hash_algorithm, derivation_output_details.hash, "
-     "derivation_output_details.recursive "
-     "FROM derivation_outputs "
-     "INNER JOIN derivation_output_details ON "
-     "derivation_outputs.derivation_output_details_id = derivation_output_details.id "
-     "WHERE derivation_id = $1"))
+     "
+SELECT derivation_outputs.name, derivation_output_details.path,
+  derivation_output_details.hash_algorithm, derivation_output_details.hash,
+  derivation_output_details.recursive
+FROM derivation_outputs
+INNER JOIN derivation_output_details ON
+  derivation_outputs.derivation_output_details_id = derivation_output_details.id
+WHERE derivation_id = $1
+ORDER BY derivation_outputs.name"))
 
   (map
    (match-lambda
