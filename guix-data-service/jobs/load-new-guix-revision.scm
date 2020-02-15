@@ -115,6 +115,9 @@
 (define real-error-port
   (make-parameter (current-error-port)))
 
+(define inferior-error-port
+  (make-parameter (current-error-port)))
+
 (define* (log-for-job conn job-id
                       #:key
                       character-limit
@@ -799,7 +802,7 @@ WHERE job_id = $1"
                (begin
                  (simple-format #t "debug: using open-inferior\n")
                  (open-inferior (guix-store-path store)
-                                #:error-port (real-error-port))))))
+                                #:error-port (inferior-error-port))))))
 
       (define (start-inferior-and-return-derivation-file-names)
         ;; /etc is only missing if open-inferior/container has been used
@@ -918,7 +921,7 @@ WHERE job_id = $1"
                  (begin
                    (simple-format #t "debug: using open-inferior\n")
                    (open-inferior store-path
-                                  #:error-port (real-error-port))))))
+                                  #:error-port (inferior-error-port))))))
     (inferior-eval '(use-modules (srfi srfi-1)
                                  (srfi srfi-34)
                                  (guix grafts)
@@ -977,7 +980,7 @@ WHERE job_id = $1"
                       (setenv "GUIX_LOCPATH" guix-locpath)
                       (simple-format #t "debug: using open-inferior\n")
                       (open-inferior store-path
-                                     #:error-port (real-error-port)))))))
+                                     #:error-port (inferior-error-port)))))))
     (setenv "GUIX_LOCPATH" guix-locpath) ; restore GUIX_LOCPATH
 
     (when (eq? inf #f)
@@ -1547,7 +1550,8 @@ SKIP LOCKED")
                               (set-current-error-port logging-port)
                               (let ((result
                                      (parameterize ((current-build-output-port logging-port)
-                                                    (real-error-port previous-error-port))
+                                                    (real-error-port previous-error-port)
+                                                    (inferior-error-port previous-error-port))
                                        (catch #t
                                          (lambda ()
                                            (with-store-connection
