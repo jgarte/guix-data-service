@@ -132,7 +132,14 @@ initial connection on which HTTP requests are sent."
                       (member id build-server-ids))
               (when lookup-all-derivations?
                 (simple-format #t "\nQuerying ~A\n" url)
-                (query-build-server conn id url revision-commits)))))
+                (catch #t
+                  (lambda ()
+                    (query-build-server conn id url revision-commits))
+                  (lambda (key . args)
+                    (simple-format
+                     (current-error-port)
+                     "exception in query-build-server: ~A ~A\n"
+                     key args)))))))
          build-servers)))))
 
 (define (query-build-server conn id url revision-commits)
