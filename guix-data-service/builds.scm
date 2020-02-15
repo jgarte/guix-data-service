@@ -232,26 +232,41 @@ initial connection on which HTTP requests are sent."
                derivation-output-paths-and-details-sets-ids)
    (lambda (data output)
      (if data
-         (let* ((derivation
-                 (assoc-ref data "derivation"))
-                (build-id
-                 (ensure-build-exists
-                  conn
-                  build-server-id
-                  derivation
-                  #:derivation-output-details-set-id
-                  (cdr
-                   (vhash-assoc output
-                                derivation-output-paths-and-details-sets-ids)))))
-           (insert-build-statuses-from-data
-            conn
-            build-server-id
-            build-id
-            (assoc-ref data "build"))
-           (if (verbose-output?)
-               (simple-format #t "found build for: ~A (~A)\n"
-                              output derivation)
-               (display "-")))
+         (catch #t
+           (lambda ()
+             (let* ((derivation
+                     (assoc-ref data "derivation"))
+                    (build-id
+                     (ensure-build-exists
+                      conn
+                      build-server-id
+                      derivation
+                      #:derivation-output-details-set-id
+                      (cdr
+                       (vhash-assoc output
+                                    derivation-output-paths-and-details-sets-ids)))))
+               (insert-build-statuses-from-data
+                conn
+                build-server-id
+                build-id
+                (assoc-ref data "build"))
+               (if (verbose-output?)
+                   (simple-format #t "found build for: ~A (~A)\n"
+                                  output derivation)
+                   (display "-"))))
+           (lambda (key . args)
+             (simple-format
+              (current-error-port)
+              "\nerror processing data for output: ~A\n"
+              output)
+             (simple-format (current-error-port)
+                            "~A\n"
+                            data)
+             (simple-format
+              (current-error-port)
+              "~A: ~A\n"
+              key
+              args)))
          (if (verbose-output?)
              (simple-format #t "no build found:  ~A\n" output)
              (display "."))))))
