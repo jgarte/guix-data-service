@@ -21,6 +21,7 @@
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 match)
   #:use-module (ice-9 iconv)
+  #:use-module (ice-9 vlist)
   #:use-module (ice-9 binary-ports)
   #:use-module (json parser)
   #:use-module (web uri)
@@ -209,24 +210,32 @@ initial connection on which HTTP requests are sent."
    (select-pending-builds conn build-server-id)))
 
 (define (process-derivation-outputs conn build-server-id url revision-commits)
-  (define derivation-outputs
+  (define derivation-output-paths-and-details-sets-ids
     (select-derivation-outputs-with-no-known-build conn
                                                    build-server-id
                                                    revision-commits))
 
   (simple-format (current-error-port) "Fetching ~A derivation outputs\n"
-                 (length derivation-outputs))
+                 (vlist-length derivation-output-paths-and-details-sets-ids))
   (fetch-builds-by-output
    url
-   derivation-outputs
+   (vhash-fold (lambda (key value result)
+                 (cons key result))
+               '()
+               derivation-output-paths-and-details-sets-ids)
    (lambda (data output)
      (if data
          (let* ((derivation
                  (assoc-ref data "derivation"))
                 (build-id
-                 (ensure-build-exists conn
-                                      build-server-id
-                                      derivation)))
+                 (ensure-build-exists
+                  conn
+                  build-server-id
+                  derivation
+                  #:derivation-output-details-set-id
+                  (cdr
+                   (vhash-assoc output
+                                derivation-output-paths-and-details-sets-ids)))))
            (insert-build-statuses-from-data
             conn
             build-server-id
@@ -450,7 +459,7 @@ LIMIT 15000"))
     ;; Cuirass doesn't build the intermediate derivations
     (string-append
      "
-SELECT derivation_output_details.path
+SELECT derivation_output_details.path, derivation_output_details_sets.id
 FROM derivation_output_details
 INNER JOIN derivation_output_details_sets
   ON derivation_output_details.id =
@@ -523,8 +532,15 @@ WHERE NOT EXISTS (
 ORDER BY derivation_output_details_sets.id, derivation_output_details.id
 LIMIT 15000"))
 
-  (map first
-       (exec-query conn query (list (number->string build-server-id)))))
+  (fold (lambda (row result)
+          (match row
+            ((path derivation-output-details-sets-id)
+             (vhash-cons path
+                         (string->number
+                          derivation-output-details-sets-id)
+                         result))))
+        vlist-null
+        (exec-query conn query (list (number->string build-server-id)))))
 
 (define (fetch-narinfo-files conn build-server-id build-server-url revision-commits)
   (define outputs
