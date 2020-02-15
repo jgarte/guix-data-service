@@ -374,7 +374,8 @@ UPDATE builds SET derivation_output_details_set_id = (
 
     build-ids))
 
-(define (insert-build conn build-server-id derivation-file-name)
+(define* (insert-build conn build-server-id derivation-file-name
+                       #:key derivation-output-details-set-id)
   (match (exec-query
           conn
           (string-append
@@ -388,9 +389,11 @@ VALUES ("
            ", "
            (or
             (and=>
-             (select-derivations-by-output-details-set-id-by-derivation-file-name
-              conn
-              derivation-file-name)
+             (or
+              derivation-output-details-set-id
+              (select-derivations-by-output-details-set-id-by-derivation-file-name
+               conn
+               derivation-file-name))
              number->string)
             "NULL")
            ")
@@ -398,16 +401,27 @@ RETURNING (id)"))
     (((id))
      (string->number id))))
 
-(define (ensure-build-exists conn
-                             build-server-id
-                             derivation-file-name)
+(define* (ensure-build-exists conn
+                              build-server-id
+                              derivation-file-name
+                              #:key derivation-output-details-set-id)
   (let ((existing-build-id
          (select-build-id-by-build-server-and-derivation-file-name
           conn build-server-id derivation-file-name)))
 
     (if existing-build-id
-        existing-build-id
+        (begin
+          (exec-query
+           conn
+           "
+UPDATE builds SET derivation_output_details_set_id = $2
+WHERE builds.id = $1 AND derivation_output_details_set_id IS NULL"
+           (list (number->string existing-build-id)
+                 (number->string derivation-output-details-set-id)))
+
+          existing-build-id)
         (insert-build conn
                       build-server-id
-                      derivation-file-name))))
-
+                      derivation-file-name
+                      #:derivation-output-details-set-id
+                      derivation-output-details-set-id))))
