@@ -65,7 +65,7 @@
             enqueue-load-new-guix-revision-job
             most-recent-n-load-new-guix-revision-jobs))
 
-(define (log-port job-id conn)
+(define* (log-port job-id conn #:key delete-existing-log-parts?)
   (define output-port
     (current-output-port))
 
@@ -89,12 +89,13 @@
           (display output output-port))
         (set! buffer (string-append buffer s))))
 
-  ;; TODO, this is useful when re-running jobs, but I'm not sure that should
-  ;; be a thing, jobs should probably be only attempted once.
-  (exec-query
-   conn
-   "DELETE FROM load_new_guix_revision_job_log_parts WHERE job_id = $1"
-   (list job-id))
+  (when delete-existing-log-parts?
+    ;; TODO, this is useful when re-running jobs, but I'm not sure that should
+    ;; be a thing, jobs should probably be only attempted once.
+    (exec-query
+     conn
+     "DELETE FROM load_new_guix_revision_job_log_parts WHERE job_id = $1"
+     (list job-id)))
 
   (let ((port
          (make-soft-port
@@ -1545,7 +1546,9 @@ SKIP LOCKED")
                           (simple-format #f "load-new-guix-revision ~A logging" id)
                           (lambda (logging-conn)
                             (insert-empty-log-entry logging-conn id)
-                            (let ((logging-port (log-port id logging-conn)))
+                            (let ((logging-port
+                                   (log-port id logging-conn
+                                             #:delete-existing-log-parts? #t)))
                               (set-current-output-port logging-port)
                               (set-current-error-port logging-port)
                               (let ((result
