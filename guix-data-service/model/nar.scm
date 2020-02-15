@@ -60,27 +60,28 @@
           '(store_path hash_algorithm hash size system deriver)
           data)))
 
-    (exec-query
-     conn
-     (string-append
-      "
+    (let ((reference-data
+           (concatenate
+            (map (lambda (nar-id narinfo)
+                   (map (lambda (reference)
+                          (simple-format
+                           #f
+                           "(~A, ~A)"
+                           nar-id
+                           (quote-string reference)))
+                        (narinfo-references narinfo)))
+                 nar-ids
+                 narinfos))))
+      (unless (null? reference-data)
+        (exec-query
+         conn
+         (string-append
+          "
 INSERT INTO nar_references (nar_id, reference)
 VALUES "
-      (string-join
-       (concatenate
-        (map (lambda (nar-id narinfo)
-               (map (lambda (reference)
-                      (simple-format
-                       #f
-                       "(~A, ~A)"
-                       nar-id
-                       (quote-string reference)))
-                    (narinfo-references narinfo)))
-             nar-ids
-             narinfos))
-       ", ")
-      "
-ON CONFLICT DO NOTHING"))
+          (string-join reference-data ", ")
+          "
+ON CONFLICT DO NOTHING"))))
 
     (exec-query
      conn
