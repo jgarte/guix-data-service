@@ -249,7 +249,7 @@
                  `((build_status ,parse-build-status #:multi-value)
                    (build_server ,(parse-build-server conn) #:multi-value)
                    (system ,parse-system #:default "x86_64-linux")
-                   (target ,parse-target)))))
+                   (target ,parse-target #:default "")))))
 
            (render-revision-builds mime-types
                                    conn
