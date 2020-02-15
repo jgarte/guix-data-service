@@ -114,19 +114,25 @@ initial connection on which HTTP requests are sent."
                (_
                 (loop tail (+ 1 processed) result)))))))))) ;keep going
 
-(define (query-build-servers conn build-server-ids revision-commits)
-  (while #t
-    (let ((build-servers (select-build-servers conn)))
-      (for-each
-       (match-lambda
-         ((id url lookup-all-derivations?)
-          (when (or (or (not build-servers)
-                        (not build-server-ids))
-                    (member id build-server-ids))
-            (when lookup-all-derivations?
-              (simple-format #t "\nQuerying ~A\n" url)
-              (query-build-server conn id url revision-commits)))))
-       build-servers))))
+(define verbose-output?
+  (make-parameter #f))
+
+(define* (query-build-servers conn build-server-ids revision-commits
+                              #:key verbose?)
+  (parameterize
+      ((verbose-output? verbose?))
+    (while #t
+      (let ((build-servers (select-build-servers conn)))
+        (for-each
+         (match-lambda
+           ((id url lookup-all-derivations?)
+            (when (or (or (not build-servers)
+                          (not build-server-ids))
+                      (member id build-server-ids))
+              (when lookup-all-derivations?
+                (simple-format #t "\nQuerying ~A\n" url)
+                (query-build-server conn id url revision-commits)))))
+         build-servers)))))
 
 (define (query-build-server conn id url revision-commits)
   (simple-format #t "\nFetching pending builds\n")
@@ -213,19 +219,26 @@ initial connection on which HTTP requests are sent."
   (fetch-builds-by-output
    url
    derivation-outputs
-   (lambda (data)
+   (lambda (data output)
      (if data
-         (let ((build-id
-                (ensure-build-exists conn
-                                     build-server-id
-                                     (assoc-ref data "derivation"))))
+         (let* ((derivation
+                 (assoc-ref data "derivation"))
+                (build-id
+                 (ensure-build-exists conn
+                                      build-server-id
+                                      derivation)))
            (insert-build-statuses-from-data
             conn
             build-server-id
             build-id
             (assoc-ref data "build"))
-           (display "-"))
-         (display ".")))))
+           (if (verbose-output?)
+               (simple-format #t "found build for: ~A (~A)\n"
+                              output derivation)
+               (display "-")))
+         (if (verbose-output?)
+             (simple-format #t "no build found:  ~A\n" output)
+             (display "."))))))
 
 (define (process-derivations conn build-server-id url revision-commits)
   (define derivations
@@ -336,7 +349,12 @@ initial connection on which HTTP requests are sent."
            (bytevector->string response-body
                                "utf-8")))
          (else
-          #f)))))
+          #f))
+        (string-append
+         "/gnu/store"
+         (string-drop
+          (uri-path (request-uri request))
+          (string-length "/output"))))))
    '()
    (map (lambda (output-file-name)
           (build-request
