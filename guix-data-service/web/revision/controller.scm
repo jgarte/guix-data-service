@@ -787,6 +787,7 @@
                                                    '()
                                                    '()
                                                    '()
+                                                   #f
                                                    #:path-base path-base
                                                    #:header-text header-text
                                                    #:header-link header-link))))
@@ -915,6 +916,7 @@
          (render-html
           #:sxml (view-revision-lint-warnings commit-hash
                                               query-parameters
+                                              '()
                                               '()
                                               lint-checker-options
                                               #:path-base path-base
