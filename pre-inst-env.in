@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Guix-Data-Service --- Mediocre, uh, mail interface
+# Guix-Data-Service -- Information about Guix over time
 # Copyright © 2012, 2013, 2014, 2015, 2017 Ludovic Courtès <ludo@gnu.org>
 # Copyright © 2017 Eric Bavier <bavier@cray.com>
 # Copyright © 2017 Ricardo Wurmus <rekado@elephly.net>

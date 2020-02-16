@@ -1,4 +1,4 @@
-;;; guix-data-service - Mediocre, uh, mail interface
+;;; guix-data-service -- Information about Guix over time
 ;;; Copyright © 2016, 2017, 2018 Ricardo Wurmus <rekado@elephly.net>
 ;;; Copyright © 2019 Christopher Baines <mail@cbaines.net>
 ;;;
