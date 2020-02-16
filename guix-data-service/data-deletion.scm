@@ -162,4 +162,18 @@ WHERE id IN ("
            (string-join guix-revision-ids ", ")
            ")")))))))
 
-(with-postgresql-connection "foo" (lambda (conn) (for-each (lambda (branch-name) (delete-data-for-branch conn 1 branch-name)) (map car (exec-query conn "SELECT DISTINCT name FROM git_branches WHERE git_repository_id = 1 AND name != 'master'")))))
+(define (delete-data-for-all-branches-but-master)
+  (with-postgresql-connection
+   "data-deletion"
+   (lambda (conn)
+     (for-each
+      (lambda (branch-name)
+        (delete-data-for-branch conn 1 branch-name))
+      (map
+       car
+       (exec-query
+        conn
+        "
+SELECT DISTINCT name
+FROM git_branches
+WHERE git_repository_id = 1 AND name != 'master'"))))))
