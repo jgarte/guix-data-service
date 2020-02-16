@@ -64,7 +64,7 @@
             (parse-query-parameters
              request
              `((start_character ,parse-number)
-               (characters ,parse-number #:default 1000000)))))
+               (characters ,parse-number #:default 10000000)))))
        (render-job mime-types
                    conn
                    job-id
