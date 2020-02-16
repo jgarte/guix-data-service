@@ -119,6 +119,7 @@ initial connection on which HTTP requests are sent."
   (make-parameter #f))
 
 (define* (query-build-servers conn build-server-ids revision-commits
+                              outputs
                               #:key verbose?)
   (parameterize
       ((verbose-output? verbose?))
@@ -134,7 +135,7 @@ initial connection on which HTTP requests are sent."
                 (simple-format #t "\nQuerying ~A\n" url)
                 (catch #t
                   (lambda ()
-                    (query-build-server conn id url revision-commits))
+                    (query-build-server conn id url revision-commits outputs))
                   (lambda (key . args)
                     (simple-format
                      (current-error-port)
@@ -142,11 +143,40 @@ initial connection on which HTTP requests are sent."
                      key args)))))))
          build-servers)))))
 
-(define (query-build-server conn id url revision-commits)
+(define (query-build-server conn id url revision-commits outputs)
+  (define (fetch-derivation-output-details-set-id output)
+    (match (exec-query
+            conn
+            "
+SELECT derivations_by_output_details_set.derivation_output_details_set_id
+FROM derivations_by_output_details_set
+INNER JOIN derivation_outputs
+  ON derivation_outputs.derivation_id =
+     derivations_by_output_details_set.derivation_id
+INNER JOIN derivation_output_details
+  ON derivation_outputs.derivation_output_details_id =
+     derivation_output_details.id
+WHERE derivation_output_details.path = $1"
+            (list output))
+      (((id))
+       (string->number id))
+      (() #f)))
+
   (simple-format #t "\nFetching pending builds\n")
   (process-pending-builds conn id url)
   (simple-format #t "\nFetching unseen derivations\n")
-  (process-derivation-outputs conn id url revision-commits)
+  (process-derivation-outputs
+   conn id url
+   (if outputs
+       (fold (lambda (output result)
+               (vhash-cons output
+                           (fetch-derivation-output-details-set-id output)
+                           result))
+             vlist-null
+             outputs)
+       (select-derivation-outputs-with-no-known-build conn
+                                                      id
+                                                      revision-commits)))
   (simple-format #t "\nFetching narinfo files\n")
   (fetch-narinfo-files conn id url revision-commits))
 
@@ -216,12 +246,8 @@ initial connection on which HTTP requests are sent."
       (usleep 200)))
    (select-pending-builds conn build-server-id)))
 
-(define (process-derivation-outputs conn build-server-id url revision-commits)
-  (define derivation-output-paths-and-details-sets-ids
-    (select-derivation-outputs-with-no-known-build conn
-                                                   build-server-id
-                                                   revision-commits))
-
+(define (process-derivation-outputs conn build-server-id url
+                                    derivation-output-paths-and-details-sets-ids)
   (simple-format (current-error-port) "Fetching ~A derivation outputs\n"
                  (vlist-length derivation-output-paths-and-details-sets-ids))
   (fetch-builds-by-output
@@ -244,9 +270,12 @@ initial connection on which HTTP requests are sent."
                         build-server-id
                         derivation
                         #:derivation-output-details-set-id
-                        (cdr
-                         (vhash-assoc output
-                                      derivation-output-paths-and-details-sets-ids)))))
+                        (match
+                            (vhash-assoc
+                             output
+                             derivation-output-paths-and-details-sets-ids)
+                          ((key . value) value)
+                          (#f #f)))))
                  (insert-build-statuses-from-data
                   conn
                   build-server-id

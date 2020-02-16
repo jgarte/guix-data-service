@@ -50,12 +50,15 @@
    (lambda (opt name arg result)
      (error "unrecognized option" name))
    (lambda (arg result)
-     (alist-cons
-      'revision-commits
-      (cons arg
-            (or (assoc-ref result 'revision-commits)
-                '()))
-      (alist-delete 'revision-commits result)))
+     (let ((type (if (string-prefix? "/gnu/store/" arg)
+                     'outputs
+                     'revision-commits)))
+       (alist-cons
+        type
+        (cons arg
+              (or (assoc-ref result type)
+                  '()))
+        (alist-delete type result))))
    %default-options))
 
 (let ((opts (parse-options (cdr (program-arguments)))))
@@ -65,4 +68,5 @@
      (query-build-servers conn
                           (assq-ref opts 'build-server-ids)
                           (assq-ref opts 'revision-commits)
+                          (assq-ref opts 'outputs)
                           #:verbose? (assq-ref opts 'verbose)))))
