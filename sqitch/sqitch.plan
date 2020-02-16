@@ -51,3 +51,4 @@ change_package_derivations_by_guix_revision_range_target 2020-02-08T10:13:07Z Ch
 allow_including_and_excluding_branches_for_repositories 2020-02-08T11:30:02Z Christopher Baines <mail@cbaines.net> # Allow including and excluding branches for repositories
 channel_instance_derivations 2020-02-10T07:59:03Z Christopher Baines <mail@cbaines.net> # Add tables to store derivations for channel instances
 update_build_servers_build_config 2020-02-13T20:07:19Z Christopher Baines <mail@cbaines.net> # Update build_servers_build_config values
+make_some_constraints_deferrable 2020-02-16T10:54:22Z Christopher Baines <mail@cbaines.net> # Make some constraints deferrable
