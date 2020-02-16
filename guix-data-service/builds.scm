@@ -234,26 +234,28 @@ initial connection on which HTTP requests are sent."
      (if data
          (catch #t
            (lambda ()
-             (let* ((derivation
-                     (assoc-ref data "derivation"))
-                    (build-id
-                     (ensure-build-exists
-                      conn
-                      build-server-id
-                      derivation
-                      #:derivation-output-details-set-id
-                      (cdr
-                       (vhash-assoc output
-                                    derivation-output-paths-and-details-sets-ids)))))
-               (insert-build-statuses-from-data
-                conn
-                build-server-id
-                build-id
-                (assoc-ref data "build"))
-               (if (verbose-output?)
-                   (simple-format #t "found build for: ~A (~A)\n"
-                                  output derivation)
-                   (display "-"))))
+             (when (assoc-ref data "build")
+               ;; The build can be #f
+               (let* ((derivation
+                       (assoc-ref data "derivation"))
+                      (build-id
+                       (ensure-build-exists
+                        conn
+                        build-server-id
+                        derivation
+                        #:derivation-output-details-set-id
+                        (cdr
+                         (vhash-assoc output
+                                      derivation-output-paths-and-details-sets-ids)))))
+                 (insert-build-statuses-from-data
+                  conn
+                  build-server-id
+                  build-id
+                  (assoc-ref data "build"))
+                 (if (verbose-output?)
+                     (simple-format #t "found build for: ~A (~A)\n"
+                                    output derivation)
+                     (display "-")))))
            (lambda (key . args)
              (simple-format
               (current-error-port)
