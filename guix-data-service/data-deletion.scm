@@ -16,6 +16,8 @@
 ;;; <http://www.gnu.org/licenses/>.
 
 (define-module (guix-data-service data-deletion)
+  #:use-module (srfi srfi-1)
+  #:use-module (ice-9 match)
   #:use-module (squee)
   #:use-module (guix-data-service database)
   #:export (delete-data-for-branch))
@@ -177,3 +179,182 @@ WHERE id IN ("
 SELECT DISTINCT name
 FROM git_branches
 WHERE git_repository_id = 1 AND name != 'master'"))))))
+
+(define (delete-unreferenced-derivations)
+  (define (maybe-delete-derivation conn id file-name)
+    (match (map
+            car
+            (exec-query
+             conn
+             "
+DELETE FROM derivation_outputs WHERE derivation_id = $1
+AND NOT EXISTS (
+  SELECT 1
+  FROM derivation_inputs
+  WHERE derivation_output_id IN (
+    SELECT derivation_outputs.id
+    FROM derivation_outputs
+    WHERE derivation_id = $1
+  )
+) AND NOT EXISTS (
+  SELECT 1
+  FROM package_derivations
+  WHERE package_derivations.derivation_id = derivation_outputs.derivation_id
+) AND NOT EXISTS (
+  SELECT 1 FROM channel_instances
+  WHERE derivation_id = $1
+) AND NOT EXISTS (
+  SELECT 1 FROM guix_revision_system_test_derivations
+  WHERE derivation_id = $1
+)
+RETURNING derivation_outputs.derivation_output_details_id"
+             (list id)))
+      (() 0)
+      ((derivation-output-details-ids ...)
+
+       (for-each
+        (lambda (derivation-output-details-id)
+          (match (exec-query
+                  conn
+                  "
+SELECT COUNT(*) FROM derivation_outputs
+WHERE derivation_output_details_id = $1"
+                  (list derivation-output-details-id))
+            (((count))
+             (when (eq? (string->number count)
+                        0)
+               (exec-query
+                conn
+                "
+DELETE FROM derivation_output_details
+WHERE id = $1"
+                (list derivation-output-details-id))))))
+        derivation-output-details-ids)
+
+       (exec-query
+        conn
+        "
+DELETE FROM derivation_sources WHERE derivation_id = $1"
+        (list id))
+
+       (match (exec-query
+               conn
+               "
+SELECT derivation_output_details_set_id
+FROM derivations_by_output_details_set
+WHERE derivation_id = $1"
+               (list id))
+         (((derivation-output-details-set-id))
+          (match (exec-query
+                  conn
+                  "
+SELECT COUNT(*) FROM derivations_by_output_details_set
+WHERE derivation_output_details_set_id = $1"
+                  (list derivation-output-details-set-id))
+            (((count))
+             (exec-query
+              conn
+              "
+DELETE FROM derivations_by_output_details_set
+WHERE derivation_id = $1"
+              (list id))
+
+             (when (<= (string->number count)
+                       1)
+               (exec-query
+                conn
+                "
+DELETE FROM derivation_output_details_sets
+WHERE id = $1"
+                (list derivation-output-details-set-id)))))))
+
+       (let ((input-derivations
+              (exec-query
+               conn
+               "
+SELECT DISTINCT derivations.id, derivations.file_name
+FROM derivations
+WHERE derivations.id IN (
+  SELECT derivation_outputs.derivation_id
+  FROM derivation_outputs
+  INNER JOIN derivation_inputs
+    ON derivation_outputs.id = derivation_inputs.derivation_output_id
+  WHERE derivation_inputs.derivation_id = $1
+)"
+               (list id))))
+
+         (exec-query
+          conn
+          "
+DELETE FROM derivation_inputs WHERE derivation_id = $1"
+          (list id))
+
+         (exec-query
+          conn
+          "
+DELETE FROM derivations WHERE id = $1"
+          (list id))
+
+         ;; Look at the inputs to see if they can be deleted too, as one of
+         ;; the derivations that was using them has now been deleted.
+         (fold
+          (match-lambda*
+            (((id file-name) result)
+             (+ result
+                (maybe-delete-derivation conn id file-name))))
+          1
+          input-derivations)))))
+
+  (with-postgresql-connection
+   "data-deletion"
+   (lambda (conn)
+     (define (delete-batch conn)
+       (let* ((derivations
+               (exec-query
+                conn
+                "
+SELECT id, file_name
+FROM derivations
+LIMIT 10000000"))
+              (derivations-count (length derivations)))
+         (simple-format (current-error-port)
+                        "Looking at ~A derivations\n"
+                        derivations-count)
+         (let ((deleted-count
+                (fold
+                 (match-lambda*
+                   (((id file-name) index result)
+                    (when (eq? 0 (modulo index 50000))
+                      (simple-format #t "~A/~A (~A%)  (deleted ~A so far)\n"
+                                     index derivations-count
+                                     (exact->inexact
+                                      (rationalize
+                                       (* 100 (/ index derivations-count))
+                                       1))
+                                     result))
+                    (+ result
+                       (with-postgresql-transaction
+                        conn
+                        (lambda (conn)
+                          (exec-query
+                           conn
+                           "
+SET CONSTRAINTS derivations_by_output_details_set_derivation_id_fkey DEFERRED")
+
+                          (maybe-delete-derivation conn id file-name))))))
+                 0
+                 derivations
+                 (iota derivations-count))))
+           (simple-format (current-error-port)
+                          "Deleted ~A derivations\n"
+                          deleted-count)
+           deleted-count)))
+
+     (let loop ((total-deleted 0))
+       (let ((batch-deleted-count (delete-batch conn)))
+         (if (eq? 0 batch-deleted-count)
+             (simple-format
+              (current-output-port)
+              "Finished deleting derivations, deleted ~A in total\n"
+              total-deleted)
+             (loop (+ total-deleted batch-deleted-count))))))))
