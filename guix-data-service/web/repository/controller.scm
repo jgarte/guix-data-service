@@ -256,7 +256,7 @@
           request
           `((system  ,(parse-build-system conn)
                      #:default "x86_64-linux")
-            (target  ,(parse-build-system conn)
+            (target  ,parse-target
                      #:default "")))))
     (let* ((system
             (assq-ref parsed-query-parameters 'system))
@@ -304,6 +304,7 @@
                   branch-name
                   package-name
                   (valid-systems conn)
-                  (valid-targets conn)
+                  (valid-targets->options
+                   (valid-targets conn))
                   build-server-urls
                   package-derivations)))))))
