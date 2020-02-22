@@ -40,6 +40,13 @@
                              (if (file-exists? install-dir)
                                  install-dir
                                  dev-dir)))
+           (dumps-dir   . ,(let ((install-dir
+                                  "/var/lib/guix-data-service/dumps")
+                                 (dev-dir
+                                  (string-append (getcwd) "/dumps")))
+                             (if (file-exists? install-dir)
+                                 install-dir
+                                 dev-dir)))
            (host        . "localhost")
            (port        . 8765)
 
