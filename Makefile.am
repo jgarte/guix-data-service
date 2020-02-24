@@ -70,6 +70,7 @@ SOURCES =									\
   guix-data-service/comparison.scm						\
   guix-data-service/config.scm							\
   guix-data-service/database.scm						\
+  guix-data-service/utils.scm						\
   guix-data-service/data-deletion.scm						\
   guix-data-service/jobs.scm							\
   guix-data-service/jobs/load-new-guix-revision.scm				\
