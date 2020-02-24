@@ -1554,6 +1554,37 @@ SKIP LOCKED")
 
     (f store)))
 
+(define (setup-logging id thunk)
+  (let* ((previous-output-port (current-output-port))
+         (previous-error-port (current-error-port))
+         (result
+          (with-postgresql-connection
+           (simple-format #f "load-new-guix-revision ~A logging" id)
+           (lambda (logging-conn)
+             (insert-empty-log-entry logging-conn id)
+             (let ((logging-port
+                    (log-port id logging-conn
+                              #:delete-existing-log-parts? #t)))
+               (set-current-output-port logging-port)
+               (set-current-error-port logging-port)
+               (let ((result
+                      (parameterize ((current-build-output-port logging-port)
+                                     (real-error-port previous-error-port)
+                                     (inferior-error-port
+                                      (setup-port-for-inferior-error-output
+                                       id previous-error-port)))
+                        (thunk))))
+                 (combine-log-parts! logging-conn id)
+                 (drop-log-parts-sequence logging-conn id)
+
+                 ;; This can happen with GC, so do it explicitly
+                 (close-port logging-port)
+
+                 result))))))
+    (set-current-output-port previous-output-port)
+    (set-current-error-port previous-error-port)
+    result))
+
 (define (process-load-new-guix-revision-job id)
   (with-postgresql-connection
    (simple-format #f "load-new-guix-revision ~A" id)
@@ -1584,47 +1615,23 @@ SKIP LOCKED")
               (log-time
                (string-append "loading revision " commit)
                (lambda ()
-                 (let* ((previous-output-port (current-output-port))
-                        (previous-error-port (current-error-port))
-                        (result
-                         (with-postgresql-connection
-                          (simple-format #f "load-new-guix-revision ~A logging" id)
-                          (lambda (logging-conn)
-                            (insert-empty-log-entry logging-conn id)
-                            (let ((logging-port
-                                   (log-port id logging-conn
-                                             #:delete-existing-log-parts? #t)))
-                              (set-current-output-port logging-port)
-                              (set-current-error-port logging-port)
-                              (let ((result
-                                     (parameterize ((current-build-output-port logging-port)
-                                                    (real-error-port previous-error-port)
-                                                    (inferior-error-port
-                                                     (setup-port-for-inferior-error-output id previous-error-port)))
-                                       (catch #t
-                                         (lambda ()
-                                           (with-store-connection
-                                            (lambda (store)
-                                              (load-new-guix-revision conn
-                                                                      store
-                                                                      git-repository-id
-                                                                      commit))))
-                                         (lambda (key . args)
-                                           (simple-format
-                                            (current-error-port)
-                                            "error: load-new-guix-revision: ~A ~A\n"
-                                            key args)
-                                           #f)))))
-                                (combine-log-parts! logging-conn id)
-                                (drop-log-parts-sequence logging-conn id)
-
-                                ;; This can happen with GC, so do it explicitly
-                                (close-port logging-port)
-
-                                result))))))
-                   (set-current-output-port previous-output-port)
-                   (set-current-error-port previous-error-port)
-                   result)))
+                 (setup-logging
+                  id
+                  (lambda ()
+                    (catch #t
+                      (lambda ()
+                        (with-store-connection
+                         (lambda (store)
+                           (load-new-guix-revision conn
+                                                   store
+                                                   git-repository-id
+                                                   commit))))
+                      (lambda (key . args)
+                        (simple-format
+                         (current-error-port)
+                         "error: load-new-guix-revision: ~A ~A\n"
+                         key args)
+                        #f))))))
               #t))
             (begin
               (record-job-succeeded conn id)
