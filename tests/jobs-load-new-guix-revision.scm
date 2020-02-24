@@ -23,6 +23,9 @@
      '()
      (select-job-for-commit conn "does not exist"))
 
+   (exec-query conn "TRUNCATE guix_revisions CASCADE")
+   (exec-query conn "TRUNCATE load_new_guix_revision_jobs CASCADE")
+
    (test-equal "test job success"
      #t
      (mock
