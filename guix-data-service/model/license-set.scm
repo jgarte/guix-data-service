@@ -44,10 +44,7 @@ FROM license_sets")
     ", ")
    " RETURNING id"))
 
-(define (inferior-packages->license-set-ids conn inf packages)
-  (define license-id-lists
-    (inferior-packages->license-id-lists conn inf packages))
-
+(define (inferior-packages->license-set-ids conn license-id-lists)
   (let* ((unique-license-id-lists (delete-duplicates
                                    license-id-lists))
          (existing-license-sets

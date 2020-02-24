@@ -5,6 +5,7 @@
   #:use-module (guix utils)
   #:use-module (guix tests)
   #:use-module (tests mock-inferior)
+  #:use-module (guix-data-service model license)
   #:use-module (guix-data-service model license-set)
   #:use-module (guix-data-service model package)
   #:use-module (guix-data-service model package-metadata)
@@ -31,15 +32,14 @@
    (location #f)))
 
 (define (test-license-set-ids conn)
-  (mock
-   ((guix-data-service model license)
-    inferior-packages->license-data
-    (lambda (inf packages)
-      '((("License 1"
-          "https://gnu.org/licenses/test-1.html"
-          "https://example.com/why-license-1")))))
+  (let ((license-id-lists
+         (inferior-packages->license-id-lists
+          conn
+          '((("License 1"
+              "https://gnu.org/licenses/test-1.html"
+              "https://example.com/why-license-1"))))))
 
-   (inferior-packages->license-set-ids conn #f #f)))
+    (inferior-packages->license-set-ids conn license-id-lists)))
 
 (define mock-inferior-packages
   (list mock-inferior-package-foo

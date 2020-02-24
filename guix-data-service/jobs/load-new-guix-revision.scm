@@ -45,6 +45,7 @@
   #:use-module (guix-data-service model guix-revision)
   #:use-module (guix-data-service model package-derivation)
   #:use-module (guix-data-service model guix-revision-package-derivation)
+  #:use-module (guix-data-service model license)
   #:use-module (guix-data-service model license-set)
   #:use-module (guix-data-service model lint-checker)
   #:use-module (guix-data-service model lint-warning)
@@ -626,8 +627,11 @@ WHERE job_id = $1"
 (define (insert-packages conn inf packages)
   (let* ((package-license-set-ids
           (with-time-logging "fetching inferior package license metadata"
-            (inferior-packages->license-set-ids conn inf
-                                                packages)))
+            (inferior-packages->license-set-ids
+             conn
+             (inferior-packages->license-id-lists
+              conn
+              (inferior-packages->license-data inf packages)))))
          (packages-metadata-ids
           (with-time-logging "fetching inferior package metadata"
             (inferior-packages->package-metadata-ids

@@ -22,7 +22,8 @@
   #:use-module (squee)
   #:use-module (guix inferior)
   #:use-module (guix-data-service model utils)
-  #:export (inferior-packages->license-id-lists))
+  #:export (inferior-packages->license-id-lists
+            inferior-packages->license-data))
 
 (define inferior-package-id
   (@@ (guix inferior) inferior-package-id))
@@ -61,10 +62,7 @@
   (inferior-eval '(use-modules (guix licenses)) inf)
   (inferior-eval (proc packages) inf))
 
-(define (inferior-packages->license-id-lists conn inf packages)
-  (define license-data
-    (inferior-packages->license-data inf packages))
-
+(define (inferior-packages->license-id-lists conn license-data)
   (define (string-or-null v)
     (if (string? v)
         v
