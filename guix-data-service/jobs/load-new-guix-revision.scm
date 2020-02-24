@@ -1643,5 +1643,6 @@ SKIP LOCKED")
               (record-job-event conn id "failure")
               #f)))
        (()
+        (exec-query conn "ROLLBACK")
         (simple-format #t "job ~A not found to be processed\n"
                        id))))))
