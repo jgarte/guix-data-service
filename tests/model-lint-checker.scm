@@ -13,6 +13,8 @@
 (with-postgresql-connection
  "test-model-lint-checker"
  (lambda (conn)
+   (check-test-database! conn)
+
    (test-assert "single insert"
      (with-postgresql-transaction
       conn

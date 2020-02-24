@@ -9,6 +9,8 @@
 (with-postgresql-connection
  "test-model-git-repository"
  (lambda (conn)
+   (check-test-database! conn)
+
    (test-assert "returns an id for a non existent URL"
      (with-postgresql-transaction
       conn

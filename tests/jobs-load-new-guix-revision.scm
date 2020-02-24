@@ -17,6 +17,8 @@
 (with-postgresql-connection
  "test-jobs-load-new-guix-revision"
  (lambda (conn)
+   (check-test-database! conn)
+
    (exec-query conn "TRUNCATE guix_revisions CASCADE")
 
    (test-equal "select-job-for-commit works"

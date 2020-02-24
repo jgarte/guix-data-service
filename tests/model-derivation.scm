@@ -8,6 +8,8 @@
 (with-postgresql-connection
  "test-model-derivation"
  (lambda (conn)
+   (check-test-database! conn)
+
    (test-equal "valid-systems"
      '("aarch64-linux" "armhf-linux" "i686-linux" "mips64el-linux" "x86_64-linux")
      (valid-systems conn))

@@ -27,6 +27,8 @@
  (with-postgresql-connection
   "test-model-license-set"
   (lambda (conn)
+    (check-test-database! conn)
+
     (with-postgresql-transaction
      conn
      (lambda (conn)

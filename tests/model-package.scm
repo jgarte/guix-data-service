@@ -55,6 +55,8 @@
    (with-postgresql-connection
     "test-model-package"
     (lambda (conn)
+      (check-test-database! conn)
+
       (with-postgresql-transaction
        conn
        (lambda (conn)

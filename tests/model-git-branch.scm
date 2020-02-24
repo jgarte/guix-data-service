@@ -10,6 +10,8 @@
 (with-postgresql-connection
  "test-module-git-branch"
  (lambda (conn)
+   (check-test-database! conn)
+
    (test-assert "insert-git-branch-entry works"
      (with-postgresql-transaction
       conn
