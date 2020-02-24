@@ -22,6 +22,7 @@
   #:use-module (ice-9 receive)
   #:use-module (squee)
   #:use-module (guix-data-service database)
+  #:use-module (guix-data-service utils)
   #:export (NULL
             quote-string
             value->quoted-string-or-null
@@ -248,15 +249,6 @@
             (error (simple-format #f "normalise-values: error: ~A\n" unknown))))
          data))
 
-  (define (log-time action f)
-    (simple-format #t "debug: Starting ~A\n" action)
-    (let* ((start-time (current-time))
-           (result (f))
-           (time-taken (- (current-time) start-time)))
-      (simple-format #t "debug: Finished ~A, took ~A seconds\n"
-                     action time-taken)
-      result))
-
   (let* ((existing-entries
           (if use-temporary-table?
               (let ((temp-table-name
@@ -281,23 +273,20 @@
                   "ANALYZE " temp-table-name))
 
                 ;; Populate the temporary table
-                (log-time
-                 (string-append "populating " temp-table-name)
-                 (lambda ()
-                   (exec-query conn
-                               (insert-sql data
-                                           #:table-name temp-table-name))))
+                (with-time-logging (string-append "populating " temp-table-name)
+                  (exec-query conn
+                              (insert-sql data
+                                          #:table-name temp-table-name)))
                 ;; Use the temporary table to find the existing values
                 (let ((result
-                       (log-time
-                        (string-append "querying the " temp-table-name)
-                        (lambda ()
-                          (exec-query->vhash
-                           conn
-                           (temp-table-select-query temp-table-name)
-                           cdr
-                           (lambda (result)
-                             (string->number (first result))))))))
+                       (with-time-logging
+                           (string-append "querying the " temp-table-name)
+                         (exec-query->vhash
+                          conn
+                          (temp-table-select-query temp-table-name)
+                          cdr
+                          (lambda (result)
+                            (string->number (first result)))))))
 
                   (exec-query conn (string-append "DROP TABLE " temp-table-name))
                   result))

@@ -19,17 +19,9 @@
   #:use-module (ice-9 match)
   #:use-module (squee)
   #:use-module (guix-data-service database)
+  #:use-module (guix-data-service utils)
   #:export (update-package-derivations-table
             rebuild-package-derivations-table))
-
-(define (log-time action f)
-  (simple-format #t "debug: Starting ~A\n" action)
-  (let* ((start-time (current-time))
-         (result (f))
-         (time-taken (- (current-time) start-time)))
-    (simple-format #t "debug: Finished ~A, took ~A seconds\n"
-                   action time-taken)
-    result))
 
 (define (delete-guix-revision-package-derivation-entries conn
                                                          git-repository-id
@@ -128,21 +120,21 @@ LOCK TABLE ONLY package_derivations_by_guix_revision_range
   (for-each
    (match-lambda
      ((branch-name)
-      (log-time
-       (simple-format #f "deleting package derivation entries for ~A" branch-name)
-       (lambda ()
-         (delete-guix-revision-package-derivation-entries conn
-                                                          git-repository-id
-                                                          guix-revision-id
-                                                          branch-name)))
-      (log-time
-       (simple-format #f "inserting package derivation entries for ~A" branch-name)
-       (lambda ()
-         (insert-guix-revision-package-derivation-entries
-          conn
-          git-repository-id
-          branch-name
-          #:guix-revision-id guix-revision-id)))))
+      (with-time-logging
+          (simple-format #f "deleting package derivation entries for ~A"
+                         branch-name)
+        (delete-guix-revision-package-derivation-entries conn
+                                                         git-repository-id
+                                                         guix-revision-id
+                                                         branch-name))
+      (with-time-logging
+          (simple-format #f "inserting package derivation entries for ~A"
+                         branch-name)
+        (insert-guix-revision-package-derivation-entries
+         conn
+         git-repository-id
+         branch-name
+         #:guix-revision-id guix-revision-id))))
    (exec-query
     conn
     "SELECT name FROM git_branches WHERE commit = $1 AND git_repository_id = $2"
@@ -162,10 +154,9 @@ LOCK TABLE ONLY package_derivations_by_guix_revision_range
 LOCK TABLE ONLY package_derivations_by_guix_revision_range
   IN SHARE ROW EXCLUSIVE MODE")
 
-     (log-time
-      (simple-format #f "deleting all package derivation entries")
-      (lambda ()
-        (exec-query conn "DELETE FROM package_derivations_by_guix_revision_range")))
+     (with-time-logging
+         (simple-format #f "deleting all package derivation entries")
+       (exec-query conn "DELETE FROM package_derivations_by_guix_revision_range"))
 
      (let ((git-branches-and-repository-ids
             (exec-query
@@ -174,11 +165,11 @@ LOCK TABLE ONLY package_derivations_by_guix_revision_range
        (for-each
         (match-lambda
           ((branch-name git-repository-id)
-           (log-time
-            (simple-format #f "inserting package derivation entries for ~A" branch-name)
-            (lambda ()
-              (insert-guix-revision-package-derivation-entries
-               conn
-               git-repository-id
-               branch-name)))))
+           (with-time-logging
+               (simple-format #f "inserting package derivation entries for ~A"
+                              branch-name)
+             (insert-guix-revision-package-derivation-entries
+              conn
+              git-repository-id
+              branch-name))))
         git-branches-and-repository-ids)))))
