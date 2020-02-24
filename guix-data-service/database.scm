@@ -17,9 +17,12 @@
 
 (define-module (guix-data-service database)
   #:use-module (system foreign)
+  #:use-module (ice-9 match)
   #:use-module (squee)
   #:export (with-postgresql-connection
             with-postgresql-transaction
+
+            check-test-database!
 
             with-advisory-session-lock
             obtain-advisory-transaction-lock
@@ -62,6 +65,12 @@
         result))
     (lambda (key . args)
       (exec-query conn "ROLLBACK;"))))
+
+(define (check-test-database! conn)
+  (match (exec-query conn "SELECT current_database()")
+    (((name))
+     (unless (string=? name "guix_data_service_test")
+       (error "tests being run against non test database")))))
 
 (define (with-advisory-session-lock conn lock f)
   (let ((lock-number (number->string (symbol-hash lock))))
