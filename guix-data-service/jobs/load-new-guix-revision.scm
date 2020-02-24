@@ -35,6 +35,7 @@
   #:use-module (guix build utils)
   #:use-module (guix-data-service config)
   #:use-module (guix-data-service database)
+  #:use-module (guix-data-service utils)
   #:use-module (guix-data-service model build)
   #:use-module (guix-data-service model channel-instance)
   #:use-module (guix-data-service model channel-news)
@@ -254,15 +255,6 @@ WHERE job_id = $1"
 (define inferior-package-id
   (@@ (guix inferior) inferior-package-id))
 
-(define (log-time action f)
-  (simple-format #t "debug: Starting ~A\n" action)
-  (let* ((start-time (current-time))
-         (result (f))
-         (time-taken (- (current-time) start-time)))
-    (simple-format #t "debug: Finished ~A, took ~A seconds\n"
-                   action time-taken)
-    result))
-
 (define (record-start-time action)
   (simple-format #t "debug: Starting ~A\n" action)
   (cons action
@@ -306,10 +298,8 @@ WHERE job_id = $1"
         (all-system-tests))))
 
   (let ((system-test-data
-         (log-time
-          "getting system tests"
-          (lambda ()
-            (inferior-eval-with-store inf store extract)))))
+         (with-time-logging "getting system tests"
+           (inferior-eval-with-store inf store extract))))
 
     (for-each (lambda (derivation-file-name)
                 (add-temp-root store derivation-file-name))
@@ -423,11 +413,10 @@ WHERE job_id = $1"
           (list name description network-dependent?)
           (if network-dependent?
               '()
-              (log-time
-               (simple-format #f "getting ~A lint warnings" name)
-               (lambda ()
-                 (inferior-eval-with-store inf store (lint-warnings-for-checker
-                                                      name))))))))
+              (with-time-logging (simple-format #f "getting ~A lint warnings"
+                                                name)
+                (inferior-eval-with-store inf store (lint-warnings-for-checker
+                                                     name)))))))
       checkers))))
 
 (define (all-inferior-package-derivations store inf packages)
@@ -579,18 +568,17 @@ WHERE job_id = $1"
              (round
               (/ (assoc-ref (gc-stats) 'heap-size)
                  (expt 2. 20))))
-     (log-time
-      (simple-format #f "getting derivations for ~A" system-target-pairs)
-      (lambda ()
-        (catch
-          'match-error
-          (lambda ()
-            (inferior-eval '(invalidate-derivation-caches!) inf))
-          (lambda (key . args)
-            (simple-format
-             (current-error-port)
-             "warning: ignoring match-error from calling inferior invalidate-derivation-caches!\n")))
-        (inferior-eval-with-store inf store (proc packages system-target-pairs)))))
+     (with-time-logging
+         (simple-format #f "getting derivations for ~A" system-target-pairs)
+       (catch
+         'match-error
+         (lambda ()
+           (inferior-eval '(invalidate-derivation-caches!) inf))
+         (lambda (key . args)
+           (simple-format
+            (current-error-port)
+            "warning: ignoring match-error from calling inferior invalidate-derivation-caches!\n")))
+       (inferior-eval-with-store inf store (proc packages system-target-pairs))))
    (append (map list supported-system-pairs)
            supported-system-cross-build-pairs)))
 
@@ -637,23 +625,20 @@ WHERE job_id = $1"
 
 (define (insert-packages conn inf packages)
   (let* ((package-license-set-ids
-          (log-time "fetching inferior package license metadata"
-                    (lambda ()
-                      (inferior-packages->license-set-ids conn inf
-                                                          packages))))
+          (with-time-logging "fetching inferior package license metadata"
+            (inferior-packages->license-set-ids conn inf
+                                                packages)))
          (packages-metadata-ids
-          (log-time "fetching inferior package metadata"
-                    (lambda ()
-                      (inferior-packages->package-metadata-ids
-                       conn packages package-license-set-ids)))))
+          (with-time-logging "fetching inferior package metadata"
+            (inferior-packages->package-metadata-ids
+             conn packages package-license-set-ids))))
 
-    (log-time "getting package-ids"
-              (lambda ()
-                (inferior-packages->package-ids
-                 conn
-                 (zip (map inferior-package-name packages)
-                      (map inferior-package-version packages)
-                      packages-metadata-ids))))))
+    (with-time-logging "getting package-ids"
+      (inferior-packages->package-ids
+       conn
+       (zip (map inferior-package-name packages)
+            (map inferior-package-version packages)
+            packages-metadata-ids)))))
 
 (define (insert-lint-warnings conn inferior-package-id->package-database-id
                               lint-checker-ids
@@ -741,10 +726,8 @@ WHERE job_id = $1"
                   (let* ((guix-package (@ (gnu packages package-management)
                                           guix))
                          (derivation (package-derivation store guix-package)))
-                    (log-time
-                     "building the guix derivation"
-                     (lambda ()
-                       (build-derivations store (list derivation))))
+                    (with-time-logging "building the guix derivation"
+                      (build-derivations store (list derivation)))
 
                     (let ((new-store-path
                            (derivation->output-path derivation)))
@@ -758,10 +741,8 @@ WHERE job_id = $1"
   (let* ((nss-certs-package (@ (gnu packages certs)
                                nss-certs))
          (derivation (package-derivation store nss-certs-package)))
-    (log-time
-     "building the nss-certs derivation"
-     (lambda ()
-       (build-derivations store (list derivation))))
+    (with-time-logging "building the nss-certs derivation"
+      (build-derivations store (list derivation)))
     (derivation->output-path derivation)))
 
 (define (channel->derivation-file-names-by-system store channel)
@@ -910,16 +891,14 @@ WHERE job_id = $1"
 
 (define (channel->derivations-by-system conn store channel)
   (let* ((derivation-file-names-by-system
-          (log-time
-           "computing the channel derivation"
-           (lambda ()
-             ;; Obtain a session level lock here, to avoid conflicts with
-             ;; other jobs over the Git repository.
-             (with-advisory-session-lock/log-time
-              conn
-              'channel->manifest-store-item
-              (lambda ()
-                (channel->derivation-file-names-by-system store channel)))))))
+          (with-time-logging "computing the channel derivation"
+            ;; Obtain a session level lock here, to avoid conflicts with
+            ;; other jobs over the Git repository.
+            (with-advisory-session-lock/log-time
+             conn
+             'channel->manifest-store-item
+             (lambda ()
+               (channel->derivation-file-names-by-system store channel))))))
     (for-each
      (match-lambda
        ((system . derivation-file-name)
@@ -948,10 +927,8 @@ WHERE job_id = $1"
     (if derivation-file-name-for-current-system
         (let ((derivation-for-current-system
                (read-derivation-from-file derivation-file-name-for-current-system)))
-          (log-time
-           "building the channel derivation"
-           (lambda ()
-             (build-derivations store (list derivation-for-current-system))))
+          (with-time-logging "building the channel derivation"
+            (build-derivations store (list derivation-for-current-system)))
 
           (store-item->guix-store-item
            (derivation->output-path derivation-for-current-system)))
@@ -982,10 +959,8 @@ WHERE job_id = $1"
                                                     inferior-glibc-locales))
            (output (derivation->output-path derivation)))
       (close-inferior inf)
-      (log-time
-       "building the glibc-locales derivation"
-       (lambda ()
-         (build-derivations store (list derivation))))
+      (with-time-logging "building the glibc-locales derivation"
+        (build-derivations store (list derivation)))
 
       output)))
 
@@ -1064,34 +1039,25 @@ WHERE job_id = $1"
       #t
       (lambda ()
         (let* ((packages
-                (log-time
-                 "fetching inferior packages"
-                 (lambda ()
-                   (deduplicate-inferior-packages
-                    (inferior-packages inf)))))
+                (with-time-logging "fetching inferior packages"
+                  (deduplicate-inferior-packages
+                   (inferior-packages inf))))
                (inferior-lint-warnings
-                (log-time
-                 "fetching inferior lint warnings"
-                 (lambda ()
-                   (all-inferior-lint-warnings inf store))))
+                (with-time-logging "fetching inferior lint warnings"
+                  (all-inferior-lint-warnings inf store)))
                (inferior-data-4-tuples
-                (log-time
-                 "getting inferior derivations"
-                 (lambda ()
-                   (all-inferior-package-derivations store inf packages))))
+                (with-time-logging "getting inferior derivations"
+                  (all-inferior-package-derivations store inf packages)))
                (inferior-system-tests
-                (log-time
-                 "getting inferior system tests"
-                 (lambda ()
-                   (all-inferior-system-tests inf store)))))
+                (with-time-logging "getting inferior system tests"
+                  (all-inferior-system-tests inf store))))
 
-          (log-time
-           "acquiring advisory transaction lock: load-new-guix-revision-inserts"
-           (lambda ()
-             ;; Wait until this is the only transaction inserting data, to
-             ;; avoid any concurrency issues
-             (obtain-advisory-transaction-lock conn
-                                               'load-new-guix-revision-inserts)))
+          (with-time-logging
+              "acquiring advisory transaction lock: load-new-guix-revision-inserts"
+            ;; Wait until this is the only transaction inserting data, to
+            ;; avoid any concurrency issues
+            (obtain-advisory-transaction-lock conn
+                                              'load-new-guix-revision-inserts))
           (let* ((package-ids
                   (insert-packages conn inf packages))
                  (inferior-package-id->package-database-id
@@ -1139,12 +1105,10 @@ WHERE job_id = $1"
                                                    inferior-system-tests)
 
             (let ((package-derivation-ids
-                   (log-time
-                    "inferior-data->package-derivation-ids"
-                    (lambda ()
-                      (inferior-data->package-derivation-ids
-                       conn inf inferior-package-id->package-database-id
-                       inferior-data-4-tuples)))))
+                   (with-time-logging "inferior-data->package-derivation-ids"
+                     (inferior-data->package-derivation-ids
+                      conn inf inferior-package-id->package-database-id
+                      inferior-data-4-tuples))))
               (update-builds-derivation-output-details-set-id
                conn
                (map fourth inferior-data-4-tuples))
@@ -1166,36 +1130,32 @@ WHERE job_id = $1"
         (display-backtrace (make-stack #t) (current-error-port))))))
 
 (define (update-package-versions-table conn git-repository-id commit)
-  (log-time
-   "lock table: package_versions_by_guix_revision_range"
-   (lambda ()
-     ;; Lock the table to wait for other transactions to commit before updating
-     ;; the table
-     (exec-query
-      conn
-      "
+  (with-time-logging "lock table: package_versions_by_guix_revision_range"
+    ;; Lock the table to wait for other transactions to commit before updating
+    ;; the table
+    (exec-query
+     conn
+     "
 LOCK TABLE ONLY package_versions_by_guix_revision_range
-  IN SHARE ROW EXCLUSIVE MODE")))
+  IN SHARE ROW EXCLUSIVE MODE"))
 
   (for-each
    (match-lambda
      ((branch-name)
-      (log-time
-       (simple-format #f "deleting package version entries for ~A" branch-name)
-       (lambda ()
-         (exec-query
-          conn
-          "
+      (with-time-logging
+          (simple-format #f "deleting package version entries for ~A" branch-name)
+        (exec-query
+         conn
+         "
 DELETE FROM package_versions_by_guix_revision_range
 WHERE git_repository_id = $1 AND branch_name = $2"
-          (list git-repository-id
-                branch-name))))
-      (log-time
-       (simple-format #f "inserting package version entries for ~A" branch-name)
-       (lambda ()
-         (exec-query
-          conn
-          "
+         (list git-repository-id
+               branch-name)))
+      (with-time-logging
+          (simple-format #f "inserting package version entries for ~A" branch-name)
+        (exec-query
+         conn
+         "
 INSERT INTO package_versions_by_guix_revision_range
 SELECT DISTINCT
        $1::integer AS git_repository_id,
@@ -1223,7 +1183,7 @@ WINDOW package_version AS (
   RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
 )
 ORDER BY packages.name, packages.version"
-          (list git-repository-id branch-name))))))
+         (list git-repository-id branch-name)))))
    (exec-query
     conn
     "SELECT name FROM git_branches WHERE commit = $1 AND git_repository_id = $2"
@@ -1268,13 +1228,11 @@ ORDER BY packages.name, packages.version"
                                       channel-derivations-by-system))
            (if (defined? 'channel-news-for-commit
                  (resolve-module '(guix channels)))
-               (log-time
-                "inserting channel news entries"
-                (lambda ()
-                  (insert-channel-news-entries-for-guix-revision
-                   conn
-                   guix-revision-id
-                   (channel-news-for-commit channel-for-commit commit))))
+               (with-time-logging "inserting channel news entries"
+                 (insert-channel-news-entries-for-guix-revision
+                  conn
+                  guix-revision-id
+                  (channel-news-for-commit channel-for-commit commit)))
                (begin
                  (simple-format #t "debug: importing channel news not supported\n")
                  #t))
@@ -1612,26 +1570,24 @@ SKIP LOCKED")
         (if (or
              (guix-revision-exists? conn git-repository-id commit)
              (eq?
-              (log-time
-               (string-append "loading revision " commit)
-               (lambda ()
-                 (setup-logging
-                  id
-                  (lambda ()
-                    (catch #t
-                      (lambda ()
-                        (with-store-connection
-                         (lambda (store)
-                           (load-new-guix-revision conn
-                                                   store
-                                                   git-repository-id
-                                                   commit))))
-                      (lambda (key . args)
-                        (simple-format
-                         (current-error-port)
-                         "error: load-new-guix-revision: ~A ~A\n"
-                         key args)
-                        #f))))))
+              (with-time-logging (string-append "loading revision " commit)
+                (setup-logging
+                 id
+                 (lambda ()
+                   (catch #t
+                     (lambda ()
+                       (with-store-connection
+                        (lambda (store)
+                          (load-new-guix-revision conn
+                                                  store
+                                                  git-repository-id
+                                                  commit))))
+                     (lambda (key . args)
+                       (simple-format
+                        (current-error-port)
+                        "error: load-new-guix-revision: ~A ~A\n"
+                        key args)
+                       #f)))))
               #t))
             (begin
               (record-job-succeeded conn id)
