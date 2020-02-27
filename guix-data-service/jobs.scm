@@ -18,6 +18,7 @@
 (define-module (guix-data-service jobs)
   #:use-module (ice-9 match)
   #:use-module (ice-9 format)
+  #:use-module (ice-9 threads)
   #:use-module (guix-data-service jobs load-new-guix-revision)
   #:export (process-jobs
 

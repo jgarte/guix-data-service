@@ -18,6 +18,7 @@
 (define-module (guix-data-service jobs load-new-guix-revision)
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 match)
+  #:use-module (ice-9 threads)
   #:use-module (ice-9 textual-ports)
   #:use-module (ice-9 hash-table)
   #:use-module (rnrs exceptions)
