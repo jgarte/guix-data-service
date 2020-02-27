@@ -915,6 +915,8 @@ WHERE job_id = $1"
 
     derivation-file-names-by-system))
 
+(prevent-inlining-for-tests channel->derivations-by-system)
+
 (define (channel-derivations-by-system->guix-store-item
          store
          channel-derivations-by-system)
@@ -938,6 +940,8 @@ WHERE job_id = $1"
           (store-item->guix-store-item
            (derivation->output-path derivation-for-current-system)))
         #f)))
+
+(prevent-inlining-for-tests channel-derivations-by-system->guix-store-item)
 
 (define (glibc-locales-for-guix-store-path store store-path)
   (let ((inf (if (defined?
@@ -1133,6 +1137,8 @@ WHERE job_id = $1"
         #f)
       (lambda (key . args)
         (display-backtrace (make-stack #t) (current-error-port))))))
+
+(prevent-inlining-for-tests extract-information-from)
 
 (define (update-package-versions-table conn git-repository-id commit)
   (with-time-logging "lock table: package_versions_by_guix_revision_range"
@@ -1517,6 +1523,8 @@ SKIP LOCKED")
 
     (f store)))
 
+(prevent-inlining-for-tests with-store-connection)
+
 (define (setup-logging id thunk)
   (let* ((previous-output-port (current-output-port))
          (previous-error-port (current-error-port))
@@ -1547,6 +1555,8 @@ SKIP LOCKED")
     (set-current-output-port previous-output-port)
     (set-current-error-port previous-error-port)
     result))
+
+(prevent-inlining-for-tests setup-logging)
 
 (define (process-load-new-guix-revision-job id)
   (with-postgresql-connection
