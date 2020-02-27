@@ -6,7 +6,6 @@
   #:use-module (guix store)
   #:use-module (guix tests)
   #:use-module (guix-data-service database)
-  #:use-module (tests mock-inferior)
   #:use-module (guix-data-service model git-repository)
   #:use-module (guix-data-service jobs load-new-guix-revision))
 
