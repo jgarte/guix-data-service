@@ -41,20 +41,34 @@
              (gnu packages ruby)
              (srfi srfi-1))
 
+(define guile3.0-email
+  (package
+    (inherit guile-email)
+    (name "guile3.0-email")
+    (inputs `(("guile" ,guile-3.0)
+              ,@(alist-delete "guile" (package-inputs guile-email))))))
+
+(define guile3.0-squee
+  (package
+   (inherit guile-squee)
+   (name "guile3.0-squee")
+   (native-inputs `(("guile" ,guile-3.0)
+                    ,@(alist-delete "guile" (package-native-inputs guile-squee))))))
+
 (package
   (name "guix-data-service")
   (version "0.0.0")
   (source #f)
   (build-system gnu-build-system)
   (inputs
-   `(("guix" ,guix)
-     ("guile-email" ,guile-email)
-     ("guile-json" ,guile-json-3)
-     ("guile-squee" ,guile-squee)
-     ("guile-fibers" ,guile-fibers)
-     ("guile-gcrypt" ,guile-gcrypt)
-     ("guile-syntax-highlight" ,guile-syntax-highlight)
-     ("guile" ,guile-2.2)
+   `(("guix" ,guile3.0-guix)
+     ("guile-email" ,guile3.0-email)
+     ("guile-json" ,guile3.0-json)
+     ("guile-squee" ,guile3.0-squee)
+     ("guile-fibers" ,guile3.0-fibers)
+     ("guile-gcrypt" ,guile3.0-gcrypt)
+     ("guile-readline" ,guile3.0-readline)
+     ("guile" ,guile-next)
      ("sqitch" ,sqitch)))
   (native-inputs
    `(("autoconf" ,autoconf)
