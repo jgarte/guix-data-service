@@ -146,4 +146,4 @@ SCM_LOG_DRIVER = $(top_builddir)/test-env	\
   $(GUILE) --no-auto-compile -e main		\
       $(top_srcdir)/build-aux/test-driver.scm
 
-AM_SCM_LOG_DRIVER_FLAGS = --brief=yes
+# AM_SCM_LOG_DRIVER_FLAGS = --brief=yes
