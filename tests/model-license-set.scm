@@ -6,8 +6,6 @@
   #:use-module (guix-data-service model license)
   #:use-module (guix-data-service model license-set))
 
-(use-modules (tests driver))
-
 (test-begin "test-model-license-set")
 
 (define license-data
