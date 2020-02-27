@@ -1,4 +1,6 @@
-GOBJECTS = $(SOURCES:%.scm=%.go)
+ALL_SOURCES = $(SOURCES) $(TESTS)
+
+GOBJECTS = $(ALL_SOURCES:%.scm=%.go)
 
 nobase_mod_DATA = $(SOURCES) $(NOCOMP_SOURCES)
 nobase_go_DATA = $(GOBJECTS)
