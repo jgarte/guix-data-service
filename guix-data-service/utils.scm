@@ -17,7 +17,8 @@
 
 (define-module (guix-data-service utils)
   #:export (call-with-time-logging
-            with-time-logging))
+            with-time-logging
+            prevent-inlining-for-tests))
 
 (define (call-with-time-logging action thunk)
   (simple-format #t "debug: Starting ~A\n" action)
@@ -31,3 +32,6 @@
 (define-syntax-rule (with-time-logging action exp ...)
   "Log under NAME the time taken to evaluate EXP."
   (call-with-time-logging action (lambda () exp ...)))
+
+(define-syntax-rule (prevent-inlining-for-tests var)
+  (set! var var))
