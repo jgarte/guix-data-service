@@ -1589,20 +1589,20 @@ SKIP LOCKED")
                 (setup-logging
                  id
                  (lambda ()
-                   (catch #t
+                   (with-exception-handler
+                       (lambda (exn)
+                         (simple-format (current-error-port)
+                                        "error: load-new-guix-revision: ~A\n"
+                                        exn)
+                         (backtrace)
+                         #f)
                      (lambda ()
                        (with-store-connection
                         (lambda (store)
                           (load-new-guix-revision conn
                                                   store
                                                   git-repository-id
-                                                  commit))))
-                     (lambda (key . args)
-                       (simple-format
-                        (current-error-port)
-                        "error: load-new-guix-revision: ~A ~A\n"
-                        key args)
-                       #f)))))
+                                                  commit))))))))
               #t))
             (begin
               (record-job-succeeded conn id)
