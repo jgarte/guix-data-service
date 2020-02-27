@@ -6,6 +6,7 @@
   #:use-module (tests mock-inferior)
   #:use-module (guix-data-service model license)
   #:use-module (guix-data-service model license-set)
+  #:use-module (guix-data-service model package-metadata)
   #:use-module (guix-data-service database))
 
 (test-begin "test-model-package-metadata")
