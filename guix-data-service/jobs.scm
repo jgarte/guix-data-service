@@ -24,7 +24,8 @@
 
             default-max-processes))
 
-(define* (process-jobs conn #:key max-processes)
+(define* (process-jobs conn #:key max-processes
+                       latest-branch-revision-max-processes)
   (define (fetch-new-jobs)
     (fetch-unlocked-jobs conn))
 
@@ -44,7 +45,9 @@
   (process-jobs-concurrently fetch-new-jobs
                              process-job
                              handle-job-failure
-                             #:max-processes max-processes))
+                             #:max-processes max-processes
+                             #:priority-max-processes
+                             latest-branch-revision-max-processes))
 
 (define default-max-processes
   (max (round (/ (current-processor-count)
@@ -55,12 +58,15 @@
   (* (* 60 60) ;; 1 hour in seconds
      24))
 
-(define* (process-jobs-concurrently fetch-new-jobs
-                                    process-job
-                                    handle-job-failure
-                                    #:key (max-processes
-                                           default-max-processes)
-                                    (timeout default-timeout))
+(define* (process-jobs-concurrently
+          fetch-new-jobs
+          process-job
+          handle-job-failure
+          #:key
+          (max-processes default-max-processes)
+          (priority-max-processes (* 2 max-processes))
+          (timeout default-timeout))
+
   (define processes
     (make-hash-table))
 
@@ -156,9 +162,7 @@
                   (hash-count (const #t) processes)))
              (when (< current-processes
                       (if priority?
-                          ;; For priority jobs, burst up to twice the number
-                          ;; of max processes
-                          (* 2 max-processes)
+                          priority-max-processes
                           max-processes))
                (fork-and-process-job (list job-id))))))
         jobs)))

@@ -36,6 +36,11 @@
                 (lambda (opt name arg result)
                   (alist-cons 'max-processes
                               (string->number arg)
+                              result)))
+        (option '("latest-branch-revision-max-processes") #t #f
+                (lambda (opt name arg result)
+                  (alist-cons 'latest-branch-revision-max-processes
+                              (string->number arg)
                               result)))))
 
 (define %default-options
@@ -62,4 +67,7 @@
    (lambda (conn)
      (simple-format #t "Ready to process jobs...\n")
      (process-jobs conn
-                   #:max-processes (assq-ref opts 'max-processes)))))
+                   #:max-processes (assq-ref opts 'max-processes)
+                   #:latest-branch-revision-max-processes
+                   (or (assq-ref opts 'latest-branch-revision-max-processes)
+                       (* 2 (assq-ref opts 'max-processes)))))))
