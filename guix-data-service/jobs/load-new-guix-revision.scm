@@ -750,7 +750,7 @@ WHERE job_id = $1"
       (build-derivations store (list derivation)))
     (derivation->output-path derivation)))
 
-(define (channel->derivation-file-names-by-system store channel)
+(define (channel->derivation-file-names-by-system conn store channel)
   (define use-container? (defined?
                            'open-inferior/container
                            (resolve-module '(guix inferior))))
@@ -852,9 +852,15 @@ WHERE job_id = $1"
            inferior))
 
         (let ((channel-instance
-               (first
-                (latest-channel-instances store
-                                          (list channel)))))
+               ;; Obtain a session level lock here, to avoid conflicts with
+               ;; other jobs over the Git repository.
+               (with-advisory-session-lock/log-time
+                conn
+                'latest-channel-instances
+                (lambda ()
+                  (first
+                   (latest-channel-instances store
+                                             (list channel)))))))
           (inferior-eval '(use-modules (srfi srfi-1)
                                        (guix channels)
                                        (guix grafts)
@@ -897,13 +903,7 @@ WHERE job_id = $1"
 (define (channel->derivations-by-system conn store channel)
   (let* ((derivation-file-names-by-system
           (with-time-logging "computing the channel derivation"
-            ;; Obtain a session level lock here, to avoid conflicts with
-            ;; other jobs over the Git repository.
-            (with-advisory-session-lock/log-time
-             conn
-             'channel->manifest-store-item
-             (lambda ()
-               (channel->derivation-file-names-by-system store channel))))))
+            (channel->derivation-file-names-by-system conn store channel))))
     (for-each
      (match-lambda
        ((system . derivation-file-name)
