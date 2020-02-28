@@ -279,7 +279,11 @@ WHERE job_id = $1"
        (let ((time-taken (- (current-time) start-time)))
          (simple-format #t "debug: Finished aquiring lock ~A, took ~A seconds\n"
                         lock time-taken))
-       (f)))))
+       (let ((result (f)))
+         (let ((time-spent (- (current-time) start-time)))
+           (simple-format #t "debug: Releasing lock ~A, spent ~A seconds\n"
+                          lock time-spent))
+         result)))))
 
 (define (all-inferior-system-tests inf store)
   (define extract
