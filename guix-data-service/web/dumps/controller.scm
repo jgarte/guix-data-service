@@ -20,6 +20,8 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 ftw)
   #:use-module (ice-9 regex)
+  #:use-module (web uri)
+  #:use-module (web request)
   #:use-module (web response)
   #:use-module (guix-data-service config)
   #:use-module (guix-data-service web render)
@@ -35,6 +37,8 @@
     (('GET "dumps")
      (render-dumps request
                    mime-types))
+    (('GET "dumps" "latest" file)
+     (render-latest-dumps request file))
     (('GET "dumps" _ ...)
      (list (build-response #:code 504)
            "requests for individual files should be handled before the request
@@ -82,7 +86,26 @@ reaches the Guix Data Service"))
   (render-html
    #:sxml (view-dumps (available-dumps))))
 
-
+(define (render-latest-dumps request file)
+  (or (any (match-lambda
+             ((date-string . files)
+              (if (member file files)
+                  (let ((uri
+                         (build-uri
+                          #f
+                          #:path (string-append
+                                  "/"
+                                  (encode-and-join-uri-path
+                                   (list "dumps" date-string file)))
+                          #:validate? #f)))
+                    (list (build-response
+                           #:code 302
+                           #:headers `((content-type . (text/html))
+                                       (location . ,uri)))
+                          (format #f "Redirect to ~a" (uri->string uri))))
+                  #f)))
+           (available-dumps))
+      (not-found (request-uri request))))
 
 
 
