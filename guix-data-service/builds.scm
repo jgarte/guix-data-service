@@ -241,7 +241,14 @@ WHERE derivation_output_details.path = $1"
           build-server-id
           build-id
           data)
-         (display "-")))
+         (if (verbose-output?)
+             (simple-format (current-error-port)
+                            "debug: status: ~A\n"
+                            (assq-ref build-statuses
+                                      (or (assoc-ref data "buildstatus")
+                                          ;; status is for the /output/ requests
+                                          (assoc-ref data "status"))))
+             (display "-"))))
       ;; Try not to make to many requests at once
       (usleep 200)))
    (select-pending-builds conn build-server-id)))
@@ -346,6 +353,10 @@ WHERE derivation_output_details.path = $1"
                     derivation-file-name
                     (string-length "/gnu/store"))))
 
+  (when (verbose-output?)
+    (simple-format (current-error-port)
+                   "debug: fetching ~A\n"
+                   build-url))
   (let-values
       (((response body)
         (http-request build-url)))
