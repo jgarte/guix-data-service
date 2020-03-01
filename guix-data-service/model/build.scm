@@ -80,7 +80,7 @@ LEFT JOIN
 (
   SELECT DISTINCT ON (build_id) *
   FROM build_status
-  ORDER BY build_id, timestamp DESC
+  ORDER BY build_id, id DESC
 ) AS latest_build_status
 ON builds.id = latest_build_status.build_id
 "
@@ -167,7 +167,7 @@ INNER JOIN
 (
   SELECT DISTINCT ON (build_id) *
   FROM build_status
-  ORDER BY build_id, timestamp DESC
+  ORDER BY build_id, id DESC
 ) AS latest_build_status
 ON latest_build_status.build_id = builds.id
 "
@@ -206,7 +206,7 @@ INNER JOIN
 (
   SELECT DISTINCT ON (build_id) *
   FROM build_status
-  ORDER BY build_id, timestamp DESC
+  ORDER BY build_id, id DESC
 ) AS latest_build_status
   ON latest_build_status.build_id = builds.id
 INNER JOIN derivations_by_output_details_set
@@ -283,7 +283,7 @@ LEFT OUTER JOIN builds
 LEFT OUTER JOIN (
   SELECT DISTINCT ON (build_id) *
   FROM build_status
-  ORDER BY build_id, timestamp DESC
+  ORDER BY build_id, id DESC
 ) AS latest_build_status
   ON builds.id = latest_build_status.build_id
 WHERE latest_build_status.status = 'failed'")

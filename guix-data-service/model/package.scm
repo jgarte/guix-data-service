@@ -290,7 +290,7 @@ LEFT OUTER JOIN builds
 LEFT OUTER JOIN (
   SELECT DISTINCT ON (build_id) *
   FROM build_status
-  ORDER BY build_id, timestamp DESC
+  ORDER BY build_id, id DESC
 ) AS latest_build_status
   ON builds.id = latest_build_status.build_id
 INNER JOIN guix_revisions AS first_guix_revisions

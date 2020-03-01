@@ -440,7 +440,7 @@ INNER JOIN builds
 LEFT JOIN (
   SELECT DISTINCT ON (build_id) *
   FROM build_status
-  ORDER BY build_id, timestamp DESC
+  ORDER BY build_id, id DESC
 ) AS latest_build_status
 ON builds.id = latest_build_status.build_id
 WHERE builds.build_server_id = $1 AND
