@@ -77,7 +77,14 @@ reaches the Guix Data Service"))
 
   (sort (file-system-fold enter? leaf down up skip error
                           '()                 ; Start with an empty alist
-                          (%config 'dumps-dir))
+                          (%config 'dumps-dir)
+                          (lambda args
+                            ;; Use stat, then fall back to lstat if that fails
+                            (catch #t
+                              (lambda ()
+                                (apply stat args))
+                              (lambda _
+                                (apply lstat args)))))
         (lambda (a b)
           ;; Sort so that the recent dumps are first
           (string>? (car a) (car b)))))
