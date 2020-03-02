@@ -27,7 +27,9 @@ bin_SCRIPTS =							\
   scripts/guix-data-service-process-branch-updated-email	\
   scripts/guix-data-service-process-branch-updated-mbox	\
   scripts/guix-data-service-manage-build-servers		\
-  scripts/guix-data-service-query-build-servers
+  scripts/guix-data-service-query-build-servers		\
+  scripts/guix-data-service-backup-database		\
+  scripts/guix-data-service-create-small-backup
 
 moddir = $(prefix)/share/guile/site/$(GUILE_EFFECTIVE_VERSION)
 godir  = $(prefix)/lib/guile/$(GUILE_EFFECTIVE_VERSION)/site-ccache

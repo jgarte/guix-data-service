@@ -1,0 +1,228 @@
+#!/bin/sh
+
+set -eux
+
+TMP_DATABASE_NAME=guix_data_service_small
+DEFAULT_BACKUP_DIRECTORY="/var/lib/guix-data-service/dumps"
+BACKUP_DIRECTORY="${GUIX_DATA_SERVICE_BACKUP_DIRECTORY:-$DEFAULT_BACKUP_DIRECTORY}"
+
+if [ -z "${1:-}" ]; then
+    DATE="$(date "+%Y-%m-%d")"
+else
+    DATE="$1"
+fi
+
+FULL_BACKUP_NAME="guix_data_service_full.dump"
+SMALL_BACKUP_NAME="guix_data_service_small.dump"
+
+renice 19 -p $$
+ionice -p $$ -c 3
+
+TMP_DATABASE=$(mktemp -d -t guix-data-service-database-XXXX)
+URI=$(pg_tmp -w 0 -d "$TMP_DATABASE")
+
+function cleanup {
+    pg_tmp stop -w 1 -d "$TMP_DATABASE"
+}
+trap cleanup EXIT
+
+psql --no-psqlrc "$URI" --command="CREATE USER guix_data_service"
+psql --no-psqlrc "$URI" --command="CREATE DATABASE $TMP_DATABASE_NAME WITH OWNER guix_data_service"
+
+URI_FOR_DATABASE="${URI/test/$TMP_DATABASE_NAME}"
+
+pg_restore --username=guix_data_service --jobs=8 --dbname="$URI_FOR_DATABASE" \
+           "$BACKUP_DIRECTORY/$DATE/$FULL_BACKUP_NAME"
+
+psql -v ON_ERROR_STOP=1 --echo-queries --no-psqlrc "$URI_FOR_DATABASE" -U guix_data_service <<EOF
+
+DELETE FROM git_branches
+USING (
+  SELECT MIN(datetime) AS recent_datetime
+  FROM (
+   SELECT datetime
+   FROM git_branches AS recent_branches
+   ORDER BY datetime DESC LIMIT 30
+  ) AS data
+) AS data2
+WHERE datetime < recent_datetime;
+
+EOF
+
+psql -v ON_ERROR_STOP=1 --echo-queries --no-psqlrc "$URI_FOR_DATABASE" -U guix_data_service <<EOF &
+
+CREATE UNLOGGED TABLE tmp_guix_revision_package_derivations AS
+SELECT *
+FROM guix_revision_package_derivations
+WHERE revision_id IN (
+  SELECT id
+  FROM guix_revisions
+  WHERE commit IN (
+    SELECT commit FROM git_branches
+  )
+);
+
+CREATE UNLOGGED TABLE tmp_package_derivations AS
+SELECT * FROM package_derivations WHERE id IN (
+  SELECT package_derivation_id FROM tmp_guix_revision_package_derivations
+);
+
+CREATE UNLOGGED TABLE tmp_derivations AS
+WITH RECURSIVE derivation_ids(id) AS (
+    SELECT derivation_id FROM tmp_package_derivations
+  UNION
+    SELECT derivation_outputs.derivation_id
+    FROM derivation_ids
+    INNER JOIN derivation_inputs
+    ON derivation_ids.id = derivation_inputs.derivation_id
+    INNER JOIN derivation_outputs
+    ON derivation_inputs.derivation_output_id = derivation_outputs.id
+)
+SELECT * FROM derivations WHERE id IN (SELECT id FROM derivation_ids);
+
+CREATE UNLOGGED TABLE tmp_derivation_inputs AS
+SELECT *
+FROM derivation_inputs
+WHERE derivation_id IN (SELECT id FROM tmp_derivations);
+
+CREATE UNLOGGED TABLE tmp_derivation_outputs AS
+SELECT *
+FROM derivation_outputs
+WHERE derivation_id IN (SELECT id FROM tmp_derivations);
+
+CREATE UNLOGGED TABLE tmp_derivation_sources AS
+SELECT *
+FROM derivation_sources
+WHERE derivation_id IN (SELECT id FROM tmp_derivations);
+
+TRUNCATE package_derivations CASCADE;
+TRUNCATE derivations CASCADE;
+
+EOF
+
+psql -v ON_ERROR_STOP=1 --echo-queries --no-psqlrc "$URI_FOR_DATABASE" -U guix_data_service <<EOF &
+
+CREATE UNLOGGED TABLE tmp_builds AS
+SELECT * FROM builds WHERE derivation_output_details_set_id IN (
+  SELECT id FROM derivation_output_details_sets
+);
+
+CREATE UNLOGGED TABLE tmp_build_status AS
+SELECT *
+FROM build_status
+WHERE build_id IN (SELECT id FROM tmp_builds);
+
+TRUNCATE builds CASCADE;
+
+EOF
+
+wait
+
+psql -v ON_ERROR_STOP=1 --echo-queries --no-psqlrc "$URI_FOR_DATABASE" -U guix_data_service <<EOF &
+
+DELETE FROM guix_revision_lint_warnings WHERE guix_revision_id NOT IN (
+  SELECT id FROM guix_revisions WHERE commit IN (SELECT commit FROM git_branches)
+);
+EOF
+
+psql -v ON_ERROR_STOP=1 --echo-queries --no-psqlrc "$URI_FOR_DATABASE" -U guix_data_service <<EOF &
+
+DELETE FROM guix_revision_lint_checkers WHERE guix_revision_id NOT IN (
+  SELECT id FROM guix_revisions WHERE commit IN (SELECT commit FROM git_branches)
+);
+EOF
+
+psql -v ON_ERROR_STOP=1 --echo-queries --no-psqlrc "$URI_FOR_DATABASE" -U guix_data_service <<EOF &
+
+DELETE FROM guix_revision_channel_news_entries WHERE guix_revision_id NOT IN (
+  SELECT id FROM guix_revisions WHERE commit IN (SELECT commit FROM git_branches)
+);
+EOF
+
+psql -v ON_ERROR_STOP=1 --echo-queries --no-psqlrc "$URI_FOR_DATABASE" -U guix_data_service <<EOF &
+
+WITH guix_revision_ids AS (
+  SELECT id FROM guix_revisions WHERE commit IN (
+    SELECT commit FROM git_branches
+  )
+)
+DELETE FROM package_versions_by_guix_revision_range
+WHERE first_guix_revision_id NOT IN (SELECT id FROM guix_revision_ids) OR
+      last_guix_revision_id NOT IN (SELECT id FROM guix_revision_ids);
+EOF
+
+psql -v ON_ERROR_STOP=1 --echo-queries --no-psqlrc "$URI_FOR_DATABASE" -U guix_data_service <<EOF &
+
+WITH guix_revision_ids AS (
+  SELECT id FROM guix_revisions WHERE commit IN (
+    SELECT commit FROM git_branches
+  )
+)
+DELETE FROM package_derivations_by_guix_revision_range
+WHERE first_guix_revision_id NOT IN (SELECT id FROM guix_revision_ids) OR
+      last_guix_revision_id NOT IN (SELECT id FROM guix_revision_ids);
+EOF
+
+wait
+
+psql -v ON_ERROR_STOP=1 --echo-queries --no-psqlrc "$URI_FOR_DATABASE" -U guix_data_service <<EOF &
+
+EXPLAIN ANALYZE DELETE FROM guix_revisions WHERE commit NOT IN (SELECT commit FROM git_branches);
+EOF
+
+psql -v ON_ERROR_STOP=1 --echo-queries --no-psqlrc "$URI_FOR_DATABASE" -U guix_data_service <<EOF &
+INSERT INTO derivations
+  SELECT * FROM tmp_derivations;
+
+EOF
+
+wait
+
+# Don't do this bit in the background, as it's error prone
+psql -v ON_ERROR_STOP=1 --echo-queries --no-psqlrc "$URI_FOR_DATABASE" -U guix_data_service <<EOF
+
+INSERT INTO package_derivations OVERRIDING SYSTEM VALUE
+  SELECT * FROM tmp_package_derivations;
+
+INSERT INTO guix_revision_package_derivations
+  SELECT * FROM tmp_guix_revision_package_derivations;
+
+INSERT INTO builds OVERRIDING SYSTEM VALUE
+  SELECT * FROM tmp_builds;
+
+INSERT INTO build_status OVERRIDING SYSTEM VALUE
+  SELECT * FROM tmp_build_status;
+
+INSERT INTO derivation_outputs OVERRIDING SYSTEM VALUE
+  SELECT * FROM tmp_derivation_outputs;
+
+INSERT INTO derivation_inputs
+  SELECT * FROM tmp_derivation_inputs;
+
+INSERT INTO derivation_sources
+  SELECT * FROM tmp_derivation_sources;
+EOF
+
+psql -v ON_ERROR_STOP=1 --echo-queries --no-psqlrc "$URI_FOR_DATABASE" -U guix_data_service <<EOF
+
+DROP TABLE tmp_derivations;
+DROP TABLE tmp_package_derivations;
+DROP TABLE tmp_guix_revision_package_derivations;
+DROP TABLE tmp_builds;
+DROP TABLE tmp_build_status;
+DROP TABLE tmp_derivation_outputs;
+DROP TABLE tmp_derivation_inputs;
+DROP TABLE tmp_derivation_sources;
+
+EOF
+
+TEMPORARY_FILE_NAME="${TMPDIR:-/tmp}/guix_data_service_small-$DATE.dump.tmp"
+
+pg_dump --username=guix_data_service \
+        --format=custom --compress=9 --serializable-deferrable \
+        --username=guix_data_service \
+        --file="$TEMPORARY_FILE_NAME" \
+        "$URI_FOR_DATABASE"
+
+mv "$TEMPORARY_FILE_NAME" \
+   "$BACKUP_DIRECTORY/$DATE/$SMALL_BACKUP_NAME"

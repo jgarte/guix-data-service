@@ -1,0 +1,25 @@
+#!/bin/sh
+
+set -eux
+
+DATABASE_NAME=guix_data_service
+DEFAULT_BACKUP_DIRECTORY="/var/lib/guix-data-service/dumps"
+BACKUP_DIRECTORY="${GUIX_DATA_SERVICE_BACKUP_DIRECTORY:-$DEFAULT_BACKUP_DIRECTORY}"
+
+DATE="$(date "+%Y-%m-%d")"
+
+FULL_BACKUP_NAME="guix_data_service_full.dump"
+TEMPORARY_FILE_NAME="${TMPDIR:-/tmp}/guix_data_service_full-$DATE.dump.tmp"
+DESTINATION_FILE_NAME="$BACKUP_DIRECTORY/$DATE/$FULL_BACKUP_NAME"
+
+renice 19 -p $$
+ionice -p $$ -c 3
+
+pg_dump --format=custom --compress=9 --serializable-deferrable \
+        --username=guix_data_service \
+        --file="$TEMPORARY_FILE_NAME" \
+        "$DATABASE_NAME"
+
+mkdir -p "$BACKUP_DIRECTORY/$DATE"
+
+mv "$TEMPORARY_FILE_NAME" "$DESTINATION_FILE_NAME"
