@@ -143,12 +143,7 @@ initial connection on which HTTP requests are sent."
                 (simple-format #t "\nQuerying ~A\n" url)
                 (catch #t
                   (lambda ()
-                    (with-throw-handler #t
-                      (lambda ()
-                        (query-build-server conn id url revision-commits outputs))
-                      (lambda (key . args)
-                        (peek "THROW" key args)
-                        (backtrace))))
+                    (query-build-server conn id url revision-commits outputs))
                   (lambda (key . args)
                     (simple-format
                      (current-error-port)
