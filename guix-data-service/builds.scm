@@ -25,6 +25,7 @@
   #:use-module (ice-9 binary-ports)
   #:use-module (json parser)
   #:use-module (web uri)
+  #:use-module (web http)
   #:use-module (web request)
   #:use-module (web response)
   #:use-module (web client)
@@ -59,7 +60,8 @@ MAX-LENGTH first elements."
            (loop (+ 1 len) tail (cons head result)))))))
 
 (define* (http-multiple-get base-uri proc seed requests
-                            #:key port (verify-certificate? #t))
+                            #:key port (verify-certificate? #t)
+                            (batch-size 1000))
   "Send all of REQUESTS to the server at BASE-URI.  Call PROC for each
 response, passing it the request object, the response, a port from which to
 read the response body, and the previous result, starting with SEED, à la
@@ -69,8 +71,10 @@ initial connection on which HTTP requests are sent."
                 (requests requests)
                 (result   seed))
     (define batch
-      (at-most 50 requests))
+      (at-most batch-size requests))
 
+    ;; (format (current-error-port) "connecting (~a requests left)..."
+    ;;         (length requests))
     (let ((p (or port (guix:open-connection-for-uri
                        base-uri
                        #:verify-certificate?
@@ -83,6 +87,9 @@ initial connection on which HTTP requests are sent."
       ;; XXX: Do our own caching to work around inefficiencies when
       ;; communicating over TLS: <http://bugs.gnu.org/22966>.
       (let-values (((buffer get) (open-bytevector-output-port)))
+        ;; Inherit the HTTP proxying property from P.
+        (set-http-proxy-port?! buffer (http-proxy-port? p))
+
         (for-each (cut write-request <> buffer)
                   batch)
         (put-bytevector p (get))
@@ -96,9 +103,10 @@ initial connection on which HTTP requests are sent."
           (()
            (match (drop requests processed)
              (()
-              result)
+              (close-port p)
+              (reverse result))
              (remainder
-              (connect port remainder result))))
+              (connect p remainder result))))
           ((head tail ...)
            (let* ((resp   (read-response p))
                   (body   (response-body-port resp))
@@ -108,9 +116,9 @@ initial connection on which HTTP requests are sent."
              ;; Note that even upon "Connection: close", we can read from BODY.
              (match (assq 'connection (response-headers resp))
                (('connection 'close)
-                (close-connection p)
+                (close-port p)
                 (connect #f                       ;try again
-                         (append tail (drop requests processed))
+                         (drop requests (+ 1 processed))
                          result))
                (_
                 (loop tail (+ 1 processed) result)))))))))) ;keep going
@@ -135,7 +143,12 @@ initial connection on which HTTP requests are sent."
                 (simple-format #t "\nQuerying ~A\n" url)
                 (catch #t
                   (lambda ()
-                    (query-build-server conn id url revision-commits outputs))
+                    (with-throw-handler #t
+                      (lambda ()
+                        (query-build-server conn id url revision-commits outputs))
+                      (lambda (key . args)
+                        (peek "THROW" key args)
+                        (backtrace))))
                   (lambda (key . args)
                     (simple-format
                      (current-error-port)
@@ -388,7 +401,8 @@ WHERE derivation_output_details.path = $1"
            (bytevector->string response-body
                                "utf-8")))
          (else
-          #f)))))
+          #f))))
+     '())
    '()
    (map (lambda (derivation-file-name)
           (build-request
@@ -400,7 +414,8 @@ WHERE derivation_output_details.path = $1"
                             (string-length "/gnu/store"))))
            #:method 'GET
            #:headers '((User-Agent . "Guix Data Service"))))
-        derivation-file-names)))
+        derivation-file-names)
+   #:batch-size 100))
 
 (define (fetch-builds-by-output url derivation-outputs handler)
   (define (read-to-eof port)
@@ -427,7 +442,8 @@ WHERE derivation_output_details.path = $1"
          "/gnu/store"
          (string-drop
           (uri-path (request-uri request))
-          (string-length "/output"))))))
+          (string-length "/output")))))
+     '())
    '()
    (map (lambda (output-file-name)
           (build-request
@@ -439,7 +455,8 @@ WHERE derivation_output_details.path = $1"
                             (string-length "/gnu/store"))))
            #:method 'GET
            #:headers '((User-Agent . "Guix Data Service"))))
-        derivation-outputs)))
+        derivation-outputs)
+   #:batch-size 100))
 
 (define (select-pending-builds conn build-server-id)
   (define query
