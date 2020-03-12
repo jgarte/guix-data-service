@@ -605,7 +605,7 @@ WHERE NOT EXISTS (
          ")"))
      "
 )
-ORDER BY derivation_output_details_sets.id, derivation_output_details.id
+ORDER BY derivation_output_details_sets.id DESC, derivation_output_details.id
 LIMIT 15000"))
 
   (fold (lambda (row result)
