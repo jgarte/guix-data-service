@@ -90,6 +90,11 @@ SELECT *
 FROM derivation_outputs
 WHERE derivation_id IN (SELECT id FROM tmp_derivations);
 
+CREATE UNLOGGED TABLE tmp_derivation_output_details AS
+SELECT *
+FROM derivation_output_details
+WHERE id IN (SELECT derivation_output_details_id FROM tmp_derivation_outputs);
+
 CREATE UNLOGGED TABLE tmp_derivation_sources AS
 SELECT *
 FROM derivation_sources
@@ -97,6 +102,7 @@ WHERE derivation_id IN (SELECT id FROM tmp_derivations);
 
 TRUNCATE package_derivations CASCADE;
 TRUNCATE derivations CASCADE;
+TRUNCATE derivation_output_details, derivation_outputs, derivation_inputs;
 
 EOF
 
@@ -215,6 +221,9 @@ INSERT INTO builds OVERRIDING SYSTEM VALUE
 INSERT INTO build_status OVERRIDING SYSTEM VALUE
   SELECT * FROM tmp_build_status;
 
+INSERT INTO derivation_output_details OVERRIDING SYSTEM VALUE
+  SELECT * FROM tmp_derivation_output_details;
+
 INSERT INTO derivation_outputs OVERRIDING SYSTEM VALUE
   SELECT * FROM tmp_derivation_outputs;
 
@@ -238,6 +247,7 @@ DROP TABLE tmp_package_derivations;
 DROP TABLE tmp_guix_revision_package_derivations;
 DROP TABLE tmp_builds;
 DROP TABLE tmp_build_status;
+DROP TABLE tmp_derivation_output_details;
 DROP TABLE tmp_derivation_outputs;
 DROP TABLE tmp_derivation_inputs;
 DROP TABLE tmp_derivation_sources;
