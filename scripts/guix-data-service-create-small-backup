@@ -100,9 +100,16 @@ SELECT *
 FROM derivation_sources
 WHERE derivation_id IN (SELECT id FROM tmp_derivations);
 
-TRUNCATE package_derivations CASCADE;
-TRUNCATE derivations CASCADE;
-TRUNCATE derivation_output_details, derivation_outputs, derivation_inputs;
+TRUNCATE derivations,
+         derivation_inputs,
+         derivation_outputs,
+         derivation_output_details,
+         derivation_sources,
+         derivations_by_output_details_set,
+         channel_instances,
+         guix_revision_system_test_derivations,
+         guix_revision_package_derivations,
+         package_derivations;
 
 EOF
 
@@ -118,7 +125,7 @@ SELECT *
 FROM build_status
 WHERE build_id IN (SELECT id FROM tmp_builds);
 
-TRUNCATE builds CASCADE;
+TRUNCATE builds, build_status;
 
 EOF
 
@@ -141,8 +148,7 @@ WHERE derivation_source_file_id IN (
   SELECT id FROM tmp_derivation_source_files
 );
 
-TRUNCATE derivation_source_files CASCADE; -- Cascades to derivation_sources
-TRUNCATE derivation_source_file_nars;
+TRUNCATE derivation_source_files, derivation_source_file_nars, derivation_sources;
 
 EOF
 
