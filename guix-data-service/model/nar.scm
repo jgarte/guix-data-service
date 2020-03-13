@@ -305,7 +305,7 @@ ORDER BY COUNT(*) DESC")
   (define query
     (string-append
      "
-SELECT DISTINCT derivation_output_details.path
+SELECT DISTINCT derivation_output_details.path, derivation_output_details.id
 FROM derivations
 INNER JOIN derivation_outputs
   ON derivations.id = derivation_outputs.derivation_id
@@ -346,6 +346,7 @@ WHERE derivation_output_details.path NOT IN (
           ")
   )"))
      "
+ORDER BY derivation_output_details.id DESC
 LIMIT 10000"))
 
   (map car (exec-query conn query (list (number->string build-server-id)))))
