@@ -262,7 +262,11 @@
            mime-types
            body
            conn)
-        (not-found (request-uri request))))
+        (render-html
+         #:sxml (general-not-found
+                 "Page not found"
+                 "")
+         #:code 404)))
 
   (define (delegate-to-with-secret-key-base f)
     (or (f request
@@ -271,7 +275,11 @@
            body
            conn
            secret-key-base)
-        (not-found (request-uri request))))
+        (render-html
+         #:sxml (general-not-found
+                 "Page not found"
+                 "")
+         #:code 404)))
 
   (match method-and-path-components
     (('GET)
@@ -307,7 +315,11 @@
      (if (string-suffix? ".drv" filename)
          (render-formatted-derivation conn
                                       (string-append "/gnu/store/" filename))
-         (not-found (request-uri request))))
+         (render-html
+          #:sxml (general-not-found
+                  "Not a derivation"
+                  "The formatted display is only for derivations, where the filename ends in .drv")
+          #:code 404)))
     (('GET "gnu" "store" filename "plain")
      (if (string-suffix? ".drv" filename)
          (let ((raw-drv
@@ -332,4 +344,8 @@
     (('GET "job" job-id)   (delegate-to jobs-controller))
     (('GET _ ...) (delegate-to nar-controller))
     ((method path ...)
-     (not-found (request-uri request)))))
+     (render-html
+      #:sxml (general-not-found
+              "Page not found"
+              "")
+      #:code 404))))
