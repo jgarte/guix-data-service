@@ -522,7 +522,7 @@ WHERE derivation_output_details_set_id NOT IN (
      "
 )
 ORDER BY derivation_output_details_set_id, derivations.id
-LIMIT 15000"))
+LIMIT 30000"))
 
   (exec-query conn query (list (number->string build-server-id))))
 
@@ -606,7 +606,7 @@ WHERE NOT EXISTS (
      "
 )
 ORDER BY derivation_output_details_sets.id DESC, derivation_output_details.id
-LIMIT 15000"))
+LIMIT 30000"))
 
   (fold (lambda (row result)
           (match row

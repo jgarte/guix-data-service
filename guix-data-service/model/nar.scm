@@ -347,7 +347,7 @@ WHERE derivation_output_details.path NOT IN (
   )"))
      "
 ORDER BY derivation_output_details.id DESC
-LIMIT 10000"))
+LIMIT 100000"))
 
   (map car (exec-query conn query (list (number->string build-server-id)))))
 
