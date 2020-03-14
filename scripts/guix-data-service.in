@@ -147,9 +147,6 @@
         (lambda (port)
           (simple-format port "~A\n" (getpid))))))
 
-  (simple-format #t "starting the server on port ~A\n"
-                 (assq-ref opts 'port))
-
   (parameterize ((%narinfo-signing-public-key
                   (catch
                     'system-error
@@ -183,6 +180,12 @@
                       #f)))
                  (%show-error-details
                   (assoc-ref opts 'show-error-details)))
+
+    ;; Provide some visual space between the startup output and the server
+    ;; starting
+    (simple-format #t "\n\nStarting the server on http://~A:~A/\n\n"
+                   (assq-ref opts 'host)
+                   (assq-ref opts 'port))
 
     (start-guix-data-service-web-server (assq-ref opts 'port)
                                         (assq-ref opts 'host)
