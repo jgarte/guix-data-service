@@ -25,6 +25,7 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-26)
+  #:use-module (system repl error-handling)
   #:use-module (web request)
   #:use-module (web response)
   #:use-module (web uri)
@@ -63,7 +64,8 @@
   #:use-module (guix-data-service web compare controller)
   #:use-module (guix-data-service web revision controller)
   #:use-module (guix-data-service web repository controller)
-  #:export (controller))
+  #:export (%show-error-details
+            controller))
 
 (define cache-control-default-max-age
   (* 60 60 24)) ; One day
@@ -77,19 +79,6 @@
   (fold (lambda (f val) (and=> val f))
         target
         (list functions ...)))
-
-(define (render-with-error-handling page message)
-  (apply render-html (page))
-  ;; (catch #t
-  ;;   (lambda ()
-  ;;     (receive (sxml headers)
-  ;;         (pretty-print (page))
-  ;;       (render-html sxml headers)))
-  ;;   (lambda (key . args)
-  ;;     (format #t "ERROR: ~a ~a\n"
-  ;;             key args)
-  ;;     (render-html (error-page message))))
-  )
 
 (define (render-derivation conn derivation-file-name)
   (let ((derivation (select-derivation-by-file-name conn
@@ -193,57 +182,70 @@
       (static-asset-from-store-renderer)
       render-static-asset))
 
+(define %show-error-details
+  (make-parameter #f))
+
 (define (controller request method-and-path-components
                     mime-types body
                     secret-key-base)
-  (match method-and-path-components
-    (('GET "assets" rest ...)
-     (or (handle-static-assets (string-join rest "/")
-                               (request-headers request))
-         (not-found (request-uri request))))
-    (('GET "healthcheck")
-     (let ((database-status
-            (catch
-              #t
-              (lambda ()
-                (with-postgresql-connection
-                 "web healthcheck"
-                 (lambda (conn)
-                   (number?
-                    (string->number
-                     (first
-                      (count-guix-revisions conn)))))))
-              (lambda (key . args)
-                #f))))
-       (render-json
-        `((status . ,(if database-status
-                         "ok"
-                         "not ok")))
-        #:code (if (eq? database-status
-                        #t)
-                   200
-                   500))))
-    (('GET "README")
-     (let ((filename (string-append (%config 'doc-dir) "/README.html")))
-       (if (file-exists? filename)
-           (render-html
-            #:sxml (readme (call-with-input-file filename
-                             get-string-all)))
-           (render-html
-            #:sxml (general-not-found
-                    "README not found"
-                    "The README.html file does not exist")
-            #:code 404))))
-    (_
-     (with-postgresql-connection
-      "web"
-      (lambda (conn)
-        (controller-with-database-connection request
-                                             method-and-path-components
-                                             mime-types
-                                             body
-                                             conn
-                                             secret-key-base))))))
+  (define (controller-thunk)
+    (match method-and-path-components
+      (('GET "assets" rest ...)
+       (or (handle-static-assets (string-join rest "/")
+                                 (request-headers request))
+           (not-found (request-uri request))))
+      (('GET "healthcheck")
+       (let ((database-status
+              (catch
+                #t
+                (lambda ()
+                  (with-postgresql-connection
+                   "web healthcheck"
+                   (lambda (conn)
+                     (number?
+                      (string->number
+                       (first
+                        (count-guix-revisions conn)))))))
+                (lambda (key . args)
+                  #f))))
+         (render-json
+          `((status . ,(if database-status
+                           "ok"
+                           "not ok")))
+          #:code (if (eq? database-status
+                          #t)
+                     200
+                     500))))
+      (('GET "README")
+       (let ((filename (string-append (%config 'doc-dir) "/README.html")))
+         (if (file-exists? filename)
+             (render-html
+              #:sxml (readme (call-with-input-file filename
+                               get-string-all)))
+             (render-html
+              #:sxml (general-not-found
+                      "README not found"
+                      "The README.html file does not exist")
+              #:code 404))))
+      (_
+       (with-postgresql-connection
+        "web"
+        (lambda (conn)
+          (controller-with-database-connection request
+                                               method-and-path-components
+                                               mime-types
+                                               body
+                                               conn
+                                               secret-key-base))))))
+  (call-with-error-handling
+   controller-thunk
+   #:on-error 'backtrace
+   #:post-error (lambda args
+                  (render-html #:sxml (error-page
+                                       (if (%show-error-details)
+                                           args
+                                           #f))
+                               #:code 500))))
 
 (define (controller-with-database-connection request
                                              method-and-path-components

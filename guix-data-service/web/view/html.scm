@@ -949,12 +949,16 @@
       (h1 ,header-text)
       (p ,body)))))
 
-(define (error-page message)
+(define* (error-page #:optional error)
   (layout
    #:body
    `(,(header)
      (div (@ (class "container"))
-          (h1 "Error")
-          (p "An error occurred.  Sorry about that!")
-          ,message
-          (p (a (@ (href "/")) "Try something else?"))))))
+          (h1 "An error occurred")
+          (p "Sorry about that!")
+          ,@(if error
+                (match error
+                  ((key . args)
+                   `((b ,key)
+                     (pre ,args))))
+                '())))))

@@ -25,12 +25,14 @@
 
 (use-modules (srfi srfi-1)
              (srfi srfi-37)
+             (ice-9 match)
              (ice-9 textual-ports)
              (system repl server)
              (gcrypt pk-crypto)
              (guix pki)
              (guix-data-service config)
              (guix-data-service web server)
+             (guix-data-service web controller)
              (guix-data-service web nar controller))
 
 (define %default-repl-server-port
@@ -68,6 +70,9 @@
         (option '("update-database") #f #f
                 (lambda (opt name _ result)
                   (alist-cons 'update-database #t result)))
+        (option '("show-error-details") #f #f
+                (lambda (opt name _ result)
+                  (alist-cons 'show-error-details #t result)))
         (option '("port") #t #f
                 (lambda (opt name arg result)
                   (alist-cons 'port
@@ -86,6 +91,11 @@
     (narinfo-signing-public-key           . ,%public-key-file)
     (narinfo-signing-private-key          . ,%private-key-file)
     (update-database                      . #f)
+    (show-error-details
+     . ,(match (getenv "GUIX_DATA_SERVICE_SHOW_ERROR_DETAILS")
+          (#f #f)
+          ("" #f)
+          (_ #t)))
     (port                                 . 8765)
     (host                                 . "0.0.0.0")))
 
@@ -170,7 +180,9 @@
                                      key args)
                       (display "warning: not signing narinfo files\n"
                                (current-error-port))
-                      #f))))
+                      #f)))
+                 (%show-error-details
+                  (assoc-ref opts 'show-error-details)))
 
     (start-guix-data-service-web-server (assq-ref opts 'port)
                                         (assq-ref opts 'host)
