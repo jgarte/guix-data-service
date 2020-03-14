@@ -19,9 +19,11 @@
 (define-module (guix-data-service web server)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-11)
+  #:use-module (ice-9 match)
   #:use-module (web http)
   #:use-module (web request)
   #:use-module (web uri)
+  #:use-module (system repl error-handling)
   #:use-module (fibers web server)
   #:use-module (guix-data-service web controller)
   #:use-module (guix-data-service web util)
@@ -46,8 +48,23 @@
          (run-controller controller request body secret-key-base)))
 
 (define (start-guix-data-service-web-server port host secret-key-base)
-  (run-server (lambda (request body)
-                (handler request body controller
-                         secret-key-base))
-              #:host host
-              #:port port))
+  (call-with-error-handling
+   (lambda ()
+     (run-server (lambda (request body)
+                   (handler request body controller
+                            secret-key-base))
+                 #:host host
+                 #:port port))
+   #:on-error 'backtrace
+   #:post-error (lambda (key . args)
+                  (when (eq? key 'system-error)
+                    (match args
+                      (("bind" "~A" ("Address already in use") _)
+                       (simple-format
+                        (current-error-port)
+                        "\n
+error: guix-data-service could not start, as it could not bind to port ~A
+
+Check if it's already running, or whether another process is using that
+port. Also, the port used can be changed by passing the --port option.\n"
+                        port)))))))
