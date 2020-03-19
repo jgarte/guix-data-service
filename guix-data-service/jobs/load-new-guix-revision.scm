@@ -1594,19 +1594,23 @@ SKIP LOCKED")
                  id
                  (lambda ()
                    (with-exception-handler
-                       (lambda (exn)
-                         (simple-format (current-error-port)
-                                        "error: load-new-guix-revision: ~A\n"
-                                        exn)
-                         (backtrace)
-                         #f)
+                       (const #f)
                      (lambda ()
-                       (with-store-connection
-                        (lambda (store)
-                          (load-new-guix-revision conn
-                                                  store
-                                                  git-repository-id
-                                                  commit))))))))
+                       (with-exception-handler
+                           (lambda (exn)
+                             (simple-format (current-error-port)
+                                            "error: load-new-guix-revision: ~A\n"
+                                            exn)
+                             (backtrace)
+                             #f)
+                         (lambda ()
+                           (with-store-connection
+                            (lambda (store)
+                              (load-new-guix-revision conn
+                                                      store
+                                                      git-repository-id
+                                                      commit))))))
+                     #:unwind? #t))))
               #t))
             (begin
               (record-job-succeeded conn id)
