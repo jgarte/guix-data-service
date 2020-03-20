@@ -216,10 +216,15 @@
                                   commit-hash)))
     (('GET "revision" commit-hash "system-tests")
      (if (guix-commit-exists? conn commit-hash)
-         (render-revision-system-tests mime-types
-                                       conn
-                                       commit-hash
-                                       #:path-base path)
+         (let ((parsed-query-parameters
+                (parse-query-parameters
+                 request
+                 `((system ,parse-system #:default "x86_64-linux")))))
+           (render-revision-system-tests mime-types
+                                         conn
+                                         commit-hash
+                                         parsed-query-parameters
+                                         #:path-base path))
          (render-unknown-revision mime-types
                                   conn
                                   commit-hash)))
@@ -360,6 +365,7 @@
 (define* (render-revision-system-tests mime-types
                                        conn
                                        commit-hash
+                                       query-parameters
                                        #:key
                                        (path-base "/revision/")
                                        (header-text
@@ -367,7 +373,10 @@
                                        (header-link
                                         (string-append "/revision/" commit-hash)))
   (let ((system-tests
-         (select-system-tests-for-guix-revision conn commit-hash)))
+         (select-system-tests-for-guix-revision
+          conn
+          (assq-ref query-parameters 'system)
+          commit-hash)))
     (case (most-appropriate-mime-type
            '(application/json text/html)
            mime-types)
@@ -381,6 +390,8 @@
                 system-tests
                 (git-repositories-containing-commit conn
                                                     commit-hash)
+                (valid-systems conn)
+                query-parameters
                 #:path-base path-base
                 #:header-text header-text
                 #:header-link header-link))))))

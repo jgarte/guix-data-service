@@ -653,6 +653,8 @@
 (define* (view-revision-system-tests commit-hash
                                      system-tests
                                      git-repositories
+                                     valid-systems
+                                     query-parameters
                                      #:key (path-base "/revision/")
                                      header-text header-link)
   (layout
@@ -672,6 +674,24 @@
        (div
         (@ (class "col-md-12"))
         (h1 "System tests")
+        (div
+         (@ (class "well"))
+         (form
+          (@ (method "get")
+             (action "")
+             (style "padding-bottom: 0")
+             (class "form-horizontal"))
+          ,(form-horizontal-control
+            "System" query-parameters
+            #:options valid-systems
+            #:help-text "Only include system test derivations for this system."
+            #:allow-selecting-multiple-options #f
+            #:font-family "monospace")
+          (div (@ (class "form-group form-group-lg"))
+               (div (@ (class "col-sm-offset-2 col-sm-10"))
+                    (button (@ (type "submit")
+                               (class "btn btn-lg btn-primary"))
+                            "Update results")))))
         (table
          (@ (class "table"))
          (thead

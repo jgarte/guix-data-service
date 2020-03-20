@@ -30,43 +30,55 @@
 (define (insert-system-tests-for-guix-revision conn
                                                guix-revision-id
                                                system-test-data)
-  (let ((system-test-ids
-         (insert-missing-data-and-return-all-ids
-          conn
-          "system_tests"
-          '(name description location_id)
-          (map (match-lambda
-                 ((name description derivation-file-name location-data)
-                  (list name
-                        description
-                        (location->location-id
-                         conn
-                         (apply location location-data)))))
-               system-test-data)))
-        (derivation-ids
-         (derivation-file-names->derivation-ids
-          conn
-          (map third system-test-data))))
+  (let* ((system-test-ids
+          (insert-missing-data-and-return-all-ids
+           conn
+           "system_tests"
+           '(name description location_id)
+           (map (match-lambda
+                  ((name description derivation-file-names-by-system location-data)
+                   (list name
+                         description
+                         (location->location-id
+                          conn
+                          (apply location location-data)))))
+                system-test-data)))
+         (data
+          (append-map
+           (lambda (system-test-id derivation-file-names-by-system)
+             (let ((systems
+                    (map car derivation-file-names-by-system))
+                   (derivation-ids
+                    (derivation-file-names->derivation-ids
+                     conn
+                     (map cdr derivation-file-names-by-system))))
+               (map (lambda (system derivation-id)
+                      (list guix-revision-id
+                            system-test-id
+                            derivation-id
+                            system))
+                    systems
+                    derivation-ids)))
+           system-test-ids
+           (map third system-test-data))))
 
     (exec-query
      conn
      (string-append
       "
 INSERT INTO guix_revision_system_test_derivations
-  (guix_revision_id, system_test_id, derivation_id)
+  (guix_revision_id, system_test_id, derivation_id, system)
 VALUES "
       (string-join
-       (map (lambda (system-test-id derivation-id)
-              (simple-format #f "(~A, ~A, ~A)"
-                             guix-revision-id
-                             system-test-id
-                             derivation-id))
-            system-test-ids
-            derivation-ids)
+       (map (lambda (vals)
+              (apply simple-format #f "(~A, ~A, ~A, '~A')"
+                     vals))
+            data)
        ", "))))
   #t)
 
 (define (select-system-tests-for-guix-revision conn
+                                               system
                                                commit-hash)
   (define query
     "
@@ -103,7 +115,8 @@ LEFT OUTER JOIN (
   ON builds.id = latest_build_status.build_id
 INNER JOIN guix_revisions
   ON guix_revisions.id = guix_revision_system_test_derivations.guix_revision_id
-WHERE guix_revisions.commit = $1
+WHERE guix_revision_system_test_derivations.system = $1 AND
+      guix_revisions.commit = $2
 GROUP BY system_tests.name, system_tests.description,
          locations.file, locations.line, locations.column_number,
          derivations.file_name
@@ -125,4 +138,4 @@ ORDER BY name ASC")
                       (assoc-ref build "status"))
                     (vector->list
                      (json-string->scm builds-json))))))
-   (exec-query conn query (list commit-hash))))
+   (exec-query conn query (list system commit-hash))))

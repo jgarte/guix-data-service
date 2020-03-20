@@ -286,16 +286,24 @@ WHERE job_id = $1"
          result)))))
 
 (define (all-inferior-system-tests inf store)
+  (define inferior-%supported-systems
+    (inferior-eval '(@ (guix packages) %supported-systems) inf))
+
   (define extract
-    '(lambda (store)
+    `(lambda (store)
        (map
         (lambda (system-test)
           (list (system-test-name system-test)
                 (system-test-description system-test)
-                (derivation-file-name
-                 (run-with-store store
-                   (mbegin %store-monad
-                     (system-test-value system-test))))
+                (map (lambda (system)
+                       (cons
+                        system
+                        (parameterize ((%current-system system))
+                          (derivation-file-name
+                           (run-with-store store
+                             (mbegin %store-monad
+                               (system-test-value system-test)))))))
+                     (list ,@inferior-%supported-systems))
                 (match (system-test-location system-test)
                   (($ <location> file line column)
                    (list file
@@ -307,8 +315,10 @@ WHERE job_id = $1"
          (with-time-logging "getting system tests"
            (inferior-eval-with-store inf store extract))))
 
-    (for-each (lambda (derivation-file-name)
-                (add-temp-root store derivation-file-name))
+    (for-each (lambda (derivation-file-names-by-system)
+                (for-each (lambda (derivation-file-name)
+                            (add-temp-root store derivation-file-name))
+                          (map cdr derivation-file-names-by-system)))
               (map third system-test-data))
 
     system-test-data))
