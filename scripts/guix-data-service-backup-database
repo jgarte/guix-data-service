@@ -12,8 +12,8 @@ FULL_BACKUP_NAME="guix_data_service_full.dump"
 TEMPORARY_FILE_NAME="${TMPDIR:-/tmp}/guix_data_service_full-$DATE.dump.tmp"
 DESTINATION_FILE_NAME="$BACKUP_DIRECTORY/$DATE/$FULL_BACKUP_NAME"
 
-renice 19 -p $$
-ionice -p $$ -c 3
+renice 19 -p $$ || true
+ionice -p $$ -c 3 || true
 
 pg_dump --format=custom --compress=9 --serializable-deferrable \
         --username=guix_data_service \

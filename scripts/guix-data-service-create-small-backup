@@ -15,8 +15,8 @@ fi
 FULL_BACKUP_NAME="guix_data_service_full.dump"
 SMALL_BACKUP_NAME="guix_data_service_small.dump"
 
-renice 19 -p $$
-ionice -p $$ -c 3
+renice 19 -p $$ || true
+ionice -p $$ -c 3 || true
 
 TMP_DATABASE=$(mktemp -d -t guix-data-service-database-XXXX)
 URI=$(pg_tmp -w 0 -d "$TMP_DATABASE")
