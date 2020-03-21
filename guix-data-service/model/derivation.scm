@@ -169,7 +169,7 @@ GROUP BY derivations.system,
          package_derivations.target,
          derivations.file_name
 ORDER BY derivations.system DESC,
-         package_derivations.target DESC,
+         NULLIF(package_derivations.target, '') DESC NULLS FIRST,
          derivations.file_name")
 
   (map (match-lambda
