@@ -126,6 +126,14 @@
                                                repository-id
                                                branch-name
                                                package-name))
+    (('GET "repository" repository-id "branch" branch-name
+           "package" package-name "output-history")
+     (render-branch-package-output-history request
+                                           mime-types
+                                           conn
+                                           repository-id
+                                           branch-name
+                                           package-name))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision")
      (let ((commit-hash
             (latest-processed-commit-for-branch conn repository-id branch-name)))
@@ -308,3 +316,73 @@
                    (valid-targets conn))
                   build-server-urls
                   package-derivations)))))))
+
+(define (render-branch-package-output-history request
+                                              mime-types
+                                              conn
+                                              repository-id
+                                              branch-name
+                                              package-name)
+  (let ((parsed-query-parameters
+         (parse-query-parameters
+          request
+          `((output  ,identity
+                     #:default "out")
+            (system  ,(parse-build-system conn)
+                     #:default "x86_64-linux")
+            (target  ,parse-target
+                     #:default "")))))
+    (let* ((system
+            (assq-ref parsed-query-parameters 'system))
+           (target
+            (assq-ref parsed-query-parameters 'target))
+           (output-name
+            (assq-ref parsed-query-parameters 'output))
+           (package-outputs
+            (package-outputs-for-branch conn
+                                        (string->number repository-id)
+                                        branch-name
+                                        system
+                                        target
+                                        package-name
+                                        output-name))
+           (build-server-urls
+            (group-to-alist
+             (match-lambda
+               ((id url lookup-all-derivations)
+                (cons id url)))
+             (select-build-servers conn))))
+      (case (most-appropriate-mime-type
+             '(application/json text/html)
+             mime-types)
+        ((application/json)
+         (render-json
+          `((derivations . ,(list->vector
+                             (map (match-lambda
+                                    ((package-version derivation-file-name
+                                                      first-guix-revision-commit
+                                                      first-datetime
+                                                      last-guix-revision-commit
+                                                      last-datetime)
+                                     `((version . ,package-version)
+                                       (derivation . ,derivation-file-name)
+                                       (first_revision
+                                        . ((commit . ,first-guix-revision-commit)
+                                           (datetime . ,first-datetime)))
+                                       (last_revision
+                                        . ((commit . ,last-guix-revision-commit)
+                                           (datetime . ,last-datetime))))))
+                                  package-outputs))))))
+        (else
+         (render-html
+          #:sxml (view-branch-package-outputs
+                  parsed-query-parameters
+                  repository-id
+                  branch-name
+                  package-name
+                  output-name
+                  (valid-systems conn)
+                  (valid-targets->options
+                   (valid-targets conn))
+                  build-server-urls
+                  package-outputs)))))))

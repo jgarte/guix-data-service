@@ -26,7 +26,8 @@
             view-branches
             view-branch
             view-branch-package
-            view-branch-package-derivations))
+            view-branch-package-derivations
+            view-branch-package-outputs))
 
 (define* (view-git-repositories git-repositories)
   (layout
@@ -198,7 +199,7 @@
    #:body
    `(,(header)
      (div
-      (@ (class "container"))
+      (@ (class "container-fluid"))
       (div
        (@ (class "row"))
        (div
@@ -208,9 +209,23 @@
         (a (@ (href ,(string-append "/repository/" git-repository-id
                                     "/branch/" branch-name)))
            (h3 ,(string-append branch-name " branch")))
+        (a (@ (class "btn btn-default btn-lg pull-right")
+              (style "margin-left: 0.5em;")
+              (href ,(string-append
+                      "/repository/" git-repository-id
+                      "/branch/" branch-name
+                      "/package/" package-name
+                      ".json")))
+           "View JSON")
         (div
          (@ (class "btn-group pull-right")
             (role "group"))
+         (a (@ (class "btn btn-default btn-lg disabled")
+               (href ,(string-append
+                       "/repository/" git-repository-id
+                       "/branch/" branch-name
+                       "/package/" package-name)))
+            "Versions only")
          (a (@ (class "btn btn-default btn-lg")
                (href ,(string-append
                        "/repository/" git-repository-id
@@ -223,8 +238,8 @@
                        "/repository/" git-repository-id
                        "/branch/" branch-name
                        "/package/" package-name
-                       ".json")))
-            "View JSON"))
+                       "/output-history")))
+            "Include outputs"))
         (h1 (@ (style "white-space: nowrap;"))
             (samp ,package-name))))
       (div
@@ -361,12 +376,36 @@
                                     "/branch/" branch-name)))
            (h3 ,(string-append branch-name " branch")))
         (a (@ (class "btn btn-default btn-lg pull-right")
+              (style "margin-left: 0.5em;")
               (href ,(string-append
                       "/repository/" git-repository-id
                       "/branch/" branch-name
                       "/package/" package-name
                       "/derivation-history.json")))
            "View JSON")
+        (div
+         (@ (class "btn-group pull-right")
+            (role "group"))
+         (a (@ (class "btn btn-default btn-lg")
+               (href ,(string-append
+                       "/repository/" git-repository-id
+                       "/branch/" branch-name
+                       "/package/" package-name)))
+            "Versions only")
+         (a (@ (class "btn btn-default btn-lg disabled")
+               (href ,(string-append
+                       "/repository/" git-repository-id
+                       "/branch/" branch-name
+                       "/package/" package-name
+                       "/derivation-history")))
+            "Include derivations")
+         (a (@ (class "btn btn-default btn-lg")
+               (href ,(string-append
+                       "/repository/" git-repository-id
+                       "/branch/" branch-name
+                       "/package/" package-name
+                       "/output-history")))
+            "Include outputs"))
         (h1 (@ (style "white-space: nowrap;"))
             (samp ,package-name))))
       (div
@@ -528,3 +567,217 @@
                 (map second
                      (cdr derivations-by-revision-range))
                 '(#f))))))))))))
+
+(define (view-branch-package-outputs query-parameters
+                                     git-repository-id
+                                     branch-name
+                                     package-name
+                                     output-name
+                                     valid-systems
+                                     valid-targets
+                                     build-server-urls
+                                     outputs-by-revision-range)
+  (define versions-list
+    (pair-fold (match-lambda*
+                 (((last) (count result ...))
+                  (cons (cons last count)
+                        result))
+                 (((a b rst ...) (count result ...))
+                  (if (string=? a b)
+                      (cons (+ 1 count)
+                            (cons #f result))
+                      (cons 1
+                            (cons (cons a count)
+                                  result)))))
+               '(1)
+               (reverse
+                (map first outputs-by-revision-range))))
+
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container-fluid"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (a (@ (href ,(string-append "/repository/" git-repository-id)))
+           (h3 "Repository"))
+        (a (@ (href ,(string-append "/repository/" git-repository-id
+                                    "/branch/" branch-name)))
+           (h3 ,(string-append branch-name " branch")))
+        (a (@ (class "btn btn-default btn-lg pull-right")
+              (style "margin-left: 0.5em;")
+              (href ,(string-append
+                      "/repository/" git-repository-id
+                      "/branch/" branch-name
+                      "/package/" package-name
+                      "/output-history.json")))
+           "View JSON")
+        (div
+         (@ (class "btn-group pull-right")
+            (role "group"))
+         (a (@ (class "btn btn-default btn-lg")
+               (href ,(string-append
+                       "/repository/" git-repository-id
+                       "/branch/" branch-name
+                       "/package/" package-name)))
+            "Versions only")
+         (a (@ (class "btn btn-default btn-lg")
+               (href ,(string-append
+                       "/repository/" git-repository-id
+                       "/branch/" branch-name
+                       "/package/" package-name
+                       "/derivation-history")))
+            "Include derivations")
+         (a (@ (class "btn btn-default btn-lg disabled")
+               (href ,(string-append
+                       "/repository/" git-repository-id
+                       "/branch/" branch-name
+                       "/package/" package-name
+                       "/output-history")))
+            "Include outputs"))
+        (h1 (@ (style "white-space: nowrap;"))
+            (samp ,package-name))))
+      (div
+       (@ (class "col-md-12"))
+       (div
+        (@ (class "well"))
+        (form
+         (@ (method "get")
+            (action "")
+            (class "form-horizontal"))
+         ,(form-horizontal-control
+           "Output" query-parameters
+           #:help-text "Show this output for the package.")
+         ,(form-horizontal-control
+           "System" query-parameters
+           #:options valid-systems
+           #:allow-selecting-multiple-options #f
+           #:help-text "Show derivations with this system.")
+         ,(form-horizontal-control
+           "Target" query-parameters
+           #:options valid-targets
+           #:allow-selecting-multiple-options #f
+           #:help-text "Show derivations with this target.")
+         (div (@ (class "form-group form-group-lg"))
+              (div (@ (class "col-sm-offset-2 col-sm-10"))
+                   (button (@ (type "submit")
+                              (class "btn btn-lg btn-primary"))
+                           "Update results"))))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (table
+         (@ (class "table")
+            (style "table-layout: fixed;"))
+         (thead
+          (tr
+           (th (@ (class "col-sm-1")) "Version")
+           (th (@ (class "col-sm-6")) "Output")
+           (th (@ (class "col-sm-2")) "Builds")
+           (th (@ (class "col-sm-2")) "From")
+           (th (@ (class "col-sm-2")) "To")))
+         (tbody
+          ,@(let* ((times-in-seconds
+                    (map (lambda (d)
+                           (time-second
+                            (date->time-monotonic
+                             (string->date d "~Y-~m-~d ~H:~M:~S"))))
+                         (append (map fourth outputs-by-revision-range)
+                                 (map sixth outputs-by-revision-range))))
+                   (earliest-date-seconds
+                    (apply min
+                           times-in-seconds))
+                   (latest-date-seconds
+                    (apply max
+                           times-in-seconds))
+                   (min-to-max-seconds
+                    (- latest-date-seconds
+                       earliest-date-seconds)))
+              (map
+               (match-lambda*
+                 ((version-column-entry
+                   (package-version output-path
+                                    first-guix-revision-commit
+                                    first-datetime
+                                    last-guix-revision-commit
+                                    last-datetime
+                                    builds))
+                  `((tr
+                     (@ (style "border-bottom: 0;"))
+                     ,@(match version-column-entry
+                         (#f '())
+                         ((package-version . rowspan)
+                          `((td (@ (rowspan ,(* 2 ; To account for the extra rows
+                                                rowspan)))
+                                ,package-version))))
+                     (td
+                      (a (@ (href ,output-path))
+                         ,(display-store-item output-path)))
+                     (td
+                      (dl
+                       ,@(append-map
+                          (lambda (build)
+                            (let ((build-server-id
+                                   (assoc-ref build "build_server_id")))
+                              `((dt
+                                 (@ (style "font-weight: unset;"))
+                                 (a (@ (href
+                                        ,(assq-ref build-server-urls
+                                                   build-server-id)))
+                                    ,(assq-ref build-server-urls
+                                               build-server-id)))
+                                (dd
+                                 (a (@ (href
+                                        ,(simple-format
+                                          #f "/build-server/~A/build?derivation_file_name=~A"
+                                          build-server-id
+                                          (assoc-ref build "derivation_file_name"))))
+                                    ,(build-status-alist->build-icon build))))))
+                          builds)))
+                     (td (a (@ (href ,(string-append
+                                       "/revision/" first-guix-revision-commit)))
+                            ,first-datetime))
+                     (td (a (@ (href ,(string-append
+                                       "/revision/" last-guix-revision-commit)))
+                            ,last-datetime)))
+                    (tr
+                     (td
+                      (@ (colspan 4)
+                         (style "border-top: 0; padding-top: 0;"))
+                      (div
+                       (@
+                        (style
+                            ,(let* ((start-seconds
+                                     (time-second
+                                      (date->time-monotonic
+                                       (string->date first-datetime
+                                                     "~Y-~m-~d ~H:~M:~S"))))
+                                    (end-seconds
+                                     (time-second
+                                      (date->time-monotonic
+                                       (string->date last-datetime
+                                                     "~Y-~m-~d ~H:~M:~S"))))
+                                    (margin-left
+                                     (min
+                                      (* (/ (- start-seconds earliest-date-seconds)
+                                            min-to-max-seconds)
+                                         100)
+                                      98))
+                                    (width
+                                     (max
+                                      (- (* (/ (- end-seconds earliest-date-seconds)
+                                               min-to-max-seconds)
+                                            100)
+                                         margin-left)
+                                      2)))
+                               (simple-format
+                                #f
+                                "margin-left: ~A%; width: ~A%; height: 10px; background: #DCDCDC;"
+                                (rationalize margin-left 1)
+                                (rationalize width 1)))))))))))
+               versions-list
+               outputs-by-revision-range))))))))))
