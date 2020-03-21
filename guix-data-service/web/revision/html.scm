@@ -280,46 +280,54 @@
            (th "Message")
            (th "Location")))
          (tbody
-          ,@(map
-             (match-lambda
-               ((id lint-checker-name lint-checker-description
-                    lint-checker-network-dependent
-                    file line-number column-number
-                    message)
-                `(tr
-                  (td (span (@ (style "font-family: monospace; display: block;"))
-                            ,lint-checker-name)
-                      (p (@ (style "font-size: small; margin: 6px 0 0px;"))
-                         ,lint-checker-description))
-                  (td ,message)
-                  (td
-                   ,@(if (and file (not (string-null? file)))
-                         `((ul
-                            (@ (class "list-unstyled"))
-                            ,@(map
-                               (match-lambda
-                                 ((id label url cgit-url-base)
-                                  (let ((output
-                                         `(,file
-                                           " "
-                                           (span
-                                            (@ (style "white-space: nowrap"))
-                                            "(line: " ,line-number
-                                            ", column: " ,column-number ")"))))
-                                    (if
-                                     (and cgit-url-base
-                                          (not (string-null? cgit-url-base)))
-                                     `(li
-                                       (a (@ (href
-                                              ,(string-append
-                                                cgit-url-base "tree/"
-                                                file "?id=" revision-commit-hash
-                                                "#n" line-number)))
-                                          ,@output))
-                                     `(li ,@output)))))
-                               git-repositories)))
-                         '())))))
-             lint-warnings)))))))))
+          ,@(if (null? lint-warnings)
+                `((tr
+                   (td (@ (colspan 3)
+                          (align "center"))
+                       "No lint warnings "
+                       (span
+                        (@ (class "label label-success"))
+                        "✓"))))
+                (map
+                 (match-lambda
+                   ((id lint-checker-name lint-checker-description
+                        lint-checker-network-dependent
+                        file line-number column-number
+                        message)
+                    `(tr
+                      (td (span (@ (style "font-family: monospace; display: block;"))
+                                ,lint-checker-name)
+                          (p (@ (style "font-size: small; margin: 6px 0 0px;"))
+                             ,lint-checker-description))
+                      (td ,message)
+                      (td
+                       ,@(if (and file (not (string-null? file)))
+                             `((ul
+                                (@ (class "list-unstyled"))
+                                ,@(map
+                                   (match-lambda
+                                     ((id label url cgit-url-base)
+                                      (let ((output
+                                             `(,file
+                                               " "
+                                               (span
+                                                (@ (style "white-space: nowrap"))
+                                                "(line: " ,line-number
+                                                ", column: " ,column-number ")"))))
+                                        (if
+                                         (and cgit-url-base
+                                              (not (string-null? cgit-url-base)))
+                                         `(li
+                                           (a (@ (href
+                                                  ,(string-append
+                                                    cgit-url-base "tree/"
+                                                    file "?id=" revision-commit-hash
+                                                    "#n" line-number)))
+                                              ,@output))
+                                         `(li ,@output)))))
+                                   git-repositories)))
+                             '())))))
+                 lint-warnings))))))))))
 
 (define (view-revision/git-repositories git-repositories-and-branches
                                          commit-hash)
