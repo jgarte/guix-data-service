@@ -31,7 +31,8 @@
 
             select-package-versions-for-revision
             package-versions-for-branch
-            package-derivations-for-branch))
+            package-derivations-for-branch
+            package-outputs-for-branch))
 
 (define (select-existing-package-entries package-entries)
   (string-append "SELECT id, packages.name, packages.version, "
@@ -342,3 +343,116 @@ ORDER BY first_datetime DESC, package_version DESC")
               system
               target))))
 
+(define (package-outputs-for-branch conn
+                                    git-repository-id
+                                    branch-name
+                                    system
+                                    target
+                                    package-name
+                                    output-name)
+  (define query
+    "
+SELECT package_version,
+       path,
+       first_guix_revision_commit,
+       first_datetime,
+       last_guix_revision_commit,
+       last_datetime,
+       JSON_AGG(
+         json_build_object(
+           'build_server_id', builds.build_server_id,
+           'derivation_file_name', builds.derivation_file_name,
+           'status',  latest_build_status.status,
+           'timestamp',  latest_build_status.timestamp
+         )
+         ORDER BY latest_build_status.timestamp
+       ) AS builds
+FROM (
+  SELECT DISTINCT
+      first_value(package_version) OVER path_window AS package_version,
+      path,
+      derivation_output_details_set_id,
+      first_value(first_guix_revision_commit) OVER path_window AS first_guix_revision_commit,
+      first_value(first_datetime) OVER path_window AS first_datetime,
+      last_value(last_guix_revision_commit) OVER path_window AS last_guix_revision_commit,
+      last_value(last_datetime) OVER path_window AS last_datetime
+  FROM (
+    SELECT package_version,
+           derivation_output_details.path,
+           derivations_by_output_details_set.derivation_output_details_set_id,
+           first_guix_revisions.commit AS first_guix_revision_commit,
+           first_git_branches.datetime AS first_datetime,
+           last_guix_revisions.commit AS last_guix_revision_commit,
+           last_git_branches.datetime AS last_datetime
+    FROM package_derivations_by_guix_revision_range
+    INNER JOIN derivations
+      ON package_derivations_by_guix_revision_range.derivation_id = derivations.id
+    INNER JOIN derivation_outputs
+      ON derivation_outputs.derivation_id = derivations.id
+    INNER JOIN derivation_output_details
+      ON derivation_outputs.derivation_output_details_id = derivation_output_details.id
+    INNER JOIN guix_revisions AS first_guix_revisions
+      ON first_guix_revision_id = first_guix_revisions.id
+    INNER JOIN derivations_by_output_details_set
+      ON derivations_by_output_details_set.derivation_id = derivations.id
+    INNER JOIN git_branches AS first_git_branches
+      ON first_guix_revisions.git_repository_id = first_git_branches.git_repository_id
+     AND first_guix_revisions.commit = first_git_branches.commit
+    INNER JOIN guix_revisions AS last_guix_revisions
+      ON last_guix_revision_id = last_guix_revisions.id
+    INNER JOIN git_branches AS last_git_branches
+      ON last_guix_revisions.git_repository_id = last_git_branches.git_repository_id
+     AND last_guix_revisions.commit = last_git_branches.commit
+    WHERE package_name = $1
+    AND package_derivations_by_guix_revision_range.git_repository_id = $2
+    AND package_derivations_by_guix_revision_range.branch_name = $3
+    AND derivation_outputs.name = $4
+    AND first_git_branches.name = $3
+    AND last_git_branches.name = $3
+    AND package_derivations_by_guix_revision_range.system = $5
+    AND package_derivations_by_guix_revision_range.target = $6
+    ORDER BY first_datetime DESC, package_version DESC
+  ) AS data1
+  WINDOW path_window AS (PARTITION BY path)
+) AS data2
+LEFT OUTER JOIN builds
+  ON data2.derivation_output_details_set_id =
+     builds.derivation_output_details_set_id
+LEFT OUTER JOIN (
+  SELECT DISTINCT ON (build_id) *
+  FROM build_status
+  ORDER BY build_id, id DESC
+) AS latest_build_status
+  ON builds.id = latest_build_status.build_id
+GROUP BY 1, 2, 3, 4, 5, 6
+ORDER BY first_datetime DESC, package_version DESC")
+
+  (map (match-lambda
+         ((version path
+                   first-guix-revision-commit
+                   first-datetime
+                   last-guix-revision-commit
+                   last-datetime
+                   builds-json)
+          (list version
+                path
+                first-guix-revision-commit
+                first-datetime
+                last-guix-revision-commit
+                last-datetime
+                (if (string-null? builds-json)
+                    '()
+                    (filter (lambda (build)
+                              (not (eq?  (assoc-ref build "build_server_id")
+                                         #nil)))
+                            (vector->list
+                             (json-string->scm builds-json)))))))
+       (exec-query
+        conn
+        query
+        (list package-name
+              (number->string git-repository-id)
+              branch-name
+              output-name
+              system
+              target))))
