@@ -64,7 +64,8 @@
            (string-append
             "SELECT id FROM lint_warning_message_sets "
             "WHERE message_ids = ARRAY["
-            (string-join (map number->string lint-warning-message-ids) ", ")
+            (string-join (map number->string
+                              (sort lint-warning-message-ids <)) ", ")
             "]"))))
 
     (string->number
