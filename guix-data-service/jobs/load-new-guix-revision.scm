@@ -347,6 +347,10 @@ WHERE job_id = $1"
                              %local-checkers))
               (check (lint-checker-check checker)))
 
+         (define lint-checker-requires-store?-defined?
+           (defined? 'lint-checker-requires-store?
+             (resolve-module '(guix lint))))
+
          (define (process-lint-warning lint-warning)
            (list
             (match (lint-warning-location lint-warning)
@@ -397,7 +401,11 @@ WHERE job_id = $1"
              (cons
               package-id
               (map process-lint-warning
-                   (check package))))
+                   (if (and lint-checker-requires-store?-defined?
+                            (lint-checker-requires-store? checker))
+
+                       (check package #:store store)
+                       (check package)))))
            %package-table)))))
 
   (and
