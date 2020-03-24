@@ -230,27 +230,37 @@ ORDER BY version")
   (exec-query
    conn
    "
-SELECT package_version,
-       first_guix_revisions.commit AS first_guix_revision_commit,
-       first_git_branches.datetime AS first_datetime,
-       last_guix_revisions.commit AS last_guix_revision_commit,
-       last_git_branches.datetime AS last_datetime
-FROM package_versions_by_guix_revision_range
-INNER JOIN guix_revisions AS first_guix_revisions
-  ON first_guix_revision_id = first_guix_revisions.id
-INNER JOIN git_branches AS first_git_branches
-  ON first_guix_revisions.git_repository_id = first_git_branches.git_repository_id
- AND first_guix_revisions.commit = first_git_branches.commit
-INNER JOIN guix_revisions AS last_guix_revisions
-  ON last_guix_revision_id = last_guix_revisions.id
-INNER JOIN git_branches AS last_git_branches
-  ON last_guix_revisions.git_repository_id = last_git_branches.git_repository_id
- AND last_guix_revisions.commit = last_git_branches.commit
-WHERE package_name = $1
-AND package_versions_by_guix_revision_range.git_repository_id = $2
-AND package_versions_by_guix_revision_range.branch_name = $3
-AND first_git_branches.name = $3
-AND last_git_branches.name = $3
+SELECT DISTINCT
+    data1.package_version,
+    first_value(first_guix_revision_commit) OVER version_window AS first_guix_revision_commit,
+    first_value(first_datetime) OVER version_window AS first_datetime,
+    last_value(last_guix_revision_commit) OVER version_window AS last_guix_revision_commit,
+    last_value(last_datetime) OVER version_window AS last_datetime
+FROM (
+  SELECT package_version,
+         first_guix_revisions.commit AS first_guix_revision_commit,
+         first_git_branches.datetime AS first_datetime,
+         last_guix_revisions.commit AS last_guix_revision_commit,
+         last_git_branches.datetime AS last_datetime
+  FROM package_derivations_by_guix_revision_range
+  INNER JOIN guix_revisions AS first_guix_revisions
+    ON first_guix_revision_id = first_guix_revisions.id
+  INNER JOIN git_branches AS first_git_branches
+    ON first_guix_revisions.git_repository_id = first_git_branches.git_repository_id
+   AND first_guix_revisions.commit = first_git_branches.commit
+  INNER JOIN guix_revisions AS last_guix_revisions
+    ON last_guix_revision_id = last_guix_revisions.id
+  INNER JOIN git_branches AS last_git_branches
+    ON last_guix_revisions.git_repository_id = last_git_branches.git_repository_id
+   AND last_guix_revisions.commit = last_git_branches.commit
+  WHERE package_name = $1
+  AND package_derivations_by_guix_revision_range.git_repository_id = $2
+  AND package_derivations_by_guix_revision_range.branch_name = $3
+  AND first_git_branches.name = $3
+  AND last_git_branches.name = $3
+  ORDER BY first_datetime ASC, package_version DESC
+) AS data1
+WINDOW version_window AS (PARTITION BY package_version)
 ORDER BY first_datetime DESC, package_version DESC"
    (list package-name
          (number->string git-repository-id)
