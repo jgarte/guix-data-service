@@ -411,7 +411,7 @@ FROM (
     AND last_git_branches.name = $3
     AND package_derivations_by_guix_revision_range.system = $5
     AND package_derivations_by_guix_revision_range.target = $6
-    ORDER BY first_datetime DESC, package_version DESC
+    ORDER BY first_datetime ASC, package_version DESC
   ) AS data1
   WINDOW path_window AS (PARTITION BY path)
 ) AS data2
