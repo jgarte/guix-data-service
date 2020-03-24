@@ -1154,68 +1154,6 @@ WHERE job_id = $1"
 
 (prevent-inlining-for-tests extract-information-from)
 
-(define (update-package-versions-table conn git-repository-id commit)
-  (with-time-logging "lock table: package_versions_by_guix_revision_range"
-    ;; Lock the table to wait for other transactions to commit before updating
-    ;; the table
-    (exec-query
-     conn
-     "
-LOCK TABLE ONLY package_versions_by_guix_revision_range
-  IN SHARE ROW EXCLUSIVE MODE"))
-
-  (for-each
-   (match-lambda
-     ((branch-name)
-      (with-time-logging
-          (simple-format #f "deleting package version entries for ~A" branch-name)
-        (exec-query
-         conn
-         "
-DELETE FROM package_versions_by_guix_revision_range
-WHERE git_repository_id = $1 AND branch_name = $2"
-         (list git-repository-id
-               branch-name)))
-      (with-time-logging
-          (simple-format #f "inserting package version entries for ~A" branch-name)
-        (exec-query
-         conn
-         "
-INSERT INTO package_versions_by_guix_revision_range
-SELECT DISTINCT
-       $1::integer AS git_repository_id,
-       $2 AS branch_name,
-       packages.name AS package_name,
-       packages.version AS package_version,
-       first_value(guix_revisions.id)
-         OVER package_version AS first_guix_revision_id,
-       last_value(guix_revisions.id)
-         OVER package_version AS last_guix_revision_id
-FROM packages
-INNER JOIN (
-  SELECT DISTINCT package_derivations.package_id,
-                  guix_revision_package_derivations.revision_id
-  FROM package_derivations
-  INNER JOIN guix_revision_package_derivations
-    ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
-) AS revision_packages ON packages.id = revision_packages.package_id
-INNER JOIN guix_revisions ON revision_packages.revision_id = guix_revisions.id
-INNER JOIN git_branches ON guix_revisions.commit = git_branches.commit
-WHERE git_branches.name = $2
-WINDOW package_version AS (
-  PARTITION BY packages.name, packages.version
-  ORDER BY git_branches.datetime
-  RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-)
-ORDER BY packages.name, packages.version"
-         (list git-repository-id branch-name)))))
-   (exec-query
-    conn
-    "SELECT name FROM git_branches WHERE commit = $1 AND git_repository_id = $2"
-    (list commit git-repository-id)))
-
-  #t)
-
 (define (load-new-guix-revision conn store git-repository-id commit)
   (let* ((channel-for-commit
           (channel (name 'guix)
@@ -1262,7 +1200,6 @@ ORDER BY packages.name, packages.version"
                  (simple-format #t "debug: importing channel news not supported\n")
                  #t))
 
-           (update-package-versions-table conn git-repository-id commit)
            (update-package-derivations-table conn
                                              git-repository-id
                                              guix-revision-id

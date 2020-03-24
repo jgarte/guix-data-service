@@ -180,18 +180,6 @@ WITH guix_revision_ids AS (
     SELECT commit FROM git_branches
   )
 )
-DELETE FROM package_versions_by_guix_revision_range
-WHERE first_guix_revision_id NOT IN (SELECT id FROM guix_revision_ids) OR
-      last_guix_revision_id NOT IN (SELECT id FROM guix_revision_ids);
-EOF
-
-psql -v ON_ERROR_STOP=1 --echo-queries --no-psqlrc "$URI_FOR_DATABASE" -U guix_data_service <<EOF &
-
-WITH guix_revision_ids AS (
-  SELECT id FROM guix_revisions WHERE commit IN (
-    SELECT commit FROM git_branches
-  )
-)
 DELETE FROM package_derivations_by_guix_revision_range
 WHERE first_guix_revision_id NOT IN (SELECT id FROM guix_revision_ids) OR
       last_guix_revision_id NOT IN (SELECT id FROM guix_revision_ids);

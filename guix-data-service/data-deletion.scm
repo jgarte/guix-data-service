@@ -66,8 +66,7 @@ WHERE branch_name = $1 AND git_repository_id = $2"
           table)
          (list branch-name
                (number->string git-repository-id))))
-      '("package_versions_by_guix_revision_range"
-        "package_derivations_by_guix_revision_range"))
+      '("package_derivations_by_guix_revision_range"))
 
      (for-each
       (lambda (table)
