@@ -66,11 +66,11 @@ SELECT DISTINCT
          OVER package_version AS last_guix_revision_id
 FROM packages
 INNER JOIN (
-  SELECT DISTINCT package_derivations.package_id,
-                  package_derivations.derivation_id,
-                  package_derivations.system,
-                  package_derivations.target,
-                  guix_revision_package_derivations.revision_id
+  SELECT package_derivations.package_id,
+         package_derivations.derivation_id,
+         package_derivations.system,
+         package_derivations.target,
+         guix_revision_package_derivations.revision_id
   FROM package_derivations
   INNER JOIN guix_revision_package_derivations
     ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
