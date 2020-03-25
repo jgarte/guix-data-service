@@ -54,3 +54,4 @@ update_build_servers_build_config 2020-02-13T20:07:19Z Christopher Baines <mail@
 make_some_constraints_deferrable 2020-02-16T10:54:22Z Christopher Baines <mail@cbaines.net> # Make some constraints deferrable
 guix_revision_system_test_derivations_add_system 2020-03-19T21:30:33Z Christopher Baines <mail@cbaines.net> # Add a system column to the guix_revision_system_test_derivations table
 drop_package_versions_by_guix_revision_range 2020-03-24T20:40:38Z Christopher Baines <mail@cbaines.net> # Drop package_versions_by_guix_revision_range
+create_narinfo_fetch_records_index 2020-03-25T19:07:28Z Christopher Baines <mail@cbaines.net> # Create an index on narinfo_fetch_records
