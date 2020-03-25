@@ -73,6 +73,17 @@ WHERE guix_revision_id IN (
   )
 );
 
+CREATE UNLOGGED TABLE tmp_channel_instances AS
+SELECT *
+FROM channel_instances
+WHERE guix_revision_id IN (
+  SELECT id
+  FROM guix_revisions
+  WHERE commit IN (
+    SELECT commit FROM git_branches
+  )
+);
+
 CREATE UNLOGGED TABLE tmp_package_derivations AS
 SELECT * FROM package_derivations WHERE id IN (
   SELECT package_derivation_id FROM tmp_guix_revision_package_derivations
@@ -85,6 +96,8 @@ WITH RECURSIVE derivation_ids(id) AS (
       UNION
         SELECT tmp_guix_revision_system_test_derivations.derivation_id
         FROM tmp_guix_revision_system_test_derivations
+      UNION
+        SELECT tmp_channel_instances.derivation_id FROM tmp_channel_instances
     )
   UNION
     SELECT derivation_outputs.derivation_id
@@ -227,6 +240,9 @@ INSERT INTO guix_revision_package_derivations
 
 INSERT INTO guix_revision_system_test_derivations
   SELECT * FROM tmp_guix_revision_system_test_derivations;
+
+INSERT INTO channel_instances
+  SELECT * FROM tmp_channel_instances;
 
 INSERT INTO builds OVERRIDING SYSTEM VALUE
   SELECT * FROM tmp_builds;
