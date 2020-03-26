@@ -19,7 +19,7 @@ renice 19 -p $$ || true
 ionice -p $$ -c 3 || true
 
 TMP_DATABASE=$(mktemp -d -t guix-data-service-database-XXXX)
-URI=$(pg_tmp -w 0 -d "$TMP_DATABASE")
+URI=$(pg_tmp -w 0 -o "-S2000000" -d "$TMP_DATABASE")
 
 function cleanup {
     pg_tmp stop -w 1 -d "$TMP_DATABASE"
