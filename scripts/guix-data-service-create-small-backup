@@ -49,7 +49,7 @@ WHERE datetime < recent_datetime;
 
 EOF
 
-psql -v ON_ERROR_STOP=1 --echo-queries --no-psqlrc "$URI_FOR_DATABASE" -U guix_data_service <<EOF &
+psql -v ON_ERROR_STOP=1 --echo-queries --no-psqlrc "$URI_FOR_DATABASE" -U guix_data_service <<EOF
 
 CREATE UNLOGGED TABLE tmp_guix_revision_package_derivations AS
 SELECT *
@@ -129,24 +129,22 @@ SELECT *
 FROM derivation_sources
 WHERE derivation_id IN (SELECT id FROM tmp_derivations);
 
-TRUNCATE derivations,
-         derivation_inputs,
-         derivation_outputs,
-         derivation_output_details,
-         derivation_sources,
-         derivations_by_output_details_set,
-         channel_instances,
-         guix_revision_system_test_derivations,
-         guix_revision_package_derivations,
-         package_derivations;
+CREATE UNLOGGED TABLE tmp_derivations_by_output_details_set AS
+SELECT *
+FROM derivations_by_output_details_set
+WHERE derivation_id IN (SELECT id FROM tmp_derivations);
 
-EOF
-
-psql -v ON_ERROR_STOP=1 --echo-queries --no-psqlrc "$URI_FOR_DATABASE" -U guix_data_service <<EOF &
+CREATE UNLOGGED TABLE tmp_derivation_output_details_sets AS
+SELECT *
+FROM derivation_output_details_sets
+WHERE id IN (
+  SELECT derivation_output_details_set_id
+  FROM tmp_derivations_by_output_details_set
+);
 
 CREATE UNLOGGED TABLE tmp_builds AS
 SELECT * FROM builds WHERE derivation_output_details_set_id IN (
-  SELECT id FROM derivation_output_details_sets
+  SELECT id FROM tmp_derivation_output_details_sets
 );
 
 CREATE UNLOGGED TABLE tmp_build_status AS
@@ -154,11 +152,21 @@ SELECT *
 FROM build_status
 WHERE build_id IN (SELECT id FROM tmp_builds);
 
-TRUNCATE builds, build_status;
+TRUNCATE derivations,
+         derivation_inputs,
+         derivation_outputs,
+         derivation_output_details,
+         derivation_sources,
+         derivations_by_output_details_set,
+         derivation_output_details_sets,
+         channel_instances,
+         guix_revision_system_test_derivations,
+         guix_revision_package_derivations,
+         package_derivations,
+         builds,
+         build_status;
 
 EOF
-
-wait
 
 psql -v ON_ERROR_STOP=1 --echo-queries --no-psqlrc "$URI_FOR_DATABASE" -U guix_data_service <<EOF &
 
@@ -243,6 +251,12 @@ INSERT INTO guix_revision_system_test_derivations
 
 INSERT INTO channel_instances
   SELECT * FROM tmp_channel_instances;
+
+INSERT INTO derivation_output_details_sets OVERRIDING SYSTEM VALUE
+  SELECT * FROM tmp_derivation_output_details_sets;
+
+INSERT INTO derivations_by_output_details_set
+  SELECT * FROM tmp_derivations_by_output_details_set;
 
 INSERT INTO builds OVERRIDING SYSTEM VALUE
   SELECT * FROM tmp_builds;
