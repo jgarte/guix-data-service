@@ -89,7 +89,7 @@ SELECT * FROM package_derivations WHERE id IN (
   SELECT package_derivation_id FROM tmp_guix_revision_package_derivations
 );
 
-CREATE UNLOGGED TABLE tmp_derivations AS
+EXPLAIN ANALYZE CREATE UNLOGGED TABLE tmp_derivations AS
 WITH RECURSIVE derivation_ids(id) AS (
     (
         SELECT tmp_package_derivations.derivation_id FROM tmp_package_derivations
