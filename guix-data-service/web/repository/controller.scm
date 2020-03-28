@@ -74,7 +74,22 @@
               '(application/json text/html)
               mime-types)
          ((application/json)
-          (render-json '((error . "unimplemented")))) ; TODO
+          (render-json
+           `((revisions
+              . ,(list->vector
+                  (map (match-lambda
+                         ((date commit-hash _ _)
+                          `((date . ,date)
+                            (commit-hash . ,commit-hash))))
+                       (most-recent-commits-for-branch
+                        conn
+                        (string->number repository-id)
+                        branch-name
+                        #:limit (assq-ref parsed-query-parameters 'limit_results)
+                        #:after-date (assq-ref parsed-query-parameters
+                                               'after_date)
+                        #:before-date (assq-ref parsed-query-parameters
+                                                'before_date))))))))
          (else
           (render-html
            #:sxml (if (any-invalid-query-parameters? parsed-query-parameters)
