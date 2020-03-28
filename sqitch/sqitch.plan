@@ -55,3 +55,4 @@ make_some_constraints_deferrable 2020-02-16T10:54:22Z Christopher Baines <mail@c
 guix_revision_system_test_derivations_add_system 2020-03-19T21:30:33Z Christopher Baines <mail@cbaines.net> # Add a system column to the guix_revision_system_test_derivations table
 drop_package_versions_by_guix_revision_range 2020-03-24T20:40:38Z Christopher Baines <mail@cbaines.net> # Drop package_versions_by_guix_revision_range
 create_narinfo_fetch_records_index 2020-03-25T19:07:28Z Christopher Baines <mail@cbaines.net> # Create an index on narinfo_fetch_records
+load_new_guix_revision_jobs_make_commits_unique 2020-03-27T21:38:42Z Christopher Baines <mail@cbaines.net> # Make load_new_guix_revision_jobs commits unique
