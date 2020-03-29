@@ -70,44 +70,38 @@
              `((after_date     ,parse-datetime)
                (before_date    ,parse-datetime)
                (limit_results  ,parse-result-limit #:default 100)))))
-       (case (most-appropriate-mime-type
-              '(application/json text/html)
-              mime-types)
-         ((application/json)
-          (render-json
-           `((revisions
-              . ,(list->vector
-                  (map (match-lambda
-                         ((date commit-hash _ _)
-                          `((date . ,date)
-                            (commit-hash . ,commit-hash))))
-                       (most-recent-commits-for-branch
-                        conn
-                        (string->number repository-id)
-                        branch-name
-                        #:limit (assq-ref parsed-query-parameters 'limit_results)
-                        #:after-date (assq-ref parsed-query-parameters
-                                               'after_date)
-                        #:before-date (assq-ref parsed-query-parameters
-                                                'before_date))))))))
-         (else
-          (render-html
-           #:sxml (if (any-invalid-query-parameters? parsed-query-parameters)
-                      (view-branch repository-id
-                                   branch-name parsed-query-parameters '())
-                      (view-branch
-                       repository-id
-                       branch-name
-                       parsed-query-parameters
-                       (most-recent-commits-for-branch
-                        conn
-                        (string->number repository-id)
-                        branch-name
-                        #:limit (assq-ref parsed-query-parameters 'limit_results)
-                        #:after-date (assq-ref parsed-query-parameters
-                                               'after_date)
-                        #:before-date (assq-ref parsed-query-parameters
-                                                'before_date)))))))))
+       (let ((revisions
+              (most-recent-commits-for-branch
+               conn
+               (string->number repository-id)
+               branch-name
+               #:limit (assq-ref parsed-query-parameters 'limit_results)
+               #:after-date (assq-ref parsed-query-parameters
+                                      'after_date)
+               #:before-date (assq-ref parsed-query-parameters
+                                       'before_date))))
+         (case (most-appropriate-mime-type
+                '(application/json text/html)
+                mime-types)
+           ((application/json)
+            (render-json
+             `((revisions
+                . ,(list->vector
+                    (map (match-lambda
+                           ((date commit-hash _ _)
+                            `((date . ,date)
+                              (commit-hash . ,commit-hash))))
+                         revisions))))))
+           (else
+            (render-html
+             #:sxml (if (any-invalid-query-parameters? parsed-query-parameters)
+                        (view-branch repository-id
+                                     branch-name parsed-query-parameters '())
+                        (view-branch
+                         repository-id
+                         branch-name
+                         parsed-query-parameters
+                         revisions))))))))
     (('GET "repository" repository-id "branch" branch-name "package" package-name)
      (let ((package-versions
             (package-versions-for-branch conn
