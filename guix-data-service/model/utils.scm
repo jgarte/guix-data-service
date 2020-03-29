@@ -162,6 +162,23 @@ WHERE table_name = $1"
        (error
         (simple-format #f "error: unknown type for value: ~A" v)))))
 
+  (define schema-details
+    (table-schema conn table-name))
+
+  (define (field-can-be-null? field)
+    (match (find (lambda (column-data)
+                   (string=? field
+                             (car column-data)))
+                 schema-details)
+      ((column-name data-type is-nullable?) is-nullable?)
+      (#f
+       (simple-format
+        (current-error-port)
+        "error: couldn't find data for ~A in ~A\n"
+        field
+        schema-details)
+       (error "error: field-can-be-null?"))))
+
   (define select-query
     (string-append
      "SELECT id, "
@@ -187,10 +204,15 @@ WHERE table_name = $1"
      "ON "
      (string-join
       (map (lambda (field)
-             (string-append
-              "(" table-name "." field " = vals." field
-              " OR (" table-name "." field " IS NULL AND"
-              " vals." field " IS NULL))"))
+             (string-concatenate
+              `("("
+                ,table-name "." ,field " = vals." ,field
+                ,@(if (field-can-be-null? field)
+                      `(" OR (" ,table-name "." ,field " IS NULL AND"
+                        " vals." ,field " IS NULL"
+                        ")")
+                      '())
+                ")")))
            field-strings)
       " AND ")))
 
@@ -206,10 +228,17 @@ WHERE table_name = $1"
      " ON "
      (string-join
       (map (lambda (field)
-             (string-append
-              "(" table-name "." field " = " temp-table-name "." field
-              " OR (" table-name "." field " IS NULL AND"
-              " " temp-table-name "." field " IS NULL))"))
+             (string-concatenate
+              `("("
+                ,table-name "." ,field " = " ,temp-table-name "." ,field
+                ,@(if (field-can-be-null? field)
+                      `(" OR ("
+                        ,table-name "." ,field " IS NULL"
+                        " AND "
+                        ,temp-table-name "." ,field " IS NULL"
+                        ")")
+                      '())
+                ")")))
            field-strings)
       " AND ")))
 
