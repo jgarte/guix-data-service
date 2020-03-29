@@ -9,7 +9,7 @@ WHERE job_id NOT IN (
   SELECT DISTINCT ON (commit) id
   FROM load_new_guix_revision_jobs
   ORDER BY commit, succeeded_at ASC NULLS LAST, created_at ASC
-)
+);
 
 DELETE FROM load_new_guix_revision_job_logs
 WHERE job_id NOT IN (
