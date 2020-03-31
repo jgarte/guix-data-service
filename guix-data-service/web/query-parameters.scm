@@ -185,6 +185,9 @@
       (#t "on")
       ((? date? date)
        (date->string date "~1 ~3"))
+      ;; TODO Hardcoding none here is a bit of a hack, but it does make the
+      ;; Next page link work for revision derivations.
+      ("" "none")
       (other other)))
 
   (string-join
@@ -231,7 +234,7 @@
       target))
 
 (define (valid-targets->options targets)
-  `(("" . "none")
+  `(("(no target)" . "none")
     ,@(map (lambda (target)
              (cons target target))
            targets)))
