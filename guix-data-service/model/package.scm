@@ -237,7 +237,9 @@ SELECT DISTINCT
     last_value(last_guix_revision_commit) OVER version_window AS last_guix_revision_commit,
     last_value(last_datetime) OVER version_window AS last_datetime
 FROM (
-  SELECT package_version,
+  SELECT DISTINCT -- Because of systems and targets, maybe they should
+                  -- be parameters?
+         package_version,
          first_guix_revisions.commit AS first_guix_revision_commit,
          first_git_branches.datetime AS first_datetime,
          last_guix_revisions.commit AS last_guix_revision_commit,
@@ -246,22 +248,26 @@ FROM (
   INNER JOIN guix_revisions AS first_guix_revisions
     ON first_guix_revision_id = first_guix_revisions.id
   INNER JOIN git_branches AS first_git_branches
-    ON first_guix_revisions.git_repository_id = first_git_branches.git_repository_id
+    ON package_derivations_by_guix_revision_range.branch_name = first_git_branches.name
+   AND first_guix_revisions.git_repository_id = first_git_branches.git_repository_id
    AND first_guix_revisions.commit = first_git_branches.commit
   INNER JOIN guix_revisions AS last_guix_revisions
     ON last_guix_revision_id = last_guix_revisions.id
   INNER JOIN git_branches AS last_git_branches
-    ON last_guix_revisions.git_repository_id = last_git_branches.git_repository_id
+    ON package_derivations_by_guix_revision_range.branch_name = last_git_branches.name
+   AND last_guix_revisions.git_repository_id = last_git_branches.git_repository_id
    AND last_guix_revisions.commit = last_git_branches.commit
   WHERE package_name = $1
   AND package_derivations_by_guix_revision_range.git_repository_id = $2
   AND package_derivations_by_guix_revision_range.branch_name = $3
-  AND first_git_branches.name = $3
-  AND last_git_branches.name = $3
-  ORDER BY first_datetime ASC, package_version DESC
+  ORDER BY package_version DESC, first_git_branches.datetime ASC
 ) AS data1
-WINDOW version_window AS (PARTITION BY package_version)
-ORDER BY first_datetime DESC, package_version DESC"
+WINDOW version_window AS (
+  PARTITION BY data1.package_version
+  ORDER BY data1.package_version DESC, data1.first_datetime ASC
+  RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+)
+ORDER BY package_version DESC, first_datetime ASC"
    (list package-name
          (number->string git-repository-id)
          branch-name)))
