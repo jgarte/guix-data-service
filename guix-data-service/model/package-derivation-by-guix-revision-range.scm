@@ -53,8 +53,8 @@ WHERE git_repository_id = $1 AND
      "
 INSERT INTO package_derivations_by_guix_revision_range
 SELECT DISTINCT
-       $1::integer AS git_repository_id,
-       $2 AS branch_name,
+       git_branches.git_repository_id,
+       git_branches.name AS branch_name,
        packages.name AS package_name,
        packages.version AS package_version,
        revision_packages.derivation_id AS derivation_id,
@@ -75,11 +75,15 @@ INNER JOIN (
   INNER JOIN guix_revision_package_derivations
     ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
 ) AS revision_packages ON packages.id = revision_packages.package_id
-INNER JOIN guix_revisions ON revision_packages.revision_id = guix_revisions.id
-INNER JOIN git_branches ON guix_revisions.commit = git_branches.commit
-WHERE git_branches.name = $2"
+INNER JOIN guix_revisions
+  ON guix_revisions.git_repository_id = $1
+ AND revision_packages.revision_id = guix_revisions.id
+INNER JOIN git_branches
+  ON git_branches.name = $2
+ AND guix_revisions.commit = git_branches.commit
+"
      (if guix-revision-id
-         " AND
+         "WHERE
       revision_packages.derivation_id IN (
         SELECT package_derivations.derivation_id
         FROM package_derivations
@@ -90,7 +94,8 @@ WHERE git_branches.name = $2"
          "")
      "
 WINDOW package_version AS (
-  PARTITION BY packages.name, packages.version, revision_packages.derivation_id
+  PARTITION BY git_branches.git_repository_id, git_branches.name,
+               packages.name, packages.version, revision_packages.derivation_id
   ORDER BY git_branches.datetime
   RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
 )
