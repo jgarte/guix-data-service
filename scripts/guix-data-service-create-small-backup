@@ -212,14 +212,44 @@ EOF
 
 psql -v ON_ERROR_STOP=1 --echo-queries --no-psqlrc "$URI_FOR_DATABASE" -U guix_data_service <<EOF &
 
-WITH guix_revision_ids AS (
-  SELECT id FROM guix_revisions WHERE commit IN (
-    SELECT commit FROM git_branches
-  )
+TRUNCATE package_derivations_by_guix_revision_range;
+
+INSERT INTO package_derivations_by_guix_revision_range
+SELECT DISTINCT
+       git_branches.git_repository_id,
+       git_branches.name AS branch_name,
+       packages.name AS package_name,
+       packages.version AS package_version,
+       revision_packages.derivation_id AS derivation_id,
+       revision_packages.system AS system,
+       revision_packages.target AS target,
+       first_value(guix_revisions.id)
+         OVER package_version AS first_guix_revision_id,
+       last_value(guix_revisions.id)
+         OVER package_version AS last_guix_revision_id
+FROM packages
+INNER JOIN (
+  SELECT package_derivations.package_id,
+         package_derivations.derivation_id,
+         package_derivations.system,
+         package_derivations.target,
+         guix_revision_package_derivations.revision_id
+  FROM package_derivations
+  INNER JOIN guix_revision_package_derivations
+    ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+) AS revision_packages ON packages.id = revision_packages.package_id
+INNER JOIN guix_revisions
+  ON revision_packages.revision_id = guix_revisions.id
+INNER JOIN git_branches
+  ON guix_revisions.commit = git_branches.commit
+WINDOW package_version AS (
+  PARTITION BY git_branches.git_repository_id, git_branches.name,
+               packages.name, packages.version, revision_packages.derivation_id
+  ORDER BY git_branches.datetime
+  RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
 )
-DELETE FROM package_derivations_by_guix_revision_range
-WHERE first_guix_revision_id NOT IN (SELECT id FROM guix_revision_ids) OR
-      last_guix_revision_id NOT IN (SELECT id FROM guix_revision_ids);
+ORDER BY packages.name, packages.version;
+
 EOF
 
 wait
