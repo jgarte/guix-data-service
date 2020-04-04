@@ -43,6 +43,7 @@
   #:use-module (guix-data-service model package-metadata)
   #:use-module (guix-data-service model lint-checker)
   #:use-module (guix-data-service model lint-warning)
+  #:use-module (guix-data-service model lint-warning-message)
   #:use-module (guix-data-service model guix-revision)
   #:use-module (guix-data-service model system-test)
   #:use-module (guix-data-service model nar)
@@ -269,7 +270,8 @@
          (let ((parsed-query-parameters
                 (parse-query-parameters
                  request
-                 `((package_query  ,identity)
+                 `((locale       ,identity #:default "en_US.utf8")
+                   (package_query  ,identity)
                    (linter         ,identity #:multi-value)
                    (message_query  ,identity)
                    (field          ,identity #:multi-value
@@ -916,6 +918,13 @@
                   name)))
          (lint-checkers-for-revision conn commit-hash)))
 
+  (define lint-warnings-locale-options
+    (map
+     (match-lambda
+       ((locale)
+        locale))
+     (lint-warning-message-locales-for-revision conn commit-hash)))
+
   (if (any-invalid-query-parameters? query-parameters)
       (case (most-appropriate-mime-type
              '(application/json text/html)
@@ -930,11 +939,13 @@
                                               '()
                                               '()
                                               lint-checker-options
+                                              lint-warnings-locale-options
                                               #:path-base path-base
                                               #:header-text header-text
                                               #:header-link header-link))))
 
-      (let* ((package-query (assq-ref query-parameters 'package_query))
+      (let* ((locale (assq-ref query-parameters 'locale))
+             (package-query (assq-ref query-parameters 'package_query))
              (linters (assq-ref query-parameters 'linter))
              (message-query (assq-ref query-parameters 'message_query))
              (fields (assq-ref query-parameters 'field))
@@ -943,6 +954,7 @@
                                                   commit-hash))
              (lint-warnings
               (lint-warnings-for-guix-revision conn commit-hash
+                                               #:locale locale
                                                #:package-query package-query
                                                #:linters linters
                                                #:message-query message-query)))
@@ -980,6 +992,7 @@
                                                 lint-warnings
                                                 git-repositories
                                                 lint-checker-options
+                                                lint-warnings-locale-options
                                                 #:path-base path-base
                                                 #:header-text header-text
                                                 #:header-link header-link)

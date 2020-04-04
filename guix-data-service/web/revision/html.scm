@@ -1454,6 +1454,7 @@ figure {
                                       lint-warnings
                                       git-repositories
                                       lint-checker-options
+                                      lint-warnings-locale-options
                                       #:key path-base
                                       header-text header-link)
   (define field-options
@@ -1487,6 +1488,12 @@ figure {
              (action "")
              (style "padding-bottom: 0")
              (class "form-horizontal"))
+          ,(form-horizontal-control
+            "Locale" query-parameters
+            #:options lint-warnings-locale-options
+            #:allow-selecting-multiple-options #f
+            #:help-text
+            "Language")
           ,(form-horizontal-control
             "Package query" query-parameters
             #:help-text

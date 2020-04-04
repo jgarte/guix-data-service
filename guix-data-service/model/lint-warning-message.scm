@@ -21,7 +21,7 @@
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service model utils)
   #:export (lint-warning-message-data->lint-warning-message-ids
-
+            lint-warning-message-locales-for-revision
             lint-warning-message-data->lint-warning-message-set-id))
 
 (define (lint-warning-message-data->lint-warning-message-ids conn
@@ -73,3 +73,19 @@
        (((id)) id)
        (()
         (insert-lint-warning-message-set conn lint-warning-message-ids))))))
+
+(define (lint-warning-message-locales-for-revision conn commit-hash)
+  (exec-query
+   conn
+   "SELECT DISTINCT lint_warning_messages.locale
+  from lint_warning_messages
+         INNER JOIN lint_warning_message_sets
+             ON lint_warning_messages.id = ANY (lint_warning_message_sets.message_ids)
+         INNER JOIN lint_warnings
+             ON lint_warning_message_sets.id = lint_warnings.lint_warning_message_set_id
+         INNER JOIN guix_revision_lint_warnings
+             ON lint_warnings.id = guix_revision_lint_warnings.lint_warning_id
+         INNER JOIN guix_revisions
+             ON guix_revision_lint_warnings.guix_revision_id = guix_revisions.id
+         WHERE guix_revisions.commit = $1"
+   (list commit-hash)))

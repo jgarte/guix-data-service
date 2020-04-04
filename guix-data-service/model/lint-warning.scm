@@ -53,6 +53,7 @@
 
 (define* (lint-warnings-for-guix-revision conn commit-hash
                                           #:key
+                                          locale
                                           package-query
                                           linters
                                           message-query)
@@ -72,8 +73,9 @@ INNER JOIN locations
 INNER JOIN lint_warning_message_sets
   ON lint_warning_message_sets.id = lint_warning_message_set_id
 INNER JOIN lint_warning_messages
-  ON lint_warning_messages.locale = 'en_US.utf8'
-  AND lint_warning_messages.id = ANY (lint_warning_message_sets.message_ids)
+  ON lint_warning_messages.locale = "
+                   "'" locale "'"
+" AND lint_warning_messages.id = ANY (lint_warning_message_sets.message_ids)
 "
                    (if linters
                        (string-append
