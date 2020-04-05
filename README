@@ -20,8 +20,8 @@ the history of the derivations for a package over recent Guix revisions, it
 could take some time until you have the information you're looking for.
 
 However, with the Guix Data Service, this information can be gathered
-continuously, and stored in a a manor that makes these kind of queries much
-quicker to answer. By storing data abount multiple Guix revisions in a SQL
+continuously, and stored in a way that makes these kind of queries much
+quicker to answer. By storing data about multiple Guix revisions in a SQL
 database (PostgreSQL), it becomes possible to quickly compare the data for
 different revisions. By configuring the Guix Data Service to listen for
 changes in the Guix Git repository, the database can be kept up to date.
