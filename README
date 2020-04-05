@@ -141,7 +141,7 @@ rerun -d guix-data-service -p "**/*.scm" guix-data-service
 ** Checking the setup
 
 You now should be ready to do local development. To double check that you can
-change the code and see those changes, try chaging the "Guix Data Service"
+change the code and see those changes, try changing the "Guix Data Service"
 text within the index function, in the =(guix-data-service web view html)=
 module (contained in the =guix-data-service/web/view/html.scm= file). That
 text appears towards the top of the index page (the page with the path =/=).
