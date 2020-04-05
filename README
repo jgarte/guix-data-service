@@ -154,7 +154,5 @@ order.
 ** WebSub support for subscribing to branches and other changable state
 ** Link to other sites (Free Software Directory, Wikidata, Debian, ...)
 ** Track package replacements (grafts)
-** Load in derivations related to =guix pull=
-** Load in the derivations for system tests within Guix
 ** Provide data in RDF formats (TTL, XML, ...)
 ** Provide statistics about Guix over time (with graphs)
