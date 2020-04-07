@@ -94,8 +94,30 @@
     (if (string-contains s "\n")
         (let ((output (string-append buffer s)))
           (set! buffer "") ; clear the buffer
-          (insert job-id output)
-          (display output output-port))
+          (catch #t
+            (lambda ()
+              (insert job-id output)
+              (display output output-port))
+            (lambda (key . args)
+              (display
+               (simple-format
+                #f
+                "
+error: ~A: ~A
+error: could not insert log part: '~A'\n\n"
+                key args output)
+               output-port)
+              (catch #t
+                (lambda ()
+                  (insert
+                   job-id
+                   (simple-format
+                    #f
+                    "
+guix-data-service: error: missing log line: ~A
+\n" key)))
+                (lambda ()
+                  #t)))))
         (set! buffer (string-append buffer s))))
 
   (exec-query
