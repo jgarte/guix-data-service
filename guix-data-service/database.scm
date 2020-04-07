@@ -19,6 +19,7 @@
   #:use-module (system foreign)
   #:use-module (ice-9 match)
   #:use-module (squee)
+  #:use-module (guix-data-service config)
   #:export (with-postgresql-connection
             with-postgresql-transaction
 
@@ -37,7 +38,10 @@
   (define paramstring
     (string-append
      (or (getenv "GUIX_DATA_SERVICE_DATABASE_PARAMSTRING")
-         "dbname=guix_data_service user=guix_data_service")
+         (simple-format
+          #f "dbname=~A user=~A"
+          (%config 'database-name)
+          (%config 'database-user)))
      " application_name='guix-data-service " name "'"))
 
   (let* ((conn (connect-to-postgres-paramstring
