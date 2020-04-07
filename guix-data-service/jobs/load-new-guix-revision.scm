@@ -315,6 +315,10 @@ WHERE job_id = $1"
     `(lambda (store)
        (map
         (lambda (system-test)
+          (simple-format
+           (current-error-port)
+           "guix-data-service: computing derivation for ~A system test\n"
+           (system-test-name system-test))
           (list (system-test-name system-test)
                 (system-test-description system-test)
                 (map (lambda (system)
