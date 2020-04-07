@@ -333,17 +333,29 @@ WHERE job_id = $1"
                          column)))))
         (all-system-tests))))
 
-  (let ((system-test-data
-         (with-time-logging "getting system tests"
-           (inferior-eval-with-store inf store extract))))
+  (catch
+    #t
+    (lambda ()
+      (let ((system-test-data
+             (with-time-logging "getting system tests"
+               (inferior-eval-with-store inf store extract))))
 
-    (for-each (lambda (derivation-file-names-by-system)
-                (for-each (lambda (derivation-file-name)
-                            (add-temp-root store derivation-file-name))
-                          (map cdr derivation-file-names-by-system)))
-              (map third system-test-data))
+        (for-each (lambda (derivation-file-names-by-system)
+                    (for-each (lambda (derivation-file-name)
+                                (add-temp-root store derivation-file-name))
+                              (map cdr derivation-file-names-by-system)))
+                  (map third system-test-data))
 
-    system-test-data))
+        system-test-data))
+    (lambda (key . args)
+      (display (backtrace) (current-error-port))
+      (display "\n" (current-error-port))
+      (simple-format
+       (current-error-port)
+       "error: all-inferior-system-tests: ~A: ~A\n"
+       key args)
+
+      #f)))
 
 (define (all-inferior-lint-warnings inf store)
   (define locales
@@ -1153,9 +1165,10 @@ WHERE job_id = $1"
                                                     guix-revision-id
                                                     lint-warning-ids)))
 
-            (insert-system-tests-for-guix-revision conn
-                                                   guix-revision-id
-                                                   inferior-system-tests)
+            (when inferior-system-tests
+              (insert-system-tests-for-guix-revision conn
+                                                     guix-revision-id
+                                                     inferior-system-tests))
 
             (let ((package-derivation-ids
                    (with-time-logging "inferior-data->package-derivation-ids"
