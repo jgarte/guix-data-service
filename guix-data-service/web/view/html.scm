@@ -64,7 +64,8 @@
 (define* (layout #:key
                  (head '())
                  (body '())
-                 (title "Guix Data Service"))
+                 (title "Guix Data Service")
+                 description)
   `((doctype "html")
     (html
      (@ (lang "en"))
@@ -74,6 +75,11 @@
                (content "text/html; charset=UTF-8")))
       (meta (@ (name "viewport")
                (content "width=device-width, initial-scale=1")))
+      ,@(if description
+            `((meta
+               (@ (name "description")
+                  (content ,description))))
+            '())
       (link
        (@ (rel "stylesheet")
           (media "screen")
