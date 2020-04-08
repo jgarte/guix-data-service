@@ -270,6 +270,9 @@
 
 (define (index git-repositories-and-revisions)
   (layout
+   #:description
+   "The Guix Data Service processes, stores and provides data about Guix over
+time."
    #:body
    `(,(header)
      (div
