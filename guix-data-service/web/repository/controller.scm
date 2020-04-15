@@ -208,7 +208,8 @@
            (let ((parsed-query-parameters
                   (parse-query-parameters
                    request
-                   `((package_query  ,identity)
+                   `((locale         ,identity #:default "en_US.utf8")
+                     (package_query  ,identity)
                      (linter         ,identity #:multi-value)
                      (message_query  ,identity)
                      (field          ,identity #:multi-value
