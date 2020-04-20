@@ -131,13 +131,20 @@
            (select-unprocessed-jobs-and-events conn))))
 
 (define (render-job mime-types conn job-id query-parameters)
-  (render-html
-   #:sxml (view-job
-           job-id
-           query-parameters
-           (log-for-job conn job-id
-                        #:character-limit
-                        (assq-ref query-parameters 'characters)
-                        #:start-character
-                        (assq-ref query-parameters 'start_character)))))
+  (let ((log-text (log-for-job conn job-id
+                               #:character-limit
+                               (assq-ref query-parameters 'characters)
+                               #:start-character
+                               (assq-ref query-parameters 'start_character))))
+    (case (most-appropriate-mime-type
+           '(text/plain text/html)
+           mime-types)
+      ((text/plain)
+       (render-text log-text))
+      (else
+       (render-html
+        #:sxml (view-job
+                job-id
+                query-parameters
+                log-text))))))
 

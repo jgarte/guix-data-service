@@ -44,7 +44,8 @@
 (define (request->path-components-and-mime-type request)
   (define extensions-to-mime-types
     '(("json" . application/json)
-      ("html" . text/html)))
+      ("html" . text/html)
+      ("txt"  . text/plain)))
 
   (define (ends-with-recognised-extension? path)
     (any (lambda (extension)

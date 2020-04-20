@@ -358,7 +358,14 @@
       (div
        (@ (class "row"))
        (div
-        (@ (class "col-sm-12"))
+        (@ (class "col-md-6"))
+        (a (@ (class "btn btn-default btn-lg pull-left")
+              (style "margin-bottom: 20px;")
+              (href ,(string-append
+                      "/job/" job-id ".txt")))
+           "View plain text"))
+       (div
+        (@ (class "col-md-6"))
         (a (@ (class "btn btn-default btn-lg pull-right")
               (style "margin-bottom: 20px;")
               (href "#bottom"))
