@@ -63,6 +63,7 @@
   ;; TODO, use the database, but make it quick!
   '("aarch64-linux"
     "armhf-linux"
+    "i586-gnu"
     "i686-linux"
     "mips64el-linux"
     "x86_64-linux"))
