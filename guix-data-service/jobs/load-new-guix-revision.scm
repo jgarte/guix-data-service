@@ -1073,7 +1073,7 @@ WHERE job_id = $1"
 
     ;; Normalise the locale for the inferior process
     (catch
-      'system-error
+      #t
       (lambda ()
         (inferior-eval '(setlocale LC_ALL "en_US.utf8") inf))
       (lambda (key . args)
