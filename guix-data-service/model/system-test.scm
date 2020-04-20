@@ -30,51 +30,52 @@
 (define (insert-system-tests-for-guix-revision conn
                                                guix-revision-id
                                                system-test-data)
-  (let* ((system-test-ids
-          (insert-missing-data-and-return-all-ids
-           conn
-           "system_tests"
-           '(name description location_id)
-           (map (match-lambda
-                  ((name description derivation-file-names-by-system location-data)
-                   (list name
-                         description
-                         (location->location-id
-                          conn
-                          (apply location location-data)))))
-                system-test-data)))
-         (data
-          (append-map
-           (lambda (system-test-id derivation-file-names-by-system)
-             (let ((systems
-                    (map car derivation-file-names-by-system))
-                   (derivation-ids
-                    (derivation-file-names->derivation-ids
-                     conn
-                     (map cdr derivation-file-names-by-system))))
-               (map (lambda (system derivation-id)
-                      (list guix-revision-id
-                            system-test-id
-                            derivation-id
-                            system))
-                    systems
-                    derivation-ids)))
-           system-test-ids
-           (map third system-test-data))))
+  (unless (null? system-test-data)
+    (let* ((system-test-ids
+            (insert-missing-data-and-return-all-ids
+             conn
+             "system_tests"
+             '(name description location_id)
+             (map (match-lambda
+                    ((name description derivation-file-names-by-system location-data)
+                     (list name
+                           description
+                           (location->location-id
+                            conn
+                            (apply location location-data)))))
+                  system-test-data)))
+           (data
+            (append-map
+             (lambda (system-test-id derivation-file-names-by-system)
+               (let ((systems
+                      (map car derivation-file-names-by-system))
+                     (derivation-ids
+                      (derivation-file-names->derivation-ids
+                       conn
+                       (map cdr derivation-file-names-by-system))))
+                 (map (lambda (system derivation-id)
+                        (list guix-revision-id
+                              system-test-id
+                              derivation-id
+                              system))
+                      systems
+                      derivation-ids)))
+             system-test-ids
+             (map third system-test-data))))
 
-    (exec-query
-     conn
-     (string-append
-      "
+      (exec-query
+       conn
+       (string-append
+        "
 INSERT INTO guix_revision_system_test_derivations
   (guix_revision_id, system_test_id, derivation_id, system)
 VALUES "
-      (string-join
-       (map (lambda (vals)
-              (apply simple-format #f "(~A, ~A, ~A, '~A')"
-                     vals))
-            data)
-       ", "))))
+        (string-join
+         (map (lambda (vals)
+                (apply simple-format #f "(~A, ~A, ~A, '~A')"
+                       vals))
+              data)
+         ", ")))))
   #t)
 
 (define (select-system-tests-for-guix-revision conn
