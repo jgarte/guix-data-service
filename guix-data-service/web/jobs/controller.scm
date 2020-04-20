@@ -19,6 +19,7 @@
   #:use-module (ice-9 match)
   #:use-module (guix-data-service web render)
   #:use-module (guix-data-service web query-parameters)
+  #:use-module (guix-data-service web util)
   #:use-module (guix-data-service jobs load-new-guix-revision)
   #:use-module (guix-data-service web jobs html)
   #:export (jobs-controller))
@@ -79,14 +80,38 @@
                 (assq-ref query-parameters 'before_id)
                 limit-results))
          (recent-events (select-recent-job-events conn)))
-    (render-html
-     #:sxml (view-jobs
-             query-parameters
-             jobs
-             recent-events
-             (and limit-results
-                  (>= (length jobs)
-                      limit-results))))))
+    (case (most-appropriate-mime-type
+           '(application/json text/html)
+           mime-types)
+      ((application/json)
+       (render-json
+        `((recent-events
+           . ,(list->vector
+               (map (match-lambda
+                      ((_ commit _ _ event occurred_at)
+                       `((commit . ,commit)
+                         (event . ,event)
+                         (occurred_at . ,occurred_at))))
+                    recent-events)))
+          (jobs
+           . ,(list->vector
+               (map (match-lambda
+                      ((_ commit source _ created-at _ events log)
+                       `((commit . ,commit)
+                         (source . ,source)
+                         (created-at . ,created-at)
+                         (events . ,events)
+                         (log . ,log))))
+                    jobs))))))
+      (else
+       (render-html
+        #:sxml (view-jobs
+                query-parameters
+                jobs
+                recent-events
+                (and limit-results
+                     (>= (length jobs)
+                         limit-results))))))))
 
 (define (render-job-events mime-types conn query-parameters)
   (let* ((limit-results

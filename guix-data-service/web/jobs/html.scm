@@ -109,6 +109,15 @@
                                (class "btn btn-lg btn-primary"))
                             "Update results")))))))
       (div
+       (@ (class "btn-group pull-right")
+          (role "group"))
+       (a (@ (class "btn btn-lg btn-default")
+             (href ,(string-append
+                     "/jobs.json"))
+             (role "button"))
+          "View JSON"))
+
+      (div
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
