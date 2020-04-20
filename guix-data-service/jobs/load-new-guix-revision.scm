@@ -447,16 +447,11 @@ WHERE job_id = $1"
            %package-table)))))
 
   (and
-   (catch
-     'misc-error
-     (lambda ()
-       (inferior-eval '(use-modules (guix lint)) inf)
-       #t)
-     (lambda (key . args)
-       (simple-format (current-error-port)
-                      "warning: failed to load the (guix lint) module: ~A ~A\n"
-                      key args)
-       #f))
+   (or (inferior-eval '(resolve-module '(guix lint) #:ensure #f) inf)
+       (begin
+         (simple-format (current-error-port)
+                        "warning: no (guix lint) module found\n")
+         #f))
    (let ((checkers
           (inferior-eval
            '(begin
