@@ -447,7 +447,10 @@ WHERE job_id = $1"
            %package-table)))))
 
   (and
-   (or (inferior-eval '(resolve-module '(guix lint) #:ensure #f) inf)
+   (or (inferior-eval '(and (resolve-module '(guix lint) #:ensure #f)
+                            (use-modules (guix lint))
+                            #t)
+                      inf)
        (begin
          (simple-format (current-error-port)
                         "warning: no (guix lint) module found\n")
