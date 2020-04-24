@@ -767,7 +767,26 @@
                mime-types)
           ((application/json)
            (render-json
-            `()))
+            `((derivations . ,(list->vector
+                               (map (match-lambda
+                                      ((derivation system target)
+                                       `((derivation . ,derivation)
+                                         ,@(if (member "system" fields)
+                                               `((system . ,system))
+                                               '())
+                                         ,@(if (member "target" fields)
+                                               `((target . ,target))
+                                               '())))
+                                      ((derivation system target builds)
+                                       `((derivation . ,derivation)
+                                         ,@(if (member "system" fields)
+                                               `((system . ,system))
+                                               '())
+                                         ,@(if (member "target" fields)
+                                               `((target . ,target))
+                                               '())
+                                         (builds . ,builds))))
+                                    derivations))))))
           (else
            (render-html
             #:sxml (view-revision-package-derivations

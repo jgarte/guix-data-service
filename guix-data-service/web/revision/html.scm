@@ -1130,6 +1130,19 @@ figure {
       (div
        (@ (class "row"))
        (div
+        (@ (class "col-sm-12"))
+        (a (@ (class "btn btn-default btn-lg pull-right")
+              (href ,(let ((query-parameter-string
+                            (query-parameters->string query-parameters)))
+                       (string-append
+                        path-base ".json"
+                        (if (string-null? query-parameter-string)
+                            ""
+                            (string-append "?" query-parameter-string))))))
+           "View JSON")))
+      (div
+       (@ (class "row"))
+       (div
         (@ (class "col-md-12"))
         (h1 "Package derivations")
         (p "Showing " ,(length derivations) " results")
