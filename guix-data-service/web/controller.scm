@@ -185,9 +185,10 @@
 (define %show-error-details
   (make-parameter #f))
 
-(define (controller request method-and-path-components
-                    mime-types body
-                    secret-key-base)
+(define* (controller request method-and-path-components
+                     mime-types body
+                     secret-key-base
+                     #:key postgresql-statement-timeout)
   (define (controller-thunk)
     (match method-and-path-components
       (('GET "assets" rest ...)
@@ -236,7 +237,8 @@
                                                mime-types
                                                body
                                                conn
-                                               secret-key-base))))))
+                                               secret-key-base))
+        #:statement-timeout postgresql-statement-timeout))))
   (call-with-error-handling
    controller-thunk
    #:on-error 'backtrace

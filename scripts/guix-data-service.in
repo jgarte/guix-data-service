@@ -82,8 +82,13 @@
                 (lambda (opt name arg result)
                   (alist-cons 'host
                               arg
-                              (alist-delete 'host result))))))
-
+                              (alist-delete 'host result))))
+        (option '("postgresql-statement-timeout") #t #f
+                (lambda (opt name arg result)
+                  (alist-cons 'postgresql-statement-timeout
+                              (string->number arg)
+                              (alist-delete 'postgresql-statement-timeout
+                                            result))))))
 
 (define %default-options
   ;; Alist of default option values
@@ -97,7 +102,9 @@
           ("" #f)
           (_ #t)))
     (port                                 . 8765)
-    (host                                 . "0.0.0.0")))
+    (host                                 . "0.0.0.0")
+    (postgresql-statement-timeout         . 60000)))
+
 
 (define (parse-options args)
   (args-fold
@@ -187,6 +194,9 @@
                    (assq-ref opts 'host)
                    (assq-ref opts 'port))
 
-    (start-guix-data-service-web-server (assq-ref opts 'port)
-                                        (assq-ref opts 'host)
-                                        (assq-ref opts 'secret-key-base))))
+    (start-guix-data-service-web-server
+     (assq-ref opts 'port)
+     (assq-ref opts 'host)
+     (assq-ref opts 'secret-key-base)
+     #:postgresql-statement-timeout
+     (assq-ref opts 'postgresql-statement-timeout))))

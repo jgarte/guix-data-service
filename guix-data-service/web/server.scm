@@ -29,30 +29,32 @@
   #:use-module (guix-data-service web util)
   #:export (start-guix-data-service-web-server))
 
-(define (run-controller controller request body secret-key-base)
-  (let-values (((request-components mime-types)
-                (request->path-components-and-mime-type request)))
-    (controller request
-                (cons (request-method request)
-                      request-components)
-                mime-types
-                body
-                secret-key-base)))
-
-(define (handler request body controller secret-key-base)
+(define (handler request body controller secret-key-base
+                 postgresql-statement-timeout)
   (display
    (format #f "~a ~a\n"
            (request-method request)
            (uri-path (request-uri request))))
   (apply values
-         (run-controller controller request body secret-key-base)))
+         (let-values (((request-components mime-types)
+                       (request->path-components-and-mime-type request)))
+           (controller request
+                       (cons (request-method request)
+                             request-components)
+                       mime-types
+                       body
+                       secret-key-base
+                       #:postgresql-statement-timeout
+                       postgresql-statement-timeout))))
 
-(define (start-guix-data-service-web-server port host secret-key-base)
+(define* (start-guix-data-service-web-server port host secret-key-base
+                                             #:key postgresql-statement-timeout)
   (call-with-error-handling
    (lambda ()
      (run-server (lambda (request body)
                    (handler request body controller
-                            secret-key-base))
+                            secret-key-base
+                            postgresql-statement-timeout))
                  #:host host
                  #:port port))
    #:on-error 'backtrace
