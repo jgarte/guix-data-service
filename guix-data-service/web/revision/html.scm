@@ -1026,7 +1026,7 @@ figure {
                               (a (@ (href
                                      ,(string-append
                                        "/revision/" revision-commit-hash
-                                       "/derivation-outputs?"
+                                       "/package-derivation-outputs?"
                                        "output_consistency=" key
                                        "&system=" system)))
                                  ,(format #f "~a (~d, ~2,2f%)"
