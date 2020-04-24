@@ -33,8 +33,8 @@
             view-revision-package-and-version
             view-revision
             view-revision-packages
-            view-revision-derivations
-            view-revision-derivation-outputs
+            view-revision-package-derivations
+            view-revision-package-derivation-outputs
             view-revision-system-tests
             view-revision-channel-instances
             view-revision-builds
@@ -462,10 +462,10 @@
                                              lint-warning-counts))
        (div
         (@ (class "col-md-6"))
-        (h3 "Derivations")
+        (h3 "Package derivations")
         (a (@ (class "pull-right")
-              (href ,(string-append path-base "/derivations")))
-           "View derivations")
+              (href ,(string-append path-base "/package-derivations")))
+           "View package derivations")
         (table
          (@ (class "table")
             (style "white-space: nowrap;"))
@@ -473,7 +473,7 @@
           (tr
            (th "System")
            (th "Target")
-           (th "Derivations")))
+           (th "Count")))
          (tbody
           ,@(map (match-lambda
                    ((system target count)
@@ -1042,16 +1042,16 @@ figure {
                           '("green" "red" "#d2d3d4"))))))))
            output-consistency))))))
 
-(define* (view-revision-derivations commit-hash
-                                    query-parameters
-                                    valid-systems
-                                    valid-targets
-                                    derivations
-                                    build-server-urls
-                                    show-next-page?
-                                    #:key (path-base "/revision/")
-                                    header-text
-                                    header-link)
+(define* (view-revision-package-derivations commit-hash
+                                            query-parameters
+                                            valid-systems
+                                            valid-targets
+                                            derivations
+                                            build-server-urls
+                                            show-next-page?
+                                            #:key (path-base "/revision/")
+                                            header-text
+                                            header-link)
   (layout
    #:body
    `(,(header)
@@ -1170,16 +1170,16 @@ figure {
                     "Next page")))
               '())))))))
 
-(define* (view-revision-derivation-outputs commit-hash
-                                           query-parameters
-                                           derivation-outputs
-                                           build-server-urls
-                                           valid-systems
-                                           valid-targets
-                                           show-next-page?
-                                           #:key (path-base "/revision/")
-                                           header-text
-                                           header-link)
+(define* (view-revision-package-derivation-outputs commit-hash
+                                                   query-parameters
+                                                   derivation-outputs
+                                                   build-server-urls
+                                                   valid-systems
+                                                   valid-targets
+                                                   show-next-page?
+                                                   #:key (path-base "/revision/")
+                                                   header-text
+                                                   header-link)
   (layout
    #:body
    `(,(header)

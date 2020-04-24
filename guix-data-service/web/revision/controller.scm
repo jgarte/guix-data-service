@@ -53,7 +53,7 @@
             render-revision-lint-warnings
             render-revision-package-version
             render-revision-packages
-            render-revision-derivations
+            render-revision-package-derivations
             render-unknown-revision
             render-view-revision))
 
@@ -163,7 +163,7 @@
          (render-unknown-revision mime-types
                                   conn
                                   commit-hash)))
-    (('GET "revision" commit-hash "derivations")
+    (('GET "revision" commit-hash "package-derivations")
      (if (guix-commit-exists? conn commit-hash)
          (let ((parsed-query-parameters
                 (guard-against-mutually-exclusive-query-parameters
@@ -181,15 +181,15 @@
                     (all_results    ,parse-checkbox-value)))
                  '((limit_results all_results)))))
 
-           (render-revision-derivations mime-types
-                                        conn
-                                        commit-hash
-                                        parsed-query-parameters
-                                        #:path-base path))
+           (render-revision-package-derivations mime-types
+                                                conn
+                                                commit-hash
+                                                parsed-query-parameters
+                                                #:path-base path))
          (render-unknown-revision mime-types
                                   conn
                                   commit-hash)))
-    (('GET "revision" commit-hash "derivation-outputs")
+    (('GET "revision" commit-hash "package-derivation-outputs")
      (if (guix-commit-exists? conn commit-hash)
          (let ((parsed-query-parameters
                 (guard-against-mutually-exclusive-query-parameters
@@ -686,16 +686,17 @@
                                                   version-history-link)
         #:extra-headers http-headers-for-unchanging-content)))))
 
-(define* (render-revision-derivations mime-types
-                                      conn
-                                      commit-hash
-                                      query-parameters
-                                      #:key
-                                      (path-base "/revision/")
-                                      (header-text
-                                       `("Revision " (samp ,commit-hash)))
-                                      (header-link
-                                       (string-append "/revision/" commit-hash)))
+(define* (render-revision-package-derivations mime-types
+                                              conn
+                                              commit-hash
+                                              query-parameters
+                                              #:key
+                                              (path-base "/revision/")
+                                              (header-text
+                                               `("Revision " (samp ,commit-hash)))
+                                              (header-link
+                                               (string-append "/revision/"
+                                                              commit-hash)))
   (if (any-invalid-query-parameters? query-parameters)
       (case (most-appropriate-mime-type
              '(application/json text/html)
@@ -705,17 +706,17 @@
           `((error . "invalid query"))))
         (else
          (render-html
-          #:sxml (view-revision-derivations commit-hash
-                                            query-parameters
-                                            (valid-systems conn)
-                                            (valid-targets->options
-                                             (valid-targets conn))
-                                            '()
-                                            '()
-                                            #f
-                                            #:path-base path-base
-                                            #:header-text header-text
-                                            #:header-link header-link))))
+          #:sxml (view-revision-package-derivations commit-hash
+                                                    query-parameters
+                                                    (valid-systems conn)
+                                                    (valid-targets->options
+                                                     (valid-targets conn))
+                                                    '()
+                                                    '()
+                                                    #f
+                                                    #:path-base path-base
+                                                    #:header-text header-text
+                                                    #:header-link header-link))))
       (let* ((limit-results
               (assq-ref query-parameters 'limit_results))
              (all-results
@@ -724,7 +725,7 @@
               (assq-ref query-parameters 'search_query))
              (derivations
               (if search-query
-                  (search-derivations-in-revision
+                  (search-package-derivations-in-revision
                    conn
                    commit-hash
                    search-query
@@ -734,7 +735,7 @@
                    #:minimum-builds (assq-ref query-parameters 'minimum_builds)
                    #:limit-results limit-results
                    #:after-name (assq-ref query-parameters 'after_name))
-                  (select-derivations-in-revision
+                  (select-package-derivations-in-revision
                    conn
                    commit-hash
                    #:systems (assq-ref query-parameters 'system)
@@ -763,17 +764,18 @@
             `()))
           (else
            (render-html
-            #:sxml (view-revision-derivations commit-hash
-                                              query-parameters
-                                              (valid-systems conn)
-                                              (valid-targets->options
-                                               (valid-targets conn))
-                                              derivations
-                                              build-server-urls
-                                              show-next-page?
-                                              #:path-base path-base
-                                              #:header-text header-text
-                                              #:header-link header-link)))))))
+            #:sxml (view-revision-package-derivations
+                    commit-hash
+                    query-parameters
+                    (valid-systems conn)
+                    (valid-targets->options
+                     (valid-targets conn))
+                    derivations
+                    build-server-urls
+                    show-next-page?
+                    #:path-base path-base
+                    #:header-text header-text
+                    #:header-link header-link)))))))
 
 (define* (render-revision-derivation-outputs mime-types
                                              conn
@@ -794,16 +796,17 @@
           `((error . "invalid query"))))
         (else
          (render-html
-          #:sxml (view-revision-derivation-outputs commit-hash
-                                                   query-parameters
-                                                   '()
-                                                   '()
-                                                   '()
-                                                   '()
-                                                   #f
-                                                   #:path-base path-base
-                                                   #:header-text header-text
-                                                   #:header-link header-link))))
+          #:sxml (view-revision-package-derivation-outputs
+                  commit-hash
+                  query-parameters
+                  '()
+                  '()
+                  '()
+                  '()
+                  #f
+                  #:path-base path-base
+                  #:header-text header-text
+                  #:header-link header-link))))
       (let* ((limit-results
               (assq-ref query-parameters 'limit_results))
              (all-results
@@ -838,17 +841,18 @@
             `()))
           (else
            (render-html
-            #:sxml (view-revision-derivation-outputs commit-hash
-                                                     query-parameters
-                                                     derivation-outputs
-                                                     build-server-urls
-                                                     (valid-systems conn)
-                                                     (valid-targets->options
-                                                      (valid-targets conn))
-                                                     show-next-page?
-                                                     #:path-base path-base
-                                                     #:header-text header-text
-                                                     #:header-link header-link)))))))
+            #:sxml (view-revision-package-derivation-outputs
+                    commit-hash
+                    query-parameters
+                    derivation-outputs
+                    build-server-urls
+                    (valid-systems conn)
+                    (valid-targets->options
+                     (valid-targets conn))
+                    show-next-page?
+                    #:path-base path-base
+                    #:header-text header-text
+                    #:header-link header-link)))))))
 
 (define* (render-revision-builds mime-types
                                  conn

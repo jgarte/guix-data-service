@@ -47,8 +47,8 @@
             select-derivation-source-file-data-by-file-name-hash
             select-derivation-by-output-filename
             select-derivations-using-output
-            select-derivations-in-revision
-            search-derivations-in-revision
+            select-package-derivations-in-revision
+            search-package-derivations-in-revision
             select-derivation-outputs-in-revision
             fix-derivation-output-details-hash-encoding
             select-derivations-by-revision-name-and-version
@@ -186,15 +186,15 @@ ORDER BY derivations.system DESC,
                    query
                    (list revision-commit-hash name version))))
 
-(define* (select-derivations-in-revision conn
-                                         commit-hash
-                                         #:key
-                                         systems
-                                         targets
-                                         minimum-builds
-                                         maximum-builds
-                                         limit-results
-                                         after-name)
+(define* (select-package-derivations-in-revision conn
+                                                 commit-hash
+                                                 #:key
+                                                 systems
+                                                 targets
+                                                 minimum-builds
+                                                 maximum-builds
+                                                 limit-results
+                                                 after-name)
   (define criteria
     (string-join
      `(,@(filter-map
@@ -307,16 +307,16 @@ ORDER BY derivations.file_name
                            (list after-name)
                            '())))))
 
-(define* (search-derivations-in-revision conn
-                                         commit-hash
-                                         search-query
-                                         #:key
-                                         systems
-                                         targets
-                                         minimum-builds
-                                         maximum-builds
-                                         limit-results
-                                         after-name)
+(define* (search-package-derivations-in-revision conn
+                                                 commit-hash
+                                                 search-query
+                                                 #:key
+                                                 systems
+                                                 targets
+                                                 minimum-builds
+                                                 maximum-builds
+                                                 limit-results
+                                                 after-name)
   (define criteria
     (string-join
      `(,@(filter-map
