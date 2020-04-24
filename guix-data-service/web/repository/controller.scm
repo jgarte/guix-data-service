@@ -88,9 +88,10 @@
              `((revisions
                 . ,(list->vector
                     (map (match-lambda
-                           ((commit-hash date _ _)
-                            `((date . ,date)
-                              (commit-hash . ,commit-hash))))
+                           ((commit-hash date revision-exists? _)
+                            `((date            . ,date)
+                              (commit-hash     . ,commit-hash)
+                              (data_available  . ,revision-exists?))))
                          revisions))))))
            (else
             (render-html
