@@ -514,8 +514,8 @@ WHERE job_id = $1"
            ("riscv64-linux-gnu" . "")   ; TODO I don't know?
            ("i586-pc-gnu" . "i586-gnu")))
 
+       ;; TODO Currently unused
        (define package-transitive-supported-systems-supports-multiple-arguments? #t)
-
        (define (get-supported-systems package system)
          (or (and package-transitive-supported-systems-supports-multiple-arguments?
                   (catch
@@ -551,18 +551,29 @@ WHERE job_id = $1"
            (lambda ()
              (guard (c ((package-cross-build-system-error? c)
                         #f))
-               (list inferior-package-id
-                     system
-                     target
-                     (let ((file-name
-                            (derivation-file-name
-                             (if target
-                                 (package-cross-derivation store package
-                                                           target
-                                                           system)
-                                 (package-derivation store package system)))))
-                       (add-temp-root store file-name)
-                       file-name))))
+               (let ((derivation
+                      (if target
+                          (package-cross-derivation store package
+                                                    target
+                                                    system)
+                          (package-derivation store package system))))
+                 ;; You don't always get what you ask for, so check
+                 (if (string=? system (derivation-system derivation))
+                     (list inferior-package-id
+                           system
+                           target
+                           (let ((file-name
+                                  (derivation-file-name derivation)))
+                             (add-temp-root store file-name)
+                             file-name))
+                     (begin
+                       (simple-format
+                        (current-error-port)
+                        "warning: request for ~A derivation for ~A produced a derivation for system ~A\n"
+                        system
+                        (package-name package)
+                        (derivation-system derivation))
+                       #f)))))
            (lambda args
              ;; misc-error #f ~A ~S (No
              ;; cross-compilation for
