@@ -417,7 +417,14 @@
            mime-types)
       ((application/json)
        (render-json
-        '()))                           ; TODO
+        `((channel_instances . ,(list->vector
+                                 (map
+                                  (match-lambda
+                                    ((system derivation-file-name builds)
+                                     `((system     . ,system)
+                                       (derivation . ,derivation-file-name)
+                                       (builds     . ,(list->vector builds)))))
+                                  channel-instances))))))
       (else
        (render-html
         #:sxml (view-revision-channel-instances
