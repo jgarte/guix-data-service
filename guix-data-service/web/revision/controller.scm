@@ -174,6 +174,8 @@
                     (target ,parse-target #:multi-value)
                     (maximum_builds ,parse-number)
                     (minimum_builds ,parse-number)
+                    (field          ,identity #:multi-value
+                                    #:default ("system" "target" "builds"))
                     (after_name ,identity)
                     (limit_results  ,parse-result-limit
                                     #:no-default-when (all_results)
@@ -723,6 +725,8 @@
               (assq-ref query-parameters 'all_results))
              (search-query
               (assq-ref query-parameters 'search_query))
+             (fields
+              (assq-ref query-parameters 'field))
              (derivations
               (if search-query
                   (search-package-derivations-in-revision
@@ -734,7 +738,8 @@
                    #:maximum-builds (assq-ref query-parameters 'maximum_builds)
                    #:minimum-builds (assq-ref query-parameters 'minimum_builds)
                    #:limit-results limit-results
-                   #:after-name (assq-ref query-parameters 'after_name))
+                   #:after-name (assq-ref query-parameters 'after_name)
+                   #:include-builds? (member "builds" fields))
                   (select-package-derivations-in-revision
                    conn
                    commit-hash
@@ -743,7 +748,8 @@
                    #:maximum-builds (assq-ref query-parameters 'maximum_builds)
                    #:minimum-builds (assq-ref query-parameters 'minimum_builds)
                    #:limit-results limit-results
-                   #:after-name (assq-ref query-parameters 'after_name))))
+                   #:after-name (assq-ref query-parameters 'after_name)
+                   #:include-builds? (member "builds" fields))))
              (build-server-urls
               (group-to-alist
                (match-lambda

@@ -181,7 +181,9 @@ ORDER BY derivations.system DESC,
                 (filter (lambda (build)
                           (assoc-ref build "status"))
                         (vector->list
-                         (json-string->scm builds-json))))))
+                         (json-string->scm builds-json)))))
+         ((file_name system target)
+          (list file_name system target)))
        (exec-query conn
                    query
                    (list revision-commit-hash name version))))
@@ -194,7 +196,8 @@ ORDER BY derivations.system DESC,
                                                  minimum-builds
                                                  maximum-builds
                                                  limit-results
-                                                 after-name)
+                                                 after-name
+                                                 (include-builds? #t))
   (define criteria
     (string-join
      `(,@(filter-map
@@ -243,7 +246,9 @@ ORDER BY derivations.system DESC,
      "
 SELECT derivations.file_name,
        derivations.system,
-       package_derivations.target,
+       package_derivations.target"
+     (if include-builds?
+         ",
        (
          SELECT JSON_AGG(
                   json_build_object(
@@ -264,7 +269,9 @@ SELECT derivations.file_name,
            ON builds.id = latest_build_status.build_id
          WHERE builds.derivation_output_details_set_id =
                derivations_by_output_details_set.derivation_output_details_set_id
-       ) AS builds
+       ) AS builds"
+         "")
+     "
 FROM derivations
 INNER JOIN derivations_by_output_details_set
   ON derivations.id = derivations_by_output_details_set.derivation_id
@@ -299,7 +306,9 @@ ORDER BY derivations.file_name
                 target
                 (if (string-null? builds)
                     #()
-                    (json-string->scm builds)))))
+                    (json-string->scm builds))))
+         ((file_name system target)
+          (list file_name system target)))
        (exec-query conn
                    query
                    `(,commit-hash
@@ -316,7 +325,8 @@ ORDER BY derivations.file_name
                                                  minimum-builds
                                                  maximum-builds
                                                  limit-results
-                                                 after-name)
+                                                 after-name
+                                                 (include-builds? #t))
   (define criteria
     (string-join
      `(,@(filter-map
@@ -365,7 +375,9 @@ ORDER BY derivations.file_name
      "
 SELECT derivations.file_name,
        derivations.system,
-       package_derivations.target,
+       package_derivations.target"
+     (if include-builds?
+         ",
        (
          SELECT JSON_AGG(
                   json_build_object(
@@ -386,7 +398,9 @@ SELECT derivations.file_name,
            ON builds.id = latest_build_status.build_id
          WHERE builds.derivation_output_details_set_id =
                derivations_by_output_details_set.derivation_output_details_set_id
-       ) AS builds
+       ) AS builds"
+         "")
+     "
 FROM derivations
 INNER JOIN derivations_by_output_details_set
   ON derivations.id = derivations_by_output_details_set.derivation_id
@@ -416,6 +430,10 @@ ORDER BY derivations.file_name
          "")))
 
   (map (match-lambda
+         ((file_name system target)
+          (list file_name
+                system
+                target))
          ((file_name system target builds)
           (list file_name
                 system

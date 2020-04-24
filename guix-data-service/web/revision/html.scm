@@ -1052,6 +1052,17 @@ figure {
                                             #:key (path-base "/revision/")
                                             header-text
                                             header-link)
+  (define field-options
+    (map
+     (lambda (field)
+       (cons field
+             (hyphenate-words
+              (string-downcase field))))
+     '("(no additional fields)" "System" "Target" "Builds")))
+
+  (define fields
+    (assq-ref query-parameters 'field))
+
   (layout
    #:body
    `(,(header)
@@ -1096,6 +1107,11 @@ figure {
             "Maximum builds" query-parameters
             #:help-text "Only show derivations with a maximum number of known builds.")
           ,(form-horizontal-control
+            "Fields" query-parameters
+            #:name "field"
+            #:options field-options
+            #:help-text "Fields to return in the response.")
+          ,(form-horizontal-control
             "After name" query-parameters
             #:help-text
             "List derivations that are alphabetically after the given name.")
@@ -1122,20 +1138,42 @@ figure {
          (thead
           (tr
            (th "File name")
-           (th "System")
-           (th "Target")
-           (th "Builds")))
+           ,@(if (member "system" fields)
+                 '((th "System"))
+                 '())
+           ,@(if (member "target" fields)
+                 '((th "Target"))
+                 '())
+           ,@(if (member "builds" fields)
+                 '((th "Builds"))
+                 '())))
          (tbody
           ,@(map
              (match-lambda
+               ((file-name system target)
+                `(tr
+                  (td (a (@ (href ,file-name))
+                         ,(display-store-item-short file-name)))
+                  ,@(if (member "system" fields)
+                        `((td (@ (style "font-family: monospace;"))
+                              ,system))
+                        '())
+                  ,@(if (member "target" fields)
+                        `((td (@ (style "font-family: monospace;"))
+                              ,target))
+                        '())))
                ((file-name system target builds)
                 `(tr
                   (td (a (@ (href ,file-name))
                          ,(display-store-item-short file-name)))
-                  (td (@ (style "font-family: monospace;"))
-                      ,system)
-                  (td (@ (style "font-family: monospace;"))
-                      ,target)
+                  ,@(if (member "system" fields)
+                        `((td (@ (style "font-family: monospace;"))
+                              ,system))
+                        '())
+                  ,@(if (member "target" fields)
+                        `((td (@ (style "font-family: monospace;"))
+                              ,target))
+                        '())
                   (td
                    (dl
                     (@ (style "margin-bottom: 0;"))
