@@ -88,7 +88,7 @@
              `((revisions
                 . ,(list->vector
                     (map (match-lambda
-                           ((date commit-hash _ _)
+                           ((commit-hash date _ _)
                             `((date . ,date)
                               (commit-hash . ,commit-hash))))
                          revisions))))))
