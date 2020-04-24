@@ -20,6 +20,7 @@
   #:use-module (ice-9 match)
   #:use-module (guix-data-service web html-utils)
   #:use-module (guix-data-service web view html)
+  #:use-module (guix-data-service web query-parameters)
   #:export (view-jobs
             view-job-events
             view-job-queue
@@ -112,8 +113,13 @@
        (@ (class "btn-group pull-right")
           (role "group"))
        (a (@ (class "btn btn-lg btn-default")
-             (href ,(string-append
-                     "/jobs.json"))
+             (href ,(let ((query-params
+                           (query-parameters->string query-parameters)))
+                      (string-append
+                       "/jobs.json"
+                       (if (string-null? query-params)
+                           ""
+                           (string-append "?" query-params)))))
              (role "button"))
           "View JSON"))
 
