@@ -172,6 +172,8 @@ WHERE derivation_output_details.path = $1"
 
   (simple-format #t "\nFetching pending builds\n")
   (process-pending-builds conn id url)
+  (simple-format #t "\nFetching narinfo files\n")
+  (fetch-narinfo-files conn id url revision-commits)
   (simple-format #t "\nFetching unseen derivations\n")
   (process-derivation-outputs
    conn id url
@@ -184,9 +186,7 @@ WHERE derivation_output_details.path = $1"
              outputs)
        (select-derivation-outputs-with-no-known-build conn
                                                       id
-                                                      revision-commits)))
-  (simple-format #t "\nFetching narinfo files\n")
-  (fetch-narinfo-files conn id url revision-commits))
+                                                      revision-commits))))
 
 (define (insert-build-statuses-from-data conn build-server-id build-id data)
   (define stop-statuses
