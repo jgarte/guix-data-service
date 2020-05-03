@@ -209,11 +209,11 @@
                     (all_results    ,parse-checkbox-value)))
                  '((limit_results all_results)))))
 
-           (render-revision-derivation-outputs mime-types
-                                               conn
-                                               commit-hash
-                                               parsed-query-parameters
-                                               #:path-base path))
+           (render-revision-package-derivation-outputs mime-types
+                                                       conn
+                                                       commit-hash
+                                                       parsed-query-parameters
+                                                       #:path-base path))
          (render-unknown-revision mime-types
                                   conn
                                   commit-hash)))
@@ -809,16 +809,17 @@
                     #:header-text header-text
                     #:header-link header-link)))))))
 
-(define* (render-revision-derivation-outputs mime-types
-                                             conn
-                                             commit-hash
-                                             query-parameters
-                                             #:key
-                                             (path-base "/revision/")
-                                             (header-text
-                                              `("Revision " (samp ,commit-hash)))
-                                             (header-link
-                                              (string-append "/revision/" commit-hash)))
+(define* (render-revision-package-derivation-outputs
+          mime-types
+          conn
+          commit-hash
+          query-parameters
+          #:key
+          (path-base "/revision/")
+          (header-text
+           `("Revision " (samp ,commit-hash)))
+          (header-link
+           (string-append "/revision/" commit-hash)))
   (if (any-invalid-query-parameters? query-parameters)
       (case (most-appropriate-mime-type
              '(application/json text/html)
