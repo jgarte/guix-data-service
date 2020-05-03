@@ -454,6 +454,8 @@ ORDER BY derivations.file_name
                                                 #:key
                                                 search-query
                                                 output-consistency
+                                                nars-from-build-servers
+                                                no-nars-from-build-servers
                                                 system
                                                 target
                                                 limit-results
@@ -517,6 +519,40 @@ WHERE guix_revisions.commit = $1
                               query count))
              criteria
              (iota (length criteria) 2))))
+     (if (list? nars-from-build-servers)
+         (string-append
+          "
+AND ARRAY[" (string-join (map number->string nars-from-build-servers)
+                         ", ")
+"]::integer[] <@ COALESCE(( -- contained by
+  SELECT ARRAY_AGG(narinfo_fetch_records.build_server_id)
+  FROM nars
+  INNER JOIN narinfo_signatures
+    ON nars.id = narinfo_signatures.nar_id
+  INNER JOIN narinfo_signature_data
+    ON narinfo_signature_data.id = narinfo_signatures.narinfo_signature_data_id
+  INNER JOIN narinfo_fetch_records
+    ON narinfo_signature_data.id = narinfo_fetch_records.narinfo_signature_data_id
+  WHERE nars.store_path = derivation_output_details.path
+), ARRAY[]::integer[])")
+         "")
+     (if (list? no-nars-from-build-servers)
+         (string-append
+          "
+AND NOT ARRAY[" (string-join (map number->string no-nars-from-build-servers)
+                             ", ")
+"]::integer[] && COALESCE((
+  SELECT ARRAY_AGG(narinfo_fetch_records.build_server_id)
+  FROM nars
+  INNER JOIN narinfo_signatures
+    ON nars.id = narinfo_signatures.nar_id
+  INNER JOIN narinfo_signature_data
+    ON narinfo_signature_data.id = narinfo_signatures.narinfo_signature_data_id
+  INNER JOIN narinfo_fetch_records
+    ON narinfo_signature_data.id = narinfo_fetch_records.narinfo_signature_data_id
+  WHERE nars.store_path = derivation_output_details.path
+), ARRAY[]::integer[])")
+         "")
      (cond
       ((string=? output-consistency "any")
        "")
