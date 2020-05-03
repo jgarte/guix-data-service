@@ -318,15 +318,9 @@ FROM (
   SELECT derivation_output_details.path,
          package_derivations.system,
          package_derivations.target,
-         JSON_AGG(
-           json_build_object(
-             'hash', nars.hash,
-             'build_server_id', narinfo_fetch_records.build_server_id
-           )
-         ),
          CASE
-           WHEN (COUNT(DISTINCT narinfo_fetch_records.build_server_id) <= 1) THEN NULL
-           ELSE (COUNT(DISTINCT nars.hash) = 1)
+           WHEN (COUNT(DISTINCT nar_data.build_server_id) <= 1) THEN NULL
+           ELSE (COUNT(DISTINCT nar_data.hash) = 1)
          END AS reproducible
   FROM derivation_output_details
   INNER JOIN derivation_outputs
@@ -335,17 +329,22 @@ FROM (
   INNER JOIN package_derivations
     ON derivation_outputs.derivation_id = package_derivations.derivation_id
   INNER JOIN guix_revision_package_derivations
-    ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+    ON package_derivations.id =
+       guix_revision_package_derivations.package_derivation_id
   INNER JOIN guix_revisions
     ON guix_revision_package_derivations.revision_id = guix_revisions.id
-  LEFT JOIN nars
-    ON derivation_output_details.path = nars.store_path
-  LEFT JOIN narinfo_signatures
-    ON narinfo_signatures.nar_id = nars.id
-  LEFT JOIN narinfo_signature_data
-    ON narinfo_signatures.narinfo_signature_data_id = narinfo_signature_data.id
-  LEFT JOIN narinfo_fetch_records
-    ON narinfo_fetch_records.narinfo_signature_data_id = narinfo_signature_data.id
+  LEFT JOIN (
+    SELECT nars.store_path, narinfo_fetch_records.build_server_id, nars.hash
+    FROM nars
+    INNER JOIN narinfo_signatures
+      ON narinfo_signatures.nar_id = nars.id
+    INNER JOIN narinfo_signature_data
+      ON narinfo_signatures.narinfo_signature_data_id = narinfo_signature_data.id
+    INNER JOIN narinfo_fetch_records
+      ON narinfo_fetch_records.narinfo_signature_data_id =
+        narinfo_signature_data.id
+  ) AS nar_data
+    ON nar_data.store_path = derivation_output_details.path
   WHERE derivation_output_details.hash IS NULL AND
         guix_revisions.commit = $1 AND
         package_derivations.target = '' -- Exclude cross builds
