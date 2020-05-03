@@ -427,9 +427,12 @@ FROM (
     AND last_git_branches.name = $3
     AND package_derivations_by_guix_revision_range.system = $5
     AND package_derivations_by_guix_revision_range.target = $6
-    ORDER BY first_datetime ASC, package_version DESC
   ) AS data1
-  WINDOW path_window AS (PARTITION BY path)
+  WINDOW path_window AS (
+    PARTITION BY path
+    ORDER BY first_datetime ASC, package_version DESC
+    RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+  )
 ) AS data2
 LEFT OUTER JOIN builds
   ON data2.derivation_output_details_set_id =
