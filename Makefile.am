@@ -28,6 +28,7 @@ bin_SCRIPTS =							\
   scripts/guix-data-service-process-branch-updated-mbox	\
   scripts/guix-data-service-manage-build-servers		\
   scripts/guix-data-service-query-build-servers		\
+  scripts/guix-data-service-query-substitute-servers		\
   scripts/guix-data-service-backup-database			\
   scripts/guix-data-service-create-small-backup
 
@@ -72,6 +73,7 @@ SOURCES =									\
   guix-data-service/comparison.scm						\
   guix-data-service/config.scm							\
   guix-data-service/database.scm						\
+  guix-data-service/substitutes.scm						\
   guix-data-service/utils.scm							\
   guix-data-service/data-deletion.scm						\
   guix-data-service/jobs.scm							\

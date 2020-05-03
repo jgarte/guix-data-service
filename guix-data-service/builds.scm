@@ -172,8 +172,6 @@ WHERE derivation_output_details.path = $1"
 
   (simple-format #t "\nFetching pending builds\n")
   (process-pending-builds conn id url)
-  (simple-format #t "\nFetching narinfo files\n")
-  (fetch-narinfo-files conn id url revision-commits)
   (simple-format #t "\nFetching unseen derivations\n")
   (process-derivation-outputs
    conn id url
@@ -617,28 +615,3 @@ LIMIT 30000"))
                          result))))
         vlist-null
         (exec-query conn query (list (number->string build-server-id)))))
-
-(define (fetch-narinfo-files conn build-server-id build-server-url revision-commits)
-  (define outputs
-    (select-outputs-without-known-nar-entries
-     conn
-     build-server-id
-     revision-commits))
-
-  (simple-format #t "Querying ~A outputs\n"
-                 (length outputs))
-
-  (let ((narinfos
-         (lookup-narinfos (string-trim-right build-server-url #\/) outputs)))
-
-    (simple-format #t "Got ~A narinfo files\n"
-                   (length narinfos))
-
-    (unless (eq? (length narinfos) 0)
-      (with-postgresql-transaction
-       conn
-       (lambda (conn)
-         (record-narinfo-details-and-return-ids
-          conn
-          build-server-id
-          narinfos))))))

@@ -1,0 +1,72 @@
+#!@GUILE@ --no-auto-compile
+-*- scheme -*-
+-*- geiser-scheme-implementation: guile -*-
+!#
+;;; Guix Data Service -- Information about Guix over time
+;;; Copyright © 2019, 2020 Christopher Baines <mail@cbaines.net>
+;;;
+;;; This file is part of guix-data-service.
+;;;
+;;; guix-data-service is free software; you can redistribute it and/or modify it
+;;; under the terms of the GNU General Public License as published by
+;;; the Free Software Foundation; either version 3 of the License, or
+;;; (at your option) any later version.
+;;;
+;;; guix-data-service is distributed in the hope that it will be useful, but
+;;; WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;;; General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU General Public License
+;;; along with the guix-data-service.  If not, see <http://www.gnu.org/licenses/>.
+
+(use-modules (srfi srfi-1)
+             (srfi srfi-37)
+             (squee)
+             (guix-data-service database)
+             (guix-data-service substitutes))
+
+(define %options
+  ;; Specifications of the command-line options
+  (list (option '("build-server-id") #t #f
+                (lambda (opt name arg result)
+                  (alist-cons
+                   'build-server-ids
+                   (cons (string->number arg)
+                         (or (assoc-ref result 'build-server-ids)
+                             '()))
+                   (alist-delete 'build-server-ids result))))
+        (option '("verbose") #f #f
+                (lambda (opt name _ result)
+                  (alist-cons 'verbose #t result)))))
+
+(define %default-options
+  ;; Alist of default option values
+  '((revision-commits . ())))
+
+(define (parse-options args)
+  (args-fold
+   args %options
+   (lambda (opt name arg result)
+     (error "unrecognized option" name))
+   (lambda (arg result)
+     (let ((type (if (string-prefix? "/gnu/store/" arg)
+                     'outputs
+                     'revision-commits)))
+       (alist-cons
+        type
+        (cons arg
+              (or (assoc-ref result type)
+                  '()))
+        (alist-delete type result))))
+   %default-options))
+
+(let ((opts (parse-options (cdr (program-arguments)))))
+  (with-postgresql-connection
+   "query-substitute-servers"
+   (lambda (conn)
+     (query-build-server-substitutes conn
+                                     (assq-ref opts 'build-server-ids)
+                                     (assq-ref opts 'revision-commits)
+                                     (assq-ref opts 'outputs)
+                                     #:verbose? (assq-ref opts 'verbose)))))
