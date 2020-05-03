@@ -1231,6 +1231,12 @@ figure {
                                                    #:key (path-base "/revision/")
                                                    header-text
                                                    header-link)
+  (define substitute-availability-options
+    (map (match-lambda
+           ((id url)
+            (cons url id)))
+         build-server-urls))
+
   (layout
    #:body
    `(,(header)
@@ -1258,6 +1264,16 @@ figure {
             "Search query" query-parameters
             #:help-text
             "List outputs where the file name matches this query.")
+          ,(form-horizontal-control
+            "Substitutes available from" query-parameters
+            #:options substitute-availability-options
+            #:help-text ""
+            #:font-family "monospace")
+          ,(form-horizontal-control
+            "Substitutes not available from" query-parameters
+            #:options substitute-availability-options
+            #:help-text ""
+            #:font-family "monospace")
           ,(form-horizontal-control
             "Output consistency" query-parameters
             #:allow-selecting-multiple-options #f

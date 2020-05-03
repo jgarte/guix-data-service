@@ -199,6 +199,10 @@
                   request
                   `((search_query ,identity)
                     (after_path ,identity)
+                    (substitutes_available_from ,parse-number
+                                                #:multi-value)
+                    (substitutes_not_available_from ,parse-number
+                                                    #:multi-value)
                     (output_consistency ,identity
                                         #:default "any")
                     (system ,parse-system #:default "x86_64-linux")
@@ -849,6 +853,10 @@
                conn
                commit-hash
                #:search-query (assq-ref query-parameters 'search_query)
+               #:nars-from-build-servers
+               (assq-ref query-parameters 'substitutes_available_from)
+               #:no-nars-from-build-servers
+               (assq-ref query-parameters 'substitutes_not_available_from)
                #:output-consistency
                (assq-ref query-parameters 'output_consistency)
                #:system (assq-ref query-parameters 'system)
