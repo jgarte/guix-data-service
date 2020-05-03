@@ -244,6 +244,15 @@
          (render-unknown-revision mime-types
                                   conn
                                   commit-hash)))
+    (('GET "revision" commit-hash "package-substitute-availability")
+     (if (guix-commit-exists? conn commit-hash)
+         (render-revision-package-substitute-availability mime-types
+                                                          conn
+                                                          commit-hash
+                                                          #:path-base path)
+         (render-unknown-revision mime-types
+                                  conn
+                                  commit-hash)))
     (('GET "revision" commit-hash "package-reproducibility")
      (if (guix-commit-exists? conn commit-hash)
          (render-revision-package-reproduciblity mime-types
@@ -437,6 +446,31 @@
                 #:path-base path-base
                 #:header-text header-text
                 #:header-link header-link))))))
+
+(define* (render-revision-package-substitute-availability mime-types
+                                                          conn
+                                                          commit-hash
+                                                          #:key path-base)
+  (let ((substitute-availability
+         (select-package-output-availability-for-revision conn commit-hash))
+        (build-server-urls
+         (group-to-alist
+          (match-lambda
+            ((id url lookup-all-derivations)
+             (cons id url)))
+          (select-build-servers conn))))
+    (case (most-appropriate-mime-type
+           '(application/json text/html)
+           mime-types)
+      ((application/json)
+       (render-json
+        '()))                           ; TODO
+      (else
+       (render-html
+        #:sxml (view-revision-package-substitute-availability
+                commit-hash
+                substitute-availability
+                build-server-urls))))))
 
 (define* (render-revision-package-reproduciblity mime-types
                                                  conn

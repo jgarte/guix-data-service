@@ -29,6 +29,7 @@
   #:use-module (guix-data-service web view html)
   #:export (view-revision-news
             view-revision-package
+            view-revision-package-substitute-availability
             view-revision-package-reproducibility
             view-revision-package-and-version
             view-revision
@@ -801,6 +802,273 @@
                                  ,(build-status-alist->build-icon build))))
                          builds)))))
              channel-instances)))))))))
+
+(define* (view-revision-package-substitute-availability revision-commit-hash
+                                                        substitute-availability
+                                                        build-server-urls)
+  (define chart-css
+    "
+.chart-text {
+  fill: #000;
+  transform: translateY(0.25em);
+}
+.chart-number {
+  font-size: 0.6em;
+  line-height: 1;
+  text-anchor: middle;
+  transform: translateY(-0.25em);
+}
+.chart-label {
+  font-size: 0.2em;
+  text-anchor: middle;
+  transform: translateY(0.7em);
+}
+figure {
+  display: flex;
+  justify-content: space-around;
+  flex-direction: column;
+  margin-left: -15px;
+  margin-right: -15px;
+}
+@media (min-width: 768px) {
+  figure {
+    flex-direction: row;
+  }
+}
+.figure-content,
+.figure-key {
+  flex: 1;
+  padding-left: 15px;
+  padding-right: 15px;
+  align-self: center;
+}
+.figure-content svg {
+  height: auto;
+}
+.figure-key {
+  min-width: calc(8 / 12);
+}
+.figure-key [class*=\"shape-\"] {
+  margin-right: 6px;
+}
+.figure-key-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.figure-key-list li {
+  margin: 0 0 8px;
+  padding: 0;
+}
+.shape-circle {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 0.8em;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}")
+
+  (define (chart build-server-id system target data)
+    ;; Inspired by
+    ;; https://medium.com/@heyoka/scratch-made-svg-donut-pie-charts-in-html5-2c587e935d72
+
+    (define total
+      (apply + (map cdr data)))
+
+    (define keys '(known unknown))
+
+    (define data-percentages
+      (map (lambda (key)
+             (exact->inexact
+              (* 100 (/ (or (assq-ref data key)
+                            0)
+                        total))))
+           keys))
+
+    (define labels
+      '("Known" "Unknown"))
+
+    (define colours
+      '("green" "#d2d3d4"))
+
+    (define center-label
+      "Available")
+
+    `(div
+      (@ (class "col-sm-6"))
+      (h3 (@ (style "font-family: monospace;"))
+          ,system ,target)
+      (figure
+       (div
+        (@ (class "figure-content"))
+        (svg
+         (@ (width "100%")
+            (height "100%")
+            (viewBox "0 0 42 42")
+            (class "donut")
+            (aria-labelledby ,(string-append system "-chart-title " system "-chart-desc"))
+            (role "img"))
+         (title
+          (@ (id ,(string-append system "-chart-title")))
+          ,(string-append "Package reproducibility for " system))
+         (desc
+          (@ (id ,(string-append system "-chart-desc")))
+          ,(string-append
+            "Donut chart breaking down Guix package substitute availability for "
+            system
+            "."))              ; TODO Describe the data on the chart
+         (circle
+          (@ (class "donut-hole")
+             (cx "21")
+             (cy "21")
+             (r "15.91549430918954")
+             (fill "#fff")
+             (role "presentation")))
+
+         ,@(map
+            (lambda (key label colour percentage offset)
+              `(circle
+                (@ (class "donut-segment")
+                   (cx "21")
+                   (cy "21")
+                   (r "15.91549430918954")
+                   (fill "transparent")
+                   (stroke ,colour)
+                   (stroke-width "4")
+                   (stroke-dasharray ,(simple-format #f "~A ~A"
+                                                     percentage
+                                                     (- 100 percentage)))
+                   (stroke-dashoffset ,offset)
+                   (aria-labelledby
+                    ,(simple-format #f "donut-segment-~A-title donut-segment-~A-desc"
+                                    key key)))
+                (title
+                 (@ (id ,(simple-format #f "donut-segment-~A-title"
+                                        key)))
+                 ,label)
+                (desc
+                 (@ (id ,(simple-format #f "donut-segment-~A-desc"
+                                        key)))
+                 ;; TODO Improve this description by stating the
+                 ;; colour and count
+                 ,(format #f "~2,2f%"
+                          (or percentage 0)))))
+            keys
+            labels
+            colours
+            data-percentages
+            (cons 25
+                  (map (lambda (cumalative-percentage)
+                         (+ (- 100
+                               cumalative-percentage)
+                            ;; Start at 25, as this will position
+                            ;; the segment at the top of the chart
+                            25))
+                       (reverse
+                        (fold
+                         (lambda (val result)
+                           (cons (+ val (first result))
+                                 result))
+                         (list
+                          (first data-percentages))
+                         (cdr data-percentages))))))
+         (g
+          (@ (class "chart-text"))
+          ,@(if (and (eq? (or (assq-ref data 'known)
+                              0)
+                          0)
+                     (eq? (or (assq-ref data 'unknown)
+                              0)
+                          0))
+                `((text
+                   (@ (x "50%")
+                      (y "50%")
+                      (class "chart-label"))
+                   "No data"))
+                `((text
+                   (@ (x "50%")
+                      (y "50%")
+                      (class "chart-number"))
+                   ,(simple-format
+                     #f "~~~A%"
+                     (inexact->exact
+                      (round (car data-percentages)))))
+                  (text
+                   (@ (x "50%")
+                      (y "50%")
+                      (class "chart-label"))
+                   ,center-label))))))
+       (figcaption
+        (@ (class "figure-key"))
+        (p (@ (class "sr-only"))
+           ,(string-append
+             "Donut chart breaking down Guix package substitute availability for "
+             system
+             "."))            ; TODO Describe the data on the chart
+        (ul
+         (@ (class "figure-key-list")
+            (aria-hidden "true")
+            (role "presentation"))
+         ,@(map (lambda (key label count percentage colour)
+                  `(li
+                    (span (@ (class "shape-circle")
+                             (style
+                                 ,(string-append "background-color: "
+                                                 colour ";"))))
+                    (a (@ (href
+                           ,(string-append
+                             "/revision/" revision-commit-hash
+                             "/package-derivation-outputs?"
+                             (if (eq? key 'known)
+                                 "substitutes_available_from="
+                                 "substitutes_not_available_from=")
+                             (number->string build-server-id)
+                             "&system=" system)))
+                       ,(format #f "~a (~d, ~2,2f%)"
+                                label
+                                (or count 0)
+                                (or percentage 0)))))
+                keys
+                labels
+                (map (lambda (key)
+                       (assq-ref data key))
+                     keys)
+                data-percentages
+                colours))))))
+
+  (layout
+   #:body
+   `(,(header)
+     (style ,chart-css)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h3 (a (@ (style "white-space: nowrap;")
+                  (href ,(string-append "/revision/" revision-commit-hash)))
+               "Revision " (samp ,revision-commit-hash)))
+        (h1 "Package substitute availability")))
+      ,@(append-map
+         (match-lambda
+           ((build-server-id . data)
+            `((div
+               (@ (class "row"))
+               (div (@ (class "col-md-12"))
+                    (h2 ,(assoc-ref build-server-urls
+                                    build-server-id))))
+              (div
+               (@ (class "row"))
+               ,@(map (match-lambda
+                        ((system-and-target . data)
+                         (chart build-server-id
+                                (assq-ref system-and-target 'system)
+                                (assq-ref system-and-target 'target)
+                                data)))
+                      data)))))
+         substitute-availability)))))
 
 (define* (view-revision-package-reproducibility revision-commit-hash
                                                 output-consistency)

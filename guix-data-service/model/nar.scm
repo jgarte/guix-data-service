@@ -30,6 +30,7 @@
             select-nars-for-output
             select-signing-key
 
+            select-package-output-availability-for-revision
             select-output-consistency-for-revision
 
             record-narinfo-details-and-return-ids))
@@ -236,6 +237,78 @@ VALUES ($1, $2)")
       '(sexp_json)
       (list (list (cons "jsonb"
                         public-key-json-string)))))))
+
+(define (select-package-output-availability-for-revision conn revision-commit)
+  (define query
+    "
+SELECT build_server_id, system, target, substitute_known, COUNT(*)
+FROM (
+  SELECT build_servers.id AS build_server_id,
+         derivation_output_details.path,
+         package_derivations.system,
+         package_derivations.target,
+         nar_data.build_server_id IS NOT NULL AS substitute_known
+  FROM derivation_output_details
+  INNER JOIN derivation_outputs
+    ON derivation_outputs.derivation_output_details_id =
+       derivation_output_details.id
+  INNER JOIN package_derivations
+    ON derivation_outputs.derivation_id = package_derivations.derivation_id
+  INNER JOIN guix_revision_package_derivations
+    ON package_derivations.id =
+       guix_revision_package_derivations.package_derivation_id
+  INNER JOIN guix_revisions
+    ON guix_revision_package_derivations.revision_id = guix_revisions.id
+  CROSS JOIN build_servers
+  INNER JOIN build_servers_build_config
+    ON build_servers.id = build_servers_build_config.build_server_id
+   AND package_derivations.system = build_servers_build_config.system
+   AND package_derivations.target = build_servers_build_config.target
+  LEFT JOIN (
+    SELECT nars.store_path, narinfo_fetch_records.build_server_id
+    FROM nars
+    LEFT JOIN narinfo_signatures
+      ON narinfo_signatures.nar_id = nars.id
+    LEFT JOIN narinfo_signature_data
+      ON narinfo_signatures.narinfo_signature_data_id = narinfo_signature_data.id
+    LEFT JOIN narinfo_fetch_records
+      ON narinfo_fetch_records.narinfo_signature_data_id = narinfo_signature_data.id
+  ) AS nar_data
+    ON nar_data.store_path = derivation_output_details.path
+   AND nar_data.build_server_id = build_servers.id
+  WHERE derivation_output_details.hash IS NULL AND
+        guix_revisions.commit = $1
+) data
+GROUP BY build_server_id, system, target, substitute_known
+ORDER BY build_server_id DESC, system, target, build_server_id, substitute_known")
+
+  (map
+   (match-lambda
+     ((build-server-id . rest)
+      (cons build-server-id
+            (group-to-alist
+             (match-lambda
+               ((system target substitute-known? count)
+                (cons `((system . ,system)
+                        (target . ,target))
+                      (cons (if substitute-known?
+                                'known
+                                'unknown)
+                            count))))
+             rest))))
+   (group-to-alist
+    (match-lambda
+      ((build-server-id system target substitute-known? count)
+       (cons build-server-id
+             (list system target substitute-known? count))))
+    (map (match-lambda
+           ((build_server_id system target substitutes_known count)
+            (list (string->number build_server_id)
+                  system
+                  target
+                  (string=? substitutes_known "t")
+                  (string->number count))))
+         (exec-query conn query (list revision-commit))))))
 
 (define (select-output-consistency-for-revision conn revision-commit)
   (define query
