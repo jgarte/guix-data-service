@@ -226,9 +226,11 @@ WHERE derivation_output_details.path = $1"
            (when (and (< 0 starttime)
                       (not (member "started" existing-status-entries)))
              (list starttime "started"))
-           (when (and (< 0 stoptime)
-                      (not (member status-string existing-status-entries)))
-             (list stoptime status-string)))))))
+           (when (not (member status-string existing-status-entries))
+             (list (if (< 0 stoptime)
+                       timestamp
+                       stoptime)
+                   status-string)))))))
 
 (define (process-pending-builds conn build-server-id url)
   (for-each
