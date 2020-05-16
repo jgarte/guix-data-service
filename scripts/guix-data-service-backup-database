@@ -17,7 +17,6 @@ ionice -p $$ -c 3 || true
 
 pg_dump --format=custom --compress=9 --serializable-deferrable \
         --no-comments \
-        --no-tablespaces \
         --username=guix_data_service \
         --file="$TEMPORARY_FILE_NAME" \
         "$DATABASE_NAME"

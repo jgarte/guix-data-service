@@ -32,6 +32,7 @@ psql --no-psqlrc "$URI" --command="CREATE DATABASE $TMP_DATABASE_NAME WITH OWNER
 URI_FOR_DATABASE="${URI/test/$TMP_DATABASE_NAME}"
 
 pg_restore --username=guix_data_service --jobs=8 --dbname="$URI_FOR_DATABASE" \
+           --no-tablespaces \
            "$BACKUP_DIRECTORY/$DATE/$FULL_BACKUP_NAME"
 
 psql -v ON_ERROR_STOP=1 --echo-queries --no-psqlrc "$URI_FOR_DATABASE" -U guix_data_service <<EOF

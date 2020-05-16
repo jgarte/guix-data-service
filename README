@@ -91,7 +91,7 @@ for a password, at which point enter the password for the database user that
 you set earlier.
 
 #+BEGIN_SRC shell
-pg_restore --jobs=4 --user=guix_data_service --host=127.0.0.1 --dbname=guix_data_service guix_data_service_small.dump
+pg_restore --jobs=4 --user=guix_data_service --no-tablespaces --host=127.0.0.1 --dbname=guix_data_service guix_data_service_small.dump
 #+END_SRC
 
 ** Set the database paramstring
