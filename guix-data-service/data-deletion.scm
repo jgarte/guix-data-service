@@ -20,7 +20,8 @@
   #:use-module (ice-9 match)
   #:use-module (squee)
   #:use-module (guix-data-service database)
-  #:export (delete-data-for-branch))
+  #:export (delete-data-for-branch
+            delete-data-for-all-deleted-branches))
 
 (define (delete-data-for-branch conn git-repository-id branch-name)
   (define commits
@@ -178,6 +179,30 @@ WHERE id IN ("
 SELECT DISTINCT name
 FROM git_branches
 WHERE git_repository_id = 1 AND name != 'master'"))))))
+
+(define (delete-data-for-all-deleted-branches)
+  (with-postgresql-connection
+   "data-deletion"
+   (lambda (conn)
+     (for-each
+      (match-lambda
+        ((name git-repository-id)
+         (simple-format #t "deleting data for ~A (~A)\n"
+                        name git-repository-id)
+         (delete-data-for-branch conn
+                                 (string->number git-repository-id)
+                                 name)))
+      (exec-query
+       conn
+       "
+SELECT name, git_repository_id
+FROM (
+  SELECT DISTINCT ON (name, git_repository_id)
+    name, git_repository_id, commit
+  FROM git_branches
+  ORDER BY git_repository_id, name, datetime DESC
+) AS git_branches_latest_revision
+WHERE commit = ''")))))
 
 (define (delete-unreferenced-derivations)
   (define (maybe-delete-derivation conn id file-name)
