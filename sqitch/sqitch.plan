@@ -57,3 +57,4 @@ drop_package_versions_by_guix_revision_range 2020-03-24T20:40:38Z Christopher Ba
 create_narinfo_fetch_records_index 2020-03-25T19:07:28Z Christopher Baines <mail@cbaines.net> # Create an index on narinfo_fetch_records
 load_new_guix_revision_jobs_make_commits_unique 2020-03-27T21:38:42Z Christopher Baines <mail@cbaines.net> # Make load_new_guix_revision_jobs commits unique
 remove_odd_package_derivations 2020-04-24T20:36:06Z Christopher Baines <mail@cbaines.net> # Remove odd package derivations
+build_servers_lookup_builds 2020-05-24T15:18:09Z Christopher Baines <mail@cbaines.net> # Add build_servers.lookup_builds

@@ -38,7 +38,7 @@
   (lambda (v)
     (let ((build-servers (select-build-servers conn)))
       (or (any (match-lambda
-                 ((id url lookup-all-derivations?)
+                 ((id url lookup-all-derivations? lookup-builds?)
                   (if (eq? (string->number v)
                            id)
                       id

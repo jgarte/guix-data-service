@@ -135,11 +135,11 @@ initial connection on which HTTP requests are sent."
       (let ((build-servers (select-build-servers conn)))
         (for-each
          (match-lambda
-           ((id url lookup-all-derivations?)
+           ((id url lookup-all-derivations? lookup-builds?)
             (when (or (or (not build-servers)
                           (not build-server-ids))
                       (member id build-server-ids))
-              (when lookup-all-derivations?
+              (when lookup-builds?
                 (simple-format #t "\nQuerying ~A\n" url)
                 (catch #t
                   (lambda ()

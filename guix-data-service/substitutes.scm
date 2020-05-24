@@ -35,7 +35,7 @@
       (let ((build-servers (select-build-servers conn)))
         (for-each
          (match-lambda
-           ((id url lookup-all-derivations?)
+           ((id url lookup-all-derivations? lookup-builds?)
             (when (or (or (not build-servers)
                           (not build-server-ids))
                       (member id build-server-ids))

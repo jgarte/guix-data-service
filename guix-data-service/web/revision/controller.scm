@@ -77,7 +77,7 @@
   (lambda (v)
     (let ((build-servers (select-build-servers conn)))
       (or (any (match-lambda
-                 ((id url lookup-all-derivations?)
+                 ((id url lookup-all-derivations? lookup-builds?)
                   (if (eq? (string->number v)
                            id)
                       id
@@ -454,11 +454,7 @@
   (let ((substitute-availability
          (select-package-output-availability-for-revision conn commit-hash))
         (build-server-urls
-         (group-to-alist
-          (match-lambda
-            ((id url lookup-all-derivations)
-             (cons id url)))
-          (select-build-servers conn))))
+         (select-build-server-urls-by-id conn)))
     (case (most-appropriate-mime-type
            '(application/json text/html)
            mime-types)
@@ -796,11 +792,7 @@
                    #:after-name (assq-ref query-parameters 'after_name)
                    #:include-builds? (member "builds" fields))))
              (build-server-urls
-              (group-to-alist
-               (match-lambda
-                 ((id url lookup-all-derivations)
-                  (cons id url)))
-               (select-build-servers conn)))
+              (select-build-server-urls-by-id conn))
              (show-next-page?
               (if all-results
                   #f
@@ -898,11 +890,7 @@
                #:limit-results limit-results
                #:after-path (assq-ref query-parameters 'after_path)))
              (build-server-urls
-              (group-to-alist
-               (match-lambda
-                 ((id url lookup-all-derivations)
-                  (cons id url)))
-               (select-build-servers conn)))
+              (select-build-server-urls-by-id conn))
              (show-next-page?
               (if all-results
                   #f
@@ -960,7 +948,8 @@
                                       (valid-targets->options
                                        (valid-targets conn))
                                       (map (match-lambda
-                                             ((id url lookup-all-derivations)
+                                             ((id url lookup-all-derivations
+                                                  lookup-builds)
                                               (cons url id)))
                                            (select-build-servers conn))
                                       (select-build-stats

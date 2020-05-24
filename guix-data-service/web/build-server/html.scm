@@ -103,7 +103,7 @@
         (h2 "Build servers")
         ,@(map
            (match-lambda
-             ((id url lookup-all-derivations?)
+             ((id url lookup-all-derivations? lookup-builds?)
               `(dl
                 (@ (class "dl-horizontal"))
                 (dt "URL")
@@ -111,6 +111,10 @@
                        ,url))
                 (dt "Lookup all " (br) "derivations?")
                 (dd ,(if lookup-all-derivations?
+                         "Yes"
+                         "No"))
+                (dt "Lookup " (br) "builds?")
+                (dd ,(if lookup-builds?
                          "Yes"
                          "No")))))
            build-servers)))))))

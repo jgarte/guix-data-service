@@ -54,7 +54,7 @@
    (lambda (conn)
      (for-each
       (match-lambda
-        ((id url lookup-all-derivations?)
+        ((id url lookup-all-derivations? lookup-builds?)
          (simple-format #t "\nBuild server: ~A (id: ~A)\n"
                         url
                         id)

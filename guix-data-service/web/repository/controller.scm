@@ -295,11 +295,7 @@
                                             target
                                             package-name))
            (build-server-urls
-           (group-to-alist
-            (match-lambda
-              ((id url lookup-all-derivations)
-               (cons id url)))
-            (select-build-servers conn))))
+            (select-build-server-urls-by-id conn)))
       (case (most-appropriate-mime-type
              '(application/json text/html)
              mime-types)
@@ -364,11 +360,7 @@
                                         package-name
                                         output-name))
            (build-server-urls
-            (group-to-alist
-             (match-lambda
-               ((id url lookup-all-derivations)
-                (cons id url)))
-             (select-build-servers conn))))
+            (select-build-server-urls-by-id conn)))
       (case (most-appropriate-mime-type
              '(application/json text/html)
              mime-types)
