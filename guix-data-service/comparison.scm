@@ -607,7 +607,7 @@ WITH base_lint_warnings AS (
   SELECT lint_warnings.id,
          packages.name, packages.version,
          lint_checkers.name AS lint_checker_name,
-         lint_checkers.description AS lint_checker_description,
+         lint_checker_descriptions.description AS lint_checker_description,
          lint_checkers.network_dependent AS lint_checker_network_dependent,
          locations.file, locations.line, locations.column_number,
          lint_warning_messages.message
@@ -616,6 +616,10 @@ WITH base_lint_warnings AS (
     ON lint_warnings.package_id = packages.id
   INNER JOIN lint_checkers
     ON lint_warnings.lint_checker_id = lint_checkers.id
+  INNER JOIN lint_checker_description_sets
+    ON lint_checkers.lint_checker_description_set_id = lint_checker_description_sets.id
+  INNER JOIN lint_checker_descriptions
+    ON lint_checker_descriptions.id = ANY (lint_checker_description_sets.description_ids)
   INNER JOIN locations
     ON lint_warnings.location_id = locations.id
   INNER JOIN lint_warning_message_sets
@@ -632,7 +636,7 @@ WITH base_lint_warnings AS (
   SELECT lint_warnings.id,
          packages.name, packages.version,
          lint_checkers.name AS lint_checker_name,
-         lint_checkers.description AS lint_checker_description,
+         lint_checker_descriptions.description AS lint_checker_description,
          lint_checkers.network_dependent AS lint_checker_network_dependent,
          locations.file, locations.line, locations.column_number,
          lint_warning_messages.message
@@ -641,6 +645,10 @@ WITH base_lint_warnings AS (
     ON lint_warnings.package_id = packages.id
   INNER JOIN lint_checkers
     ON lint_warnings.lint_checker_id = lint_checkers.id
+  INNER JOIN lint_checker_description_sets
+    ON lint_checkers.lint_checker_description_set_id = lint_checker_description_sets.id
+  INNER JOIN lint_checker_descriptions
+    ON lint_checker_descriptions.id = ANY (lint_checker_description_sets.description_ids)
   INNER JOIN locations
     ON lint_warnings.location_id = locations.id
   INNER JOIN lint_warning_message_sets

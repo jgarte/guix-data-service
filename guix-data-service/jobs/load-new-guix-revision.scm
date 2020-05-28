@@ -30,6 +30,7 @@
   #:use-module (guix inferior)
   #:use-module (guix profiles)
   #:use-module (guix utils)
+  #:use-module (guix i18n)
   #:use-module (guix progress)
   #:use-module (guix packages)
   #:use-module (guix derivations)
@@ -448,7 +449,8 @@ WHERE job_id = $1"
 
   (and
    (or (inferior-eval '(and (resolve-module '(guix lint) #:ensure #f)
-                            (use-modules (guix lint))
+                            (use-modules (guix lint)
+                                         (guix i18n))
                             #t)
                       inf)
        (begin
@@ -457,10 +459,38 @@ WHERE job_id = $1"
          #f))
    (let ((checkers
           (inferior-eval
-           '(begin
+           `(begin
+              (define (lint-descriptions-by-locale checker)
+                (let* ((source-locale "en_US.utf8")
+                       (source-description
+                        (begin
+                          (setlocale LC_MESSAGES source-locale)
+                          (G_ (lint-checker-description checker))))
+                       (descriptions-by-locale
+                        (filter-map
+                         (lambda (locale)
+                           (catch 'system-error
+                             (lambda ()
+                               (setlocale LC_MESSAGES locale))
+                             (lambda (key . args)
+                               (error
+                                (simple-format
+                                 #f
+                                 "error changing locale to ~A: ~A ~A"
+                                 locale key args))))
+                           (let ((description
+                                  (G_ (lint-checker-description checker))))
+                             (setlocale LC_MESSAGES source-locale)
+                             (if (string=? description source-description)
+                                 #f
+                                 (cons locale description))))
+                         (list ,@locales))))
+                  (cons (cons source-locale source-description)
+                        descriptions-by-locale)))
+
               (map (lambda (checker)
                      (list (lint-checker-name checker)
-                           (lint-checker-description checker)
+                           (lint-descriptions-by-locale checker)
                            (if (memq checker %network-dependent-checkers)
                                #t
                                #f)))
@@ -1163,7 +1193,14 @@ WHERE job_id = $1"
               (let* ((lint-checker-ids
                       (lint-checkers->lint-checker-ids
                        conn
-                       (map car inferior-lint-warnings)))
+                       (map (match-lambda
+                              ((name descriptions-by-locale network-dependent)
+                               (list
+                                name
+                                network-dependent
+                                (lint-checker-description-data->lint-checker-description-set-id
+                                 conn descriptions-by-locale))))
+                            (map car inferior-lint-warnings))))
                      (lint-warning-ids
                       (insert-lint-warnings
                        conn

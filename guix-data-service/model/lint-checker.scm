@@ -23,21 +23,75 @@
   #:export (lint-checkers->lint-checker-ids
             lint-warning-count-by-lint-checker-for-revision
             insert-guix-revision-lint-checkers
-            lint-checkers-for-revision))
+            lint-checkers-for-revision
+            lint-checker-description-data->lint-checker-description-set-id))
 
 (define (lint-checkers->lint-checker-ids conn lint-checkers-data)
   (insert-missing-data-and-return-all-ids
    conn
    "lint_checkers"
-   '(name description network_dependent)
+   '(name network_dependent lint_checker_description_set_id)
    lint-checkers-data))
+
+(define (lint-checker-description-data->lint-checker-description-ids
+         conn descriptions-by-locale)
+  (insert-missing-data-and-return-all-ids
+   conn
+   "lint_checker_descriptions"
+   '(locale description)
+   (map (match-lambda
+          ((locale . description)
+           (list locale description)))
+               descriptions-by-locale)))
+
+(define (insert-lint-checker-description-set conn lint-description-ids)
+  (let ((query
+         (string-append
+          "INSERT INTO lint_checker_description_sets (description_ids) VALUES "
+          (string-append
+           "('{"
+           (string-join
+            (map number->string
+                 (sort lint-description-ids <))
+            ", ")
+           "}')")
+          " RETURNING id")))
+    (match (exec-query conn query)
+      (((id)) id))))
+
+(define (lint-checker-description-data->lint-checker-description-set-id
+         conn
+         descriptions-by-locale)
+  (let* ((lint-checker-description-ids
+          (lint-checker-description-data->lint-checker-description-ids
+           conn
+           descriptions-by-locale))
+         (lint-checker-description-set-id
+          (exec-query
+           conn
+           (string-append
+            "SELECT id FROM lint_checker_description_sets"
+            " WHERE description_ids = ARRAY["
+            (string-join (map number->string
+                              (sort lint-checker-description-ids <)) ", ")
+            "]"))))
+    (string->number
+     (match lint-checker-description-set-id
+       (((id)) id)
+       (()
+        (insert-lint-checker-description-set conn lint-checker-description-ids))))))
+
 
 (define (lint-warning-count-by-lint-checker-for-revision conn commit-hash)
   (define query
     "
-SELECT lint_checkers.name, lint_checkers.description,
+SELECT lint_checkers.name, lint_checker_descriptions.description,
        lint_checkers.network_dependent, revision_data.count
 FROM lint_checkers
+INNER JOIN lint_checker_description_sets
+  ON lint_checkers.lint_checker_description_set_id = lint_checker_description_sets.id
+INNER JOIN lint_checker_descriptions
+  ON lint_checker_descriptions.id = ANY (lint_checker_description_sets.description_ids)
 INNER JOIN (
   SELECT lint_checker_id, COUNT(*)
   FROM lint_warnings
@@ -76,9 +130,13 @@ ORDER BY count DESC")
   (exec-query
    conn
    "
-SELECT name, description, network_dependent
+SELECT lint_checkers.name, lint_checker_descriptions.description, lint_checkers.network_dependent
 FROM lint_checkers
-WHERE id IN (
+INNER JOIN lint_checker_description_sets
+  ON lint_checkers.lint_checker_description_set_id = lint_checker_description_sets.id
+INNER JOIN lint_checker_descriptions
+  ON lint_checker_descriptions.id = ANY (lint_checker_description_sets.description_ids)
+WHERE lint_checkers.id IN (
   SELECT lint_checker_id
   FROM guix_revision_lint_checkers
   INNER JOIN guix_revisions

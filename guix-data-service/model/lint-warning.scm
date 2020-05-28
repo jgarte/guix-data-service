@@ -59,13 +59,17 @@
                                           message-query)
   (define query
     (string-append "
-SELECT lint_warnings.id, lint_checkers.name, lint_checkers.description,
+SELECT lint_warnings.id, lint_checkers.name, lint_checker_descriptions.description,
        lint_checkers.network_dependent, packages.name, packages.version,
        locations.file, locations.line, locations.column_number,
        lint_warning_messages.message
 FROM lint_warnings
 INNER JOIN lint_checkers
   ON lint_warnings.lint_checker_id = lint_checkers.id
+INNER JOIN lint_checker_description_sets
+  ON lint_checkers.lint_checker_description_set_id = lint_checker_description_sets.id
+INNER JOIN lint_checker_descriptions
+  ON lint_checker_descriptions.id = ANY (lint_checker_description_sets.description_ids)
 INNER JOIN packages
   ON lint_warnings.package_id = packages.id
 INNER JOIN locations
@@ -116,13 +120,17 @@ INNER JOIN lint_warning_messages
                                                                    commit-hash
                                                                    name version)
   (define query "
-SELECT lint_warnings.id, lint_checkers.name, lint_checkers.description,
+SELECT lint_warnings.id, lint_checkers.name, lint_checker_descriptions.description,
        lint_checkers.network_dependent,
        locations.file, locations.line, locations.column_number,
        lint_warning_messages.message
 FROM lint_warnings
 INNER JOIN lint_checkers
   ON lint_checkers.id = lint_warnings.lint_checker_id
+INNER JOIN lint_checker_description_sets
+  ON lint_checkers.lint_checker_description_set_id = lint_checker_description_sets.id
+INNER JOIN lint_checker_descriptions
+  ON lint_checker_descriptions.id = ANY (lint_checker_description_sets.description_ids)
 INNER JOIN packages
   ON lint_warnings.package_id = packages.id
 LEFT OUTER JOIN locations
