@@ -317,10 +317,12 @@ WHERE table_name = $1"
                   "ANALYZE " temp-table-name))
 
                 ;; Populate the temporary table
-                (with-time-logging (string-append "populating " temp-table-name)
-                  (exec-query conn
-                              (insert-sql data
-                                          #:table-name temp-table-name)))
+                (if (null? data)
+                    '()
+                    (with-time-logging (string-append "populating " temp-table-name)
+                      (exec-query conn
+                                  (insert-sql data
+                                              #:table-name temp-table-name))))
                 ;; Use the temporary table to find the existing values
                 (let ((result
                        (with-time-logging
@@ -336,11 +338,13 @@ WHERE table_name = $1"
                   result))
 
               ;; If not using a temporary table, just do a single SELECT query
-              (exec-query->vhash conn
-                                 select-query
-                                 cdr
-                                 (lambda (result)
-                                   (string->number (first result))))))
+              (if (null? data)
+                  '()
+                  (exec-query->vhash conn
+                                     select-query
+                                     cdr
+                                     (lambda (result)
+                                       (string->number (first result)))))))
          (missing-entries
           (filter (lambda (field-values)
                     (not (vhash-assoc

@@ -36,20 +36,22 @@
 (define (insert-guix-revision-lint-warnings conn
                                             guix-revision-id
                                             lint-warning-ids)
-  (exec-query
-   conn
-   (string-append
-    "INSERT INTO guix_revision_lint_warnings (lint_warning_id, guix_revision_id) "
-    "VALUES "
-    (string-join
-     (map (lambda (lint-warning-id)
-            (simple-format
-             #f
-             "(~A, ~A)"
-             lint-warning-id
-             guix-revision-id))
-          lint-warning-ids)
-     ", "))))
+  (if (null? lint-warning-ids)
+      '()
+      (exec-query
+       conn
+       (string-append
+        "INSERT INTO guix_revision_lint_warnings (lint_warning_id, guix_revision_id) "
+        "VALUES "
+        (string-join
+         (map (lambda (lint-warning-id)
+                (simple-format
+                 #f
+                 "(~A, ~A)"
+                 lint-warning-id
+                 guix-revision-id))
+              lint-warning-ids)
+         ", ")))))
 
 (define* (lint-warnings-for-guix-revision conn commit-hash
                                           #:key
