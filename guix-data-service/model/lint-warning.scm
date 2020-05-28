@@ -72,7 +72,9 @@ INNER JOIN lint_checker_description_sets
   ON lint_checkers.lint_checker_description_set_id = lint_checker_description_sets.id
 INNER JOIN lint_checker_descriptions
   ON lint_checker_descriptions.id = ANY (lint_checker_description_sets.description_ids)
-INNER JOIN packages
+  AND lint_checker_descriptions.locale = "
+                   "'" locale "' "
+"INNER JOIN packages
   ON lint_warnings.package_id = packages.id
 INNER JOIN locations
   ON locations.id = lint_warnings.location_id
@@ -118,11 +120,13 @@ INNER JOIN lint_warning_messages
                                  (list message-query)
                                  '()))))
 
-(define (select-lint-warnings-by-revision-package-name-and-version conn
+(define* (select-lint-warnings-by-revision-package-name-and-version conn
                                                                    commit-hash
-                                                                   name version)
-  (define query "
-SELECT lint_warnings.id, lint_checkers.name, lint_checker_descriptions.description,
+                                                                   name version
+                                                                   #:key
+                                                                   locale)
+  (define query
+"SELECT lint_warnings.id, lint_checkers.name, lint_checker_descriptions.description,
        lint_checkers.network_dependent,
        locations.file, locations.line, locations.column_number,
        lint_warning_messages.message
@@ -133,6 +137,7 @@ INNER JOIN lint_checker_description_sets
   ON lint_checkers.lint_checker_description_set_id = lint_checker_description_sets.id
 INNER JOIN lint_checker_descriptions
   ON lint_checker_descriptions.id = ANY (lint_checker_description_sets.description_ids)
+  AND lint_checker_descriptions.locale = $4
 INNER JOIN packages
   ON lint_warnings.package_id = packages.id
 LEFT OUTER JOIN locations
@@ -140,7 +145,7 @@ LEFT OUTER JOIN locations
 INNER JOIN lint_warning_message_sets
   ON lint_warning_message_sets.id = lint_warning_message_set_id
 INNER JOIN lint_warning_messages
-  ON lint_warning_messages.locale = 'en_US.utf8'
+  ON lint_warning_messages.locale = $4
   AND lint_warning_messages.id = ANY (lint_warning_message_sets.message_ids)
 WHERE packages.id IN (
   SELECT package_derivations.package_id
@@ -157,4 +162,4 @@ WHERE packages.id IN (
 
   (exec-query conn
               query
-              (list commit-hash name version)))
+              (list commit-hash name version locale)))

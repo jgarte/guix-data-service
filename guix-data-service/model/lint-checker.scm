@@ -92,6 +92,7 @@ INNER JOIN lint_checker_description_sets
   ON lint_checkers.lint_checker_description_set_id = lint_checker_description_sets.id
 INNER JOIN lint_checker_descriptions
   ON lint_checker_descriptions.id = ANY (lint_checker_description_sets.description_ids)
+  AND lint_checker_descriptions.locale = 'en_US.utf8'
 INNER JOIN (
   SELECT lint_checker_id, COUNT(*)
   FROM lint_warnings
@@ -136,11 +137,11 @@ INNER JOIN lint_checker_description_sets
   ON lint_checkers.lint_checker_description_set_id = lint_checker_description_sets.id
 INNER JOIN lint_checker_descriptions
   ON lint_checker_descriptions.id = ANY (lint_checker_description_sets.description_ids)
+  AND lint_checker_descriptions.locale = 'en_US.utf8'
 WHERE lint_checkers.id IN (
   SELECT lint_checker_id
   FROM guix_revision_lint_checkers
   INNER JOIN guix_revisions
     ON guix_revisions.id = guix_revision_lint_checkers.guix_revision_id
-  WHERE commit = $1
-)"
+  WHERE commit = $1)"
    (list commit-hash)))

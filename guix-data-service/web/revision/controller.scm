@@ -157,11 +157,16 @@
                                   commit-hash)))
     (('GET "revision" commit-hash "package" name version)
      (if (guix-commit-exists? conn commit-hash)
-         (render-revision-package-version mime-types
-                                          conn
-                                          commit-hash
-                                          name
-                                          version)
+         (let ((parsed-query-parameters
+                (parse-query-parameters
+                 request
+                 `((locale ,identity #:default "en_US.utf8")))))
+           (render-revision-package-version mime-types
+                                               conn
+                                               commit-hash
+                                               name
+                                               version
+                                               parsed-query-parameters))
          (render-unknown-revision mime-types
                                   conn
                                   commit-hash)))
@@ -287,7 +292,7 @@
          (let ((parsed-query-parameters
                 (parse-query-parameters
                  request
-                 `((locale       ,identity #:default "en_US.utf8")
+                 `((locale         ,identity #:default "en_US.utf8")
                    (package_query  ,identity)
                    (linter         ,identity #:multi-value)
                    (message_query  ,identity)
@@ -667,6 +672,7 @@
                                           commit-hash
                                           name
                                           version
+                                          query-parameters
                                           #:key
                                           (header-text
                                            `("Revision "
@@ -675,7 +681,15 @@
                                            (string-append
                                             "/revision/" commit-hash))
                                           version-history-link)
-  (let ((metadata
+
+  (define lint-warnings-locale-options
+    (map
+     (match-lambda
+       ((locale)
+        locale))
+     (lint-warning-message-locales-for-revision conn commit-hash)))
+
+  (let* ((metadata
          (select-package-metadata-by-revision-name-and-version
           conn
           commit-hash
@@ -690,12 +704,14 @@
         (git-repositories
          (git-repositories-containing-commit conn
                                              commit-hash))
+        (locale (assq-ref query-parameters 'locale))
         (lint-warnings
          (select-lint-warnings-by-revision-package-name-and-version
           conn
           commit-hash
           name
-          version)))
+          version
+          #:locale locale)))
     (case (most-appropriate-mime-type
            '(application/json text/html)
            mime-types)
@@ -725,6 +741,8 @@
                                                   derivations
                                                   git-repositories
                                                   lint-warnings
+                                                  query-parameters
+                                                  lint-warnings-locale-options
                                                   #:header-text header-text
                                                   #:header-link header-link
                                                   #:version-history-link

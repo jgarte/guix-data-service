@@ -258,13 +258,18 @@
                                     commit-hash))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision" "package" name version)
      (let ((commit-hash
-            (latest-processed-commit-for-branch conn repository-id branch-name)))
+            (latest-processed-commit-for-branch conn repository-id branch-name))
+           (parsed-query-parameters
+            (parse-query-parameters
+             request
+             `((locale ,identity #:default "en_US.utf8")))))
        (if commit-hash
            (render-revision-package-version mime-types
                                             conn
                                             commit-hash
                                             name
                                             version
+                                            parsed-query-parameters
                                             #:header-text
                                             `("Latest processed revision for branch "
                                               (samp ,branch-name))

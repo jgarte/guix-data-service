@@ -598,9 +598,10 @@ ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.v
                            target-derivations)))))))))
     names-and-versions)))
 
-(define (lint-warning-differences-data conn
+(define* (lint-warning-differences-data conn
                                        base-guix-revision-id
-                                       target-guix-revision-id)
+                                       target-guix-revision-id
+                                       locale)
   (define query
     (string-append "
 WITH base_lint_warnings AS (
@@ -620,18 +621,19 @@ WITH base_lint_warnings AS (
     ON lint_checkers.lint_checker_description_set_id = lint_checker_description_sets.id
   INNER JOIN lint_checker_descriptions
     ON lint_checker_descriptions.id = ANY (lint_checker_description_sets.description_ids)
+    AND lint_checker_descriptions.locale = $3
   INNER JOIN locations
     ON lint_warnings.location_id = locations.id
   INNER JOIN lint_warning_message_sets
     ON lint_warnings.lint_warning_message_set_id = lint_warning_message_sets.id
   INNER JOIN lint_warning_messages
     ON lint_warning_messages.id = ANY (lint_warning_message_sets.message_ids) AND
-       lint_warning_messages.locale = 'en_US.utf8'
+       lint_warning_messages.locale = $3
   WHERE lint_warnings.id IN (
-    SELECT lint_warning_id
-    FROM guix_revision_lint_warnings
-    WHERE guix_revision_id = $1
-  )
+     SELECT lint_warning_id
+     FROM guix_revision_lint_warnings
+     WHERE guix_revision_id = $1
+    )
 ), target_lint_warnings AS (
   SELECT lint_warnings.id,
          packages.name, packages.version,
@@ -649,18 +651,19 @@ WITH base_lint_warnings AS (
     ON lint_checkers.lint_checker_description_set_id = lint_checker_description_sets.id
   INNER JOIN lint_checker_descriptions
     ON lint_checker_descriptions.id = ANY (lint_checker_description_sets.description_ids)
-  INNER JOIN locations
+    AND lint_checker_descriptions.locale = $3"
+  "INNER JOIN locations
     ON lint_warnings.location_id = locations.id
   INNER JOIN lint_warning_message_sets
     ON lint_warnings.lint_warning_message_set_id = lint_warning_message_sets.id
   INNER JOIN lint_warning_messages
-    ON lint_warning_messages.id = ANY (lint_warning_message_sets.message_ids) AND
-       lint_warning_messages.locale = 'en_US.utf8'
-  WHERE lint_warnings.id IN (
-    SELECT lint_warning_id
-    FROM guix_revision_lint_warnings
-    WHERE guix_revision_id = $2
-  )
+    ON lint_warning_messages.id = ANY (lint_warning_message_sets.message_ids)
+    AND lint_warning_messages.locale = $3"
+  " WHERE lint_warnings.id IN (
+     SELECT lint_warning_id
+     FROM guix_revision_lint_warnings
+     WHERE guix_revision_id = $2
+)
 )
 SELECT coalesce(
          base_lint_warnings.name,
@@ -728,7 +731,8 @@ ORDER BY coalesce(base_lint_warnings.name, target_lint_warnings.name) ASC, base_
 
   (exec-query conn query
               (list base-guix-revision-id
-                    target-guix-revision-id)))
+                    target-guix-revision-id
+                    locale)))
 
 (define (channel-news-differences-data conn
                                        base-guix-revision-id

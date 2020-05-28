@@ -36,6 +36,7 @@
                  removed-packages
                  version-changes
                  lint-warnings-data
+                 lint-warnings-locale-options
                  channel-news-data)
   (define base-commit
     (assq-ref query-parameters 'base_commit))
@@ -43,9 +44,13 @@
   (define target-commit
     (assq-ref query-parameters 'target_commit))
 
+  (define locale
+    (assq-ref query-parameters 'locale))
+
   (define query-params
     (string-append "?base_commit=" base-commit
-                   "&target_commit=" target-commit))
+                   "&target_commit=" target-commit
+                   "&locale=" locale))
 
   (layout
    #:body
@@ -79,14 +84,62 @@
          (a (@ (class "btn btn-default")
                (href ,(string-append "/compare/derivations" query-params)))
             "Compare derivations"))))
+
+      (div
+         (@ (class "row"))
+         (div
+          (@ (class "col-md-12"))
+          (div
+           (@ (class "well"))
+           (form
+            (@ (method "get")
+               (action "")
+               (style "padding-bottom: 0")
+               (class "form-horizontal"))
+            ,(form-horizontal-control
+              "" query-parameters
+              #:name "base_commit"
+              #:type "hidden")
+            ,(form-horizontal-control
+              "" query-parameters
+              #:name "target_commit"
+              #:type "hidden")
+            ,(form-horizontal-control
+              "" query-parameters
+              #:name "base_branch"
+              #:type "hidden")
+            ,(form-horizontal-control
+              "" query-parameters
+              #:name "base_datetime"
+              #:type "hidden")
+            ,(form-horizontal-control
+              "" query-parameters
+              #:name "target_branch"
+              #:type "hidden")
+            ,(form-horizontal-control
+              "" query-parameters
+              #:name "target_datetime"
+              #:type "hidden")
+            ,(form-horizontal-control
+              "Locale" query-parameters
+              #:name "locale"
+              #:allow-selecting-multiple-options #f
+              #:options lint-warnings-locale-options
+              #:help-text "Language")
+            (div (@ (class "form-group form-group-lg"))
+                 (div (@ (class "col-sm-offset-2 col-sm-10"))
+                      (button (@ (type "submit")
+                                 (class "btn btn-lg btn-primary"))
+                              "Update results")))))))
       (div
        (@ (class "row") (style "clear: left;"))
        (div
         (@ (class "col-sm-12"))
-        (a (@ (class "btn btn-default btn-lg")
+        (a (@ (class "btn btn-default btn-lg pull-right")
               (href ,(string-append
                       "/compare.json" query-params)))
            "View JSON")))
+
       (div
        (@ (class "row"))
        (div

@@ -161,6 +161,8 @@
                                             package-metadata
                                             derivations git-repositories
                                             lint-warnings
+                                            query-parameters
+                                            locale-options
                                             #:key header-text
                                             header-link
                                             version-history-link)
@@ -175,6 +177,28 @@
         (@ (class "col-sm-12"))
         (h3 (a (@ (href ,header-link))
                ,@header-text))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (div
+         (@ (class "well"))
+         (form
+          (@ (method "get")
+             (action "")
+             (style "padding-bottom: 0")
+             (class "form-horizontal"))
+          ,(form-horizontal-control
+            "Locale" query-parameters
+            #:options locale-options
+            #:allow-selecting-multiple-options #f
+            #:help-text
+            "Language")
+          (div (@ (class "form-group form-group-lg"))
+               (div (@ (class "col-sm-offset-2 col-sm-10"))
+                    (button (@ (type "submit")
+                               (class "btn btn-lg btn-primary"))
+                            "Update results")))))))
       (div
        (@ (class "row"))
        (div

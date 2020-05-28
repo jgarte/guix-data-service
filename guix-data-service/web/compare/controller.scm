@@ -33,6 +33,7 @@
   #:use-module (guix-data-service model guix-revision)
   #:use-module (guix-data-service model derivation)
   #:use-module (guix-data-service model build-status)
+  #:use-module (guix-data-service model lint-warning-message)
   #:use-module (guix-data-service web compare html)
   #:export (compare-controller))
 
@@ -72,7 +73,8 @@
              (parse-query-parameters
               request
               `((base_commit   ,(parse-commit conn) #:required)
-                (target_commit ,(parse-commit conn) #:required)))))
+                (target_commit ,(parse-commit conn) #:required)
+                (locale        ,identity #:default "en_US.utf8")))))
        (render-compare mime-types
                        conn
                        parsed-query-parameters)))
@@ -83,7 +85,8 @@
               `((base_branch     ,identity #:required)
                 (base_datetime   ,parse-datetime #:required)
                 (target_branch   ,identity #:required)
-                (target_datetime ,parse-datetime #:required)))))
+                (target_datetime ,parse-datetime #:required)
+                (locale          ,identity #:default "en_US.utf8")))))
        (render-compare-by-datetime mime-types
                                    conn
                                    parsed-query-parameters)))
@@ -147,6 +150,14 @@
 (define (render-compare mime-types
                         conn
                         query-parameters)
+  (define lint-warnings-locale-options
+    (map
+     (match-lambda
+       ((locale)
+        locale))
+     (lint-warning-message-locales-for-revision
+      conn (assq-ref query-parameters 'target_commit))))
+
   (if (any-invalid-query-parameters? query-parameters)
       (case (most-appropriate-mime-type
              '(application/json text/html)
@@ -172,7 +183,8 @@
                                (assq-ref query-parameters 'base_commit)))
             (target-revision-id (commit->revision-id
                                  conn
-                                 (assq-ref query-parameters 'target_commit))))
+                                 (assq-ref query-parameters 'target_commit)))
+            (locale (assq-ref query-parameters 'locale)))
         (let-values
             (((base-packages-vhash target-packages-vhash)
               (package-data->package-data-vhashes
@@ -193,7 +205,8 @@
                    2
                    (lint-warning-differences-data conn
                                                   base-revision-id
-                                                  target-revision-id)))
+                                                  target-revision-id
+                                                  locale)))
                  (channel-news-data
                   (channel-news-differences-data conn
                                                  base-revision-id
@@ -252,6 +265,7 @@
                                 removed-packages
                                 version-changes
                                 lint-warnings-data
+                                lint-warnings-locale-options
                                 channel-news-data)
                 #:extra-headers http-headers-for-unchanging-content))))))))
 
@@ -281,11 +295,19 @@
       (let ((base-branch     (assq-ref query-parameters 'base_branch))
             (base-datetime   (assq-ref query-parameters 'base_datetime))
             (target-branch   (assq-ref query-parameters 'target_branch))
-            (target-datetime (assq-ref query-parameters 'target_datetime)))
+            (target-datetime (assq-ref query-parameters 'target_datetime))
+            (locale          (assq-ref query-parameters 'locale)))
         (let* ((base-revision-details
                 (select-guix-revision-for-branch-and-datetime conn
                                                               base-branch
                                                               base-datetime))
+               (lint-warnings-locale-options
+                (map
+                 (match-lambda
+                   ((locale)
+                    locale))
+                 (lint-warning-message-locales-for-revision
+                  conn (second base-revision-details))))
                (base-revision-id
                 (first base-revision-details))
                (target-revision-details
@@ -314,7 +336,8 @@
                      2
                      (lint-warning-differences-data conn
                                                     base-revision-id
-                                                    target-revision-id)))
+                                                    target-revision-id
+                                                    locale)))
                    (channel-news-data
                     (channel-news-differences-data conn
                                                    base-revision-id
@@ -382,6 +405,7 @@
                                   removed-packages
                                   version-changes
                                   lint-warnings-data
+                                  lint-warnings-locale-options
                                   channel-news-data)
                   #:extra-headers http-headers-for-unchanging-content)))))))))
 
