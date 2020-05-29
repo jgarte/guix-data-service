@@ -133,123 +133,133 @@
                            (invalid-query-parameter? val))))
          (show-help-span?
           (or help-text has-error? required?)))
-    `(div
-      (@ (class ,(string-append
-                  "form-group form-group-lg"
-                  (if has-error? " has-error" ""))))
-      (label (@ (for ,input-id)
-                (class "col-sm-2 control-label"))
-             ,label)
-      (div
-       (@ (class "col-sm-9"))
-       ,(if options
-            `(select (@ (class "form-control")
-                        (style ,(if font-family
-                                    (string-append
-                                     "font-family: " font-family ";")
-                                    ""))
-                        ,@(if allow-selecting-multiple-options
-                              '((multiple #t))
-                              '())
-                        (id ,input-id)
-                        ,@(if show-help-span?
-                              `((aria-describedby ,help-span-id))
-                              '())
+    (if (string=? type "hidden")
+        `(input (@ (class "form-control")
+                   (id ,input-id)
+                   (type ,type)
+                   (name ,input-name)
+                   ,@(match (assq (string->symbol input-name)
+                                  query-parameters)
+                       (#f '())
+                       ((_key . value)
+                        `((value ,(value->text value)))))))
+        `(div
+          (@ (class ,(string-append
+                      "form-group form-group-lg"
+                      (if has-error? " has-error" ""))))
+          (label (@ (for ,input-id)
+                    (class "col-sm-2 control-label"))
+                 ,label)
+          (div
+           (@ (class "col-sm-9"))
+           ,(if options
+                `(select (@ (class "form-control")
+                            (style ,(if font-family
+                                        (string-append
+                                         "font-family: " font-family ";")
+                                        ""))
+                            ,@(if allow-selecting-multiple-options
+                                  '((multiple #t))
+                                  '())
+                            (id ,input-id)
+                            ,@(if show-help-span?
+                                  `((aria-describedby ,help-span-id))
+                                  '())
 
-                        (name ,input-name))
-               ,@(let ((selected-options
-                        (match (assq (string->symbol input-name)
-                                     query-parameters)
-                          ((_key . value)
-                           (if (not allow-selecting-multiple-options)
-                               (list value)
-                               value))
-                          (_ '()))))
+                            (name ,input-name))
+                   ,@(let ((selected-options
+                            (match (assq (string->symbol input-name)
+                                         query-parameters)
+                              ((_key . value)
+                               (if (not allow-selecting-multiple-options)
+                                   (list value)
+                                   value))
+                              (_ '()))))
 
-                   (map (match-lambda
-                          ((option-label . option-value)
-                           `(option
-                             (@ ,@(if (member (if (and
-                                                   (string? option-value)
-                                                   (string=? option-value
-                                                             null-string-value))
-                                                  ""
-                                                  option-value)
-                                              selected-options)
-                                      '((selected ""))
-                                      '())
-                                (value ,option-value))
-                             ,(value->text option-label)))
-                          (option-value
-                           `(option
-                             (@ ,@(if (member (if (and
-                                                   (string? option-value)
-                                                   (string=? option-value
-                                                             null-string-value))
-                                                  ""
-                                                  option-value)
-                                              selected-options)
-                                      '((selected ""))
-                                      '()))
-                             ,(value->text option-value))))
-                        options)))
-            `(input (@ (class "form-control")
-                       (style ,(if font-family
-                                   (string-append
-                                    "font-family: " font-family ";")
-                                   ""))
-                       (id ,input-id)
-                       (type ,type)
-                       ,@(if required?
-                             '((required #t))
-                             '())
-                       ,@(if show-help-span?
-                             `((aria-describedby ,help-span-id))
-                             '())
-                       (name ,input-name)
-                       ,@(match (assq (string->symbol input-name)
-                                      query-parameters)
-                           (#f '())
-                           ((_key . ($ <invalid-query-parameter> value))
-                            (if (string=? type "checkbox")
-                                (if value
-                                    '((checked #t))
-                                    '())
-                                `((value ,(value->text value)))))
-                           ((_key . value)
-                            (if (string=? type "checkbox")
-                                (if value
-                                    '((checked #t))
-                                    '())
-                                `((value ,(value->text value)))))))))
-       ,@(if show-help-span?
-             `((span (@ (id ,help-span-id)
-                        (class "help-block"))
-                     ,@(if has-error?
-                           (let* ((val
-                                   (assq-ref query-parameters
-                                             (string->symbol input-name)))
-                                  (messages
-                                   (map invalid-query-parameter-message
-                                        (if (list? val)
-                                            val
-                                            (list val)))))
-                             `((p
-                                ,@(if (null? messages)
-                                      '(string "Error: invalid value")
-                                      (map
-                                       (lambda (message)
-                                         `(strong
-                                           (@ (style "display: block;"))
-                                           ,(string-append
-                                             "Error: " message)))
-                                       messages)))))
-                           '())
-                     ,@(if required? '((strong "Required. ")) '())
-                     ,@(if help-text
-                           (list help-text)
-                           '())))
-             '())))))
+                       (map (match-lambda
+                              ((option-label . option-value)
+                               `(option
+                                 (@ ,@(if (member (if (and
+                                                       (string? option-value)
+                                                       (string=? option-value
+                                                                 null-string-value))
+                                                      ""
+                                                      option-value)
+                                                  selected-options)
+                                          '((selected ""))
+                                          '())
+                                    (value ,option-value))
+                                 ,(value->text option-label)))
+                              (option-value
+                               `(option
+                                 (@ ,@(if (member (if (and
+                                                       (string? option-value)
+                                                       (string=? option-value
+                                                                 null-string-value))
+                                                      ""
+                                                      option-value)
+                                                  selected-options)
+                                          '((selected ""))
+                                          '()))
+                                 ,(value->text option-value))))
+                            options)))
+                `(input (@ (class "form-control")
+                           (style ,(if font-family
+                                       (string-append
+                                        "font-family: " font-family ";")
+                                       ""))
+                           (id ,input-id)
+                           (type ,type)
+                           ,@(if required?
+                                 '((required #t))
+                                 '())
+                           ,@(if show-help-span?
+                                 `((aria-describedby ,help-span-id))
+                                 '())
+                           (name ,input-name)
+                           ,@(match (assq (string->symbol input-name)
+                                          query-parameters)
+                               (#f '())
+                               ((_key . ($ <invalid-query-parameter> value))
+                                (if (string=? type "checkbox")
+                                    (if value
+                                        '((checked #t))
+                                        '())
+                                    `((value ,(value->text value)))))
+                               ((_key . value)
+                                (if (string=? type "checkbox")
+                                    (if value
+                                        '((checked #t))
+                                        '())
+                                    `((value ,(value->text value)))))))))
+           ,@(if show-help-span?
+                 `((span (@ (id ,help-span-id)
+                            (class "help-block"))
+                         ,@(if has-error?
+                               (let* ((val
+                                       (assq-ref query-parameters
+                                                 (string->symbol input-name)))
+                                      (messages
+                                       (map invalid-query-parameter-message
+                                            (if (list? val)
+                                                val
+                                                (list val)))))
+                                 `((p
+                                    ,@(if (null? messages)
+                                          '(string "Error: invalid value")
+                                          (map
+                                           (lambda (message)
+                                             `(strong
+                                               (@ (style "display: block;"))
+                                               ,(string-append
+                                                 "Error: " message)))
+                                           messages)))))
+                               '())
+                         ,@(if required? '((strong "Required. ")) '())
+                         ,@(if help-text
+                               (list help-text)
+                               '())))
+                 '()))))))
 
 (define (readme contents)
   (layout
