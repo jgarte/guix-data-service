@@ -87,5 +87,5 @@
              ON lint_warnings.id = guix_revision_lint_warnings.lint_warning_id
          INNER JOIN guix_revisions
              ON guix_revision_lint_warnings.guix_revision_id = guix_revisions.id
-         WHERE guix_revisions.commit = $1"
+             AND guix_revisions.commit = $1"
    (list commit-hash)))
