@@ -70,16 +70,26 @@
     (('GET "substitutes")
      (render-html
       #:sxml (view-substitutes (%narinfo-signing-public-key))))
-    (('GET "nar" file-name)
-     (render-nar request
-                 mime-types
-                 conn
-                 (string-append "/gnu/store/" file-name)))
-    (('GET "nar" "lzip" file-name)
-     (render-lzip-nar request
-                      mime-types
-                      conn
-                      (string-append "/gnu/store/" file-name)))
+    (('GET "nar" _)
+     ;; These routes are a little special, as the extensions aren't used for
+     ;; content negotiation, so just use the path from the request
+     (let* ((path (uri-path (request-uri request)))
+            (file-name
+             (last (string-split path #\/))))
+       (render-nar request
+                   mime-types
+                   conn
+                   (string-append "/gnu/store/" file-name))))
+    (('GET "nar" "lzip" _)
+     ;; These routes are a little special, as the extensions aren't used for
+     ;; content negotiation, so just use the path from the request
+     (let* ((path (uri-path (request-uri request)))
+            (file-name
+             (last (string-split path #\/))))
+       (render-lzip-nar request
+                        mime-types
+                        conn
+                        (string-append "/gnu/store/" file-name))))
     (('GET (? .narinfo-suffix path))
      (render-narinfo request
                      conn
