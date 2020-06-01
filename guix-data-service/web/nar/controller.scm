@@ -75,7 +75,7 @@
      ;; content negotiation, so just use the path from the request
      (let* ((path (uri-path (request-uri request)))
             (file-name
-             (last (string-split path #\/))))
+             (uri-decode (last (string-split path #\/)))))
        (render-nar request
                    mime-types
                    conn
@@ -85,7 +85,7 @@
      ;; content negotiation, so just use the path from the request
      (let* ((path (uri-path (request-uri request)))
             (file-name
-             (last (string-split path #\/))))
+             (uri-decode (last (string-split path #\/)))))
        (render-lzip-nar request
                         mime-types
                         conn
