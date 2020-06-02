@@ -1501,7 +1501,7 @@ figure {
                                                    header-link)
   (define substitute-availability-options
     (map (match-lambda
-           ((id url)
+           ((id . url)
             (cons url id)))
          build-server-urls))
 
