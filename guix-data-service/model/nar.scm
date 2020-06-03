@@ -101,7 +101,7 @@ VALUES "
                        (quote-string
                         (uri->string uri))
                        (quote-string compression)
-                       file-size))
+                       (or file-size "NULL")))
                     (narinfo-uris narinfo)
                     (narinfo-compressions narinfo)
                     (narinfo-file-sizes narinfo)))

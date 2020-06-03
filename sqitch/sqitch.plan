@@ -58,3 +58,4 @@ create_narinfo_fetch_records_index 2020-03-25T19:07:28Z Christopher Baines <mail
 load_new_guix_revision_jobs_make_commits_unique 2020-03-27T21:38:42Z Christopher Baines <mail@cbaines.net> # Make load_new_guix_revision_jobs commits unique
 remove_odd_package_derivations 2020-04-24T20:36:06Z Christopher Baines <mail@cbaines.net> # Remove odd package derivations
 build_servers_lookup_builds 2020-05-24T15:18:09Z Christopher Baines <mail@cbaines.net> # Add build_servers.lookup_builds
+make_nar_urls_file_size_optional 2020-06-03T05:27:29Z Christopher Baines <mail@cbaines.net> # Make the nar_urls.file_size optional
