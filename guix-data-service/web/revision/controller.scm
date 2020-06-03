@@ -53,6 +53,7 @@
             render-revision-lint-warnings
             render-revision-package-version
             render-revision-packages
+            render-revision-package-reproduciblity
             render-revision-package-derivations
             render-unknown-revision
             render-view-revision))
