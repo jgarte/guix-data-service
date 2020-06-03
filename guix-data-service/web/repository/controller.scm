@@ -212,6 +212,17 @@
            (render-unknown-revision mime-types
                                     conn
                                     commit-hash))))
+    (('GET "repository" repository-id "branch" branch-name "latest-processed-revision" "package-substitute-availability")
+     (let ((commit-hash
+            (latest-processed-commit-for-branch conn repository-id branch-name)))
+       (if commit-hash
+           (render-revision-package-substitute-availability mime-types
+                                                            conn
+                                                            commit-hash
+                                                            #:path-base path)
+           (render-unknown-revision mime-types
+                                    conn
+                                    commit-hash))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision"
            "lint-warnings")
      (let ((commit-hash

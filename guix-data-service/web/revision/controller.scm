@@ -54,6 +54,7 @@
             render-revision-package-version
             render-revision-packages
             render-revision-package-reproduciblity
+            render-revision-package-substitute-availability
             render-revision-package-derivations
             render-unknown-revision
             render-view-revision))
