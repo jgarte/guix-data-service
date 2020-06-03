@@ -850,6 +850,9 @@
            `("Revision " (samp ,commit-hash)))
           (header-link
            (string-append "/revision/" commit-hash)))
+  (define build-server-urls
+    (select-build-server-urls-by-id conn))
+
   (if (any-invalid-query-parameters? query-parameters)
       (case (most-appropriate-mime-type
              '(application/json text/html)
@@ -863,9 +866,10 @@
                   commit-hash
                   query-parameters
                   '()
-                  '()
-                  '()
-                  '()
+                  build-server-urls
+                  (valid-systems conn)
+                  (valid-targets->options
+                   (valid-targets conn))
                   #f
                   #:path-base path-base
                   #:header-text header-text
@@ -889,8 +893,6 @@
                #:target (assq-ref query-parameters 'target)
                #:limit-results limit-results
                #:after-path (assq-ref query-parameters 'after_path)))
-             (build-server-urls
-              (select-build-server-urls-by-id conn))
              (show-next-page?
               (if all-results
                   #f
