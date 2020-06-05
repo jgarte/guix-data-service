@@ -605,65 +605,106 @@ ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.v
   (define query
     (string-append "
 WITH base_lint_warnings AS (
-  SELECT lint_warnings.id,
+  SELECT DISTINCT ON (lint_warnings.id) lint_warnings.id,
          packages.name, packages.version,
          lint_checkers.name AS lint_checker_name,
-         lint_checker_descriptions.description AS lint_checker_description,
+         translated_lint_checker_descriptions.description AS lint_checker_description,
          lint_checkers.network_dependent AS lint_checker_network_dependent,
          locations.file, locations.line, locations.column_number,
-         lint_warning_messages.message
+         lint_warning_messages.message,
+         lint_warning_messages.locale AS lint_warning_messages_locale,
+         translated_lint_checker_descriptions.locale AS lint_checker_descriptions_locale
   FROM lint_warnings
   INNER JOIN packages
     ON lint_warnings.package_id = packages.id
   INNER JOIN lint_checkers
     ON lint_warnings.lint_checker_id = lint_checkers.id
-  INNER JOIN lint_checker_description_sets
-    ON lint_checkers.lint_checker_description_set_id = lint_checker_description_sets.id
-  INNER JOIN lint_checker_descriptions
-    ON lint_checker_descriptions.id = ANY (lint_checker_description_sets.description_ids)
-    AND lint_checker_descriptions.locale = $3
+  INNER JOIN (
+    SELECT DISTINCT ON(lint_checkers.id) lint_checkers.id AS lint_checker_id,
+             lint_checker_descriptions.description,
+             lint_checker_descriptions.locale
+    FROM lint_checkers
+    INNER JOIN lint_checker_description_sets
+      ON lint_checker_description_sets.id = lint_checkers.lint_checker_description_set_id
+    INNER JOIN lint_checker_descriptions
+      ON lint_checker_descriptions.id = ANY (lint_checker_description_sets.description_ids)
+    INNER JOIN guix_revision_lint_checkers
+      ON lint_checkers.id = guix_revision_lint_checkers.lint_checker_id
+      AND guix_revision_lint_checkers.guix_revision_id = $1
+    ORDER BY lint_checkers.id,
+             CASE
+               WHEN lint_checker_descriptions.locale = $3 THEN 2
+               WHEN lint_checker_descriptions.locale = 'en_US.utf8' THEN 1
+               ELSE 0
+             END DESC
+  ) AS translated_lint_checker_descriptions
+    ON translated_lint_checker_descriptions.lint_checker_id = lint_checkers.id
   INNER JOIN locations
     ON lint_warnings.location_id = locations.id
   INNER JOIN lint_warning_message_sets
     ON lint_warnings.lint_warning_message_set_id = lint_warning_message_sets.id
   INNER JOIN lint_warning_messages
-    ON lint_warning_messages.id = ANY (lint_warning_message_sets.message_ids) AND
-       lint_warning_messages.locale = $3
+    ON lint_warning_messages.id = ANY (lint_warning_message_sets.message_ids)
   WHERE lint_warnings.id IN (
      SELECT lint_warning_id
      FROM guix_revision_lint_warnings
      WHERE guix_revision_id = $1
-    )
+  )
+  ORDER BY lint_warnings.id,
+           CASE
+             WHEN lint_warning_messages.locale = $3 THEN 2
+             WHEN lint_warning_messages.locale = 'en_US.utf8' THEN 1
+           ELSE 0 END DESC
 ), target_lint_warnings AS (
-  SELECT lint_warnings.id,
+  SELECT DISTINCT ON (lint_warnings.id) lint_warnings.id,
          packages.name, packages.version,
          lint_checkers.name AS lint_checker_name,
-         lint_checker_descriptions.description AS lint_checker_description,
+         translated_lint_checker_descriptions.description AS lint_checker_description,
          lint_checkers.network_dependent AS lint_checker_network_dependent,
          locations.file, locations.line, locations.column_number,
-         lint_warning_messages.message
+         lint_warning_messages.message,
+         translated_lint_checker_descriptions.locale AS lint_checker_descriptions_locale
   FROM lint_warnings
   INNER JOIN packages
     ON lint_warnings.package_id = packages.id
   INNER JOIN lint_checkers
     ON lint_warnings.lint_checker_id = lint_checkers.id
-  INNER JOIN lint_checker_description_sets
-    ON lint_checkers.lint_checker_description_set_id = lint_checker_description_sets.id
-  INNER JOIN lint_checker_descriptions
-    ON lint_checker_descriptions.id = ANY (lint_checker_description_sets.description_ids)
-    AND lint_checker_descriptions.locale = $3"
-  "INNER JOIN locations
+  INNER JOIN (
+    SELECT DISTINCT ON(lint_checkers.id) lint_checkers.id AS lint_checker_id,
+             lint_checker_descriptions.description description,
+             lint_checker_descriptions.locale
+    FROM lint_checkers
+    INNER JOIN lint_checker_description_sets
+      ON lint_checker_description_sets.id = lint_checkers.lint_checker_description_set_id
+    INNER JOIN lint_checker_descriptions
+      ON lint_checker_descriptions.id = ANY (lint_checker_description_sets.description_ids)
+    INNER JOIN guix_revision_lint_checkers
+      ON lint_checkers.id = guix_revision_lint_checkers.lint_checker_id
+      AND guix_revision_lint_checkers.guix_revision_id = $2
+    ORDER BY lint_checkers.id,
+             CASE
+               WHEN lint_checker_descriptions.locale = $3 THEN 2
+               WHEN lint_checker_descriptions.locale = 'en_US.utf8' THEN 1
+               ELSE 0
+             END DESC
+  ) AS translated_lint_checker_descriptions
+    ON translated_lint_checker_descriptions.lint_checker_id = lint_checkers.id
+  INNER JOIN locations
     ON lint_warnings.location_id = locations.id
   INNER JOIN lint_warning_message_sets
     ON lint_warnings.lint_warning_message_set_id = lint_warning_message_sets.id
   INNER JOIN lint_warning_messages
     ON lint_warning_messages.id = ANY (lint_warning_message_sets.message_ids)
-    AND lint_warning_messages.locale = $3"
-  " WHERE lint_warnings.id IN (
+  WHERE lint_warnings.id IN (
      SELECT lint_warning_id
      FROM guix_revision_lint_warnings
      WHERE guix_revision_id = $2
-)
+  )
+  ORDER BY lint_warnings.id,
+          CASE
+            WHEN lint_warning_messages.locale = $3 THEN 2
+            WHEN lint_warning_messages.locale = 'en_US.utf8' THEN 1
+          ELSE 0 END DESC
 )
 SELECT coalesce(
          base_lint_warnings.name,
