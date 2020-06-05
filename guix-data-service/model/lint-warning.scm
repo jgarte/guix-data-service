@@ -61,30 +61,43 @@
                                           message-query)
   (define query
     (string-append "
-SELECT lint_warnings.id, lint_checkers.name, lint_checker_descriptions.description,
-       lint_checkers.network_dependent, packages.name, packages.version,
-       locations.file, locations.line, locations.column_number,
-       lint_warning_messages.message
+SELECT DISTINCT ON (lint_warnings.id) lint_warnings.id,
+            lint_checkers.name, translated_lint_checker_descriptions.description,
+            lint_checkers.network_dependent, packages.name, packages.version,
+            locations.file, locations.line, locations.column_number,
+            lint_warning_messages.message
 FROM lint_warnings
 INNER JOIN lint_checkers
   ON lint_warnings.lint_checker_id = lint_checkers.id
-INNER JOIN lint_checker_description_sets
-  ON lint_checkers.lint_checker_description_set_id = lint_checker_description_sets.id
-INNER JOIN lint_checker_descriptions
-  ON lint_checker_descriptions.id = ANY (lint_checker_description_sets.description_ids)
-  AND lint_checker_descriptions.locale = "
-                   "'" locale "' "
-"INNER JOIN packages
+INNER JOIN (
+  SELECT DISTINCT ON (lint_checkers.id) lint_checkers.id AS lint_checker_id,
+              lint_checker_descriptions.description
+  FROM guix_revision_lint_checkers
+  INNER JOIN guix_revisions
+    ON guix_revision_lint_checkers.guix_revision_id = guix_revisions.id
+  INNER JOIN lint_checkers
+    ON guix_revision_lint_checkers.lint_checker_id = lint_checkers.id
+  INNER JOIN lint_checker_description_sets
+    ON lint_checkers.lint_checker_description_set_id = lint_checker_description_sets.id
+  INNER JOIN lint_checker_descriptions
+    ON lint_checker_descriptions.id = ANY (lint_checker_description_sets.description_ids)
+  WHERE guix_revisions.commit = $1
+  ORDER BY lint_checkers.id,
+           CASE
+             WHEN lint_checker_descriptions.locale = $2 THEN 2
+             WHEN lint_checker_descriptions.locale = 'en_US.utf8' THEN 1
+             ELSE 0
+           END DESC
+) AS translated_lint_checker_descriptions
+  ON translated_lint_checker_descriptions.lint_checker_id = lint_checkers.id
+INNER JOIN packages
   ON lint_warnings.package_id = packages.id
 INNER JOIN locations
   ON locations.id = lint_warnings.location_id
 INNER JOIN lint_warning_message_sets
   ON lint_warning_message_sets.id = lint_warning_message_set_id
 INNER JOIN lint_warning_messages
-  ON lint_warning_messages.locale = "
-                   "'" locale "'"
-" AND lint_warning_messages.id = ANY (lint_warning_message_sets.message_ids)
-"
+  ON lint_warning_messages.id = ANY (lint_warning_message_sets.message_ids)"
                    (if linters
                        (string-append
                         "INNER JOIN (VALUES "
@@ -103,16 +116,22 @@ INNER JOIN lint_warning_messages
   WHERE commit = $1
 )"
 (if package-query
-                       " AND to_tsvector(packages.name) @@ plainto_tsquery($2)"
+                       " AND to_tsvector(packages.name) @@ plainto_tsquery($3)"
                        "")
                    (if message-query
                        (simple-format
                         #f " AND to_tsvector(lint_warning_messages.message) @@ plainto_tsquery($~A)"
-                        (if package-query "3" "2"))
+                        (if package-query "4" "3"))
                        "")
-                   " ORDER BY packages.name, packages.version, lint_checkers.name, lint_warnings.id"))
+                   " ORDER BY lint_warnings.id,
+                              CASE
+                                WHEN lint_warning_messages.locale = $2 THEN 2
+                                WHEN lint_warning_messages.locale = 'en_US.utf8' THEN 1
+                                ELSE 0
+                              END DESC"))
 
   (exec-query conn query `(,commit-hash
+                           ,locale
                            ,@(if package-query
                                  (list package-query)
                                  '())
