@@ -145,18 +145,35 @@ INNER JOIN lint_warning_messages
                                                                    #:key
                                                                    locale)
   (define query
-"SELECT lint_warnings.id, lint_checkers.name, lint_checker_descriptions.description,
+"SELECT DISTINCT ON (lint_warnings.id) lint_warnings.id,
+       lint_checkers.name, translated_lint_checker_descriptions.description,
        lint_checkers.network_dependent,
        locations.file, locations.line, locations.column_number,
        lint_warning_messages.message
 FROM lint_warnings
 INNER JOIN lint_checkers
   ON lint_checkers.id = lint_warnings.lint_checker_id
-INNER JOIN lint_checker_description_sets
-  ON lint_checkers.lint_checker_description_set_id = lint_checker_description_sets.id
-INNER JOIN lint_checker_descriptions
-  ON lint_checker_descriptions.id = ANY (lint_checker_description_sets.description_ids)
-  AND lint_checker_descriptions.locale = $4
+INNER JOIN (
+  SELECT DISTINCT ON (lint_checkers.id) lint_checkers.id AS lint_checker_id,
+              lint_checker_descriptions.description
+  FROM lint_checkers
+  INNER JOIN lint_checker_description_sets
+    ON lint_checkers.lint_checker_description_set_id = lint_checker_description_sets.id
+  INNER JOIN lint_checker_descriptions
+    ON lint_checker_descriptions.id = ANY (lint_checker_description_sets.description_ids)
+  INNER JOIN guix_revision_lint_checkers
+    ON guix_revision_lint_checkers.lint_checker_id = lint_checkers.id
+  INNER JOIN guix_revisions
+    ON guix_revisions.id = guix_revision_lint_checkers.guix_revision_id
+    AND guix_revisions.commit = $1
+  ORDER BY lint_checkers.id,
+           CASE
+             WHEN lint_checker_descriptions.locale = $4 THEN 2
+             WHEN lint_checker_descriptions.locale = 'en_US.utf8' THEN 1
+             ELSE 0
+           END DESC
+) AS translated_lint_checker_descriptions
+  ON translated_lint_checker_descriptions.lint_checker_id = lint_checkers.id
 INNER JOIN packages
   ON lint_warnings.package_id = packages.id
 LEFT OUTER JOIN locations
@@ -164,8 +181,7 @@ LEFT OUTER JOIN locations
 INNER JOIN lint_warning_message_sets
   ON lint_warning_message_sets.id = lint_warning_message_set_id
 INNER JOIN lint_warning_messages
-  ON lint_warning_messages.locale = $4
-  AND lint_warning_messages.id = ANY (lint_warning_message_sets.message_ids)
+  ON lint_warning_messages.id = ANY (lint_warning_message_sets.message_ids)
 WHERE packages.id IN (
   SELECT package_derivations.package_id
   FROM package_derivations
@@ -177,7 +193,14 @@ WHERE packages.id IN (
   WHERE guix_revisions.commit = $1
 )
   AND packages.name = $2
-  AND packages.version = $3")
+  AND packages.version = $3
+  ORDER BY lint_warnings.id,
+           CASE
+             WHEN lint_warning_messages.locale = $4 THEN 2
+             WHEN lint_warning_messages.locale = 'en_US.utf8' THEN 1
+             ELSE 0
+           END DESC
+")
 
   (exec-query conn
               query
