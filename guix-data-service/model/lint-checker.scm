@@ -24,7 +24,8 @@
             lint-warning-count-by-lint-checker-for-revision
             insert-guix-revision-lint-checkers
             lint-checkers-for-revision
-            lint-checker-description-data->lint-checker-description-set-id))
+            lint-checker-description-data->lint-checker-description-set-id
+            insert-lint-checker-description-set))
 
 (define (lint-checkers->lint-checker-ids conn lint-checkers-data)
   (insert-missing-data-and-return-all-ids
