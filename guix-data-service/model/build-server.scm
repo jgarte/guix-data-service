@@ -35,7 +35,7 @@ ORDER BY id")
       (list (string->number id)
             url
             (string=? lookup-all-derivations "t")
-            (string=? lookup-builds))))
+            (string=? lookup-builds "t"))))
    (exec-query conn query)))
 
 (define (select-build-server conn id)
