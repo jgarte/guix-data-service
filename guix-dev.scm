@@ -55,6 +55,12 @@
    (native-inputs `(("guile" ,guile-3.0)
                     ,@(alist-delete "guile" (package-native-inputs guile-squee))))))
 
+(define guile3.0-readline
+  (if (defined? 'guile3.0-readline
+        (resolve-interface '(gnu packages guile)))
+      guile3.0-readline
+      guile-readline))
+
 (package
   (name "guix-data-service")
   (version "0.0.0")
