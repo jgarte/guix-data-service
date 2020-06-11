@@ -24,11 +24,31 @@
   #:use-module (gcrypt hash)
   #:use-module (rnrs bytevectors)
   #:use-module (guix base16)
+  #:use-module (guix packages)
+  #:use-module (guix i18n)
   #:use-module (guix inferior)
   #:use-module (guix-data-service model location)
   #:use-module (guix-data-service model utils)
   #:export (select-package-metadata-by-revision-name-and-version
             inferior-packages->package-metadata-ids))
+
+(define locales
+  '("cs_CZ.utf8"
+    "da_DK.utf8"
+    "de_DE.utf8"
+    "eo_EO.utf8"
+    "es_ES.utf8"
+    "fr_FR.utf8"
+    "hu_HU.utf8"
+    "pl_PL.utf8"
+    "pt_BR.utf8"
+    ;;"sr_SR.utf8"
+    "sv_SE.utf8"
+    "vi_VN.utf8"
+    "zh_CN.utf8"))
+
+(define inferior-package-id
+  (@@ (guix inferior) inferior-package-id))
 
 (define (select-package-metadata package-metadata-values)
   (define fields
@@ -144,36 +164,199 @@ WHERE packages.id IN (
                  " RETURNING id"
                  ";"))
 
+(define (inferior-packages->translated-package-descriptions-and-synopsis inferior
+                                                                         inferior-package-id)
+
+  (define (translate inferior-package-id)
+    `(let* ((package (hashv-ref %package-table ,inferior-package-id))
+            (source-locale "en_US.utf8")
+            (source-synopsis
+              (begin
+                (setlocale LC_MESSAGES source-locale)
+                (P_ (package-synopsis package))))
+             (source-description
+              (begin
+                (setlocale LC_MESSAGES source-locale)
+                (P_ (package-description package))))
+             (synopsis-by-locale
+              (filter-map
+               (lambda (locale)
+                 (catch 'system-error
+                   (lambda ()
+                     (setlocale LC_MESSAGES locale))
+                   (lambda (key . args)
+                     (error
+                      (simple-format
+                       #f
+                       "error changing locale to ~A: ~A ~A"
+                       locale key args))))
+                 (let ((synopsis
+                        (P_ (package-synopsis package))))
+                   (setlocale LC_MESSAGES source-locale)
+                   (if (string=? synopsis source-synopsis)
+                       #f
+                       (cons locale synopsis))))
+               (list ,@locales)))
+             (descriptions-by-locale
+              (filter-map
+               (lambda (locale)
+                 (catch 'system-error
+                   (lambda ()
+                     (setlocale LC_MESSAGES locale))
+                   (lambda (key . args)
+                     (error
+                      (simple-format
+                       #f
+                       "error changing locale to ~A: ~A ~A"
+                       locale key args))))
+                 (let ((description
+                        (P_ (package-description package))))
+                   (setlocale LC_MESSAGES source-locale)
+                   (if (string=? description source-description)
+                       #f
+                       (cons locale description))))
+               (list ,@locales))))
+        (cons
+         (cons (cons source-locale source-description)
+               descriptions-by-locale)
+         (cons (cons source-locale source-synopsis)
+               synopsis-by-locale))))
+
+  (inferior-eval (translate inferior-package-id) inferior))
+
+(define (package-synopsis-data->package-synopsis-ids
+         conn synopsis-by-locale)
+  (insert-missing-data-and-return-all-ids
+   conn
+   "package_synopsis"
+   '(locale synopsis)
+   (map (match-lambda
+          ((locale . synopsis)
+           (list locale synopsis)))
+        synopsis-by-locale)
+   #:delete-duplicates? #t))
+
+(define (insert-package-synopsis-set conn package-synopsis-ids)
+  (let ((query
+         (string-append
+          "INSERT INTO package_synopsis_sets (synopsis_ids) VALUES "
+          (string-append
+           "('{"
+           (string-join
+            (map number->string
+                 (sort package-synopsis-ids <))
+            ", ")
+           "}')")
+          " RETURNING id")))
+    (match (exec-query conn query)
+      (((id)) id))))
+
+(define (package-synopsis-data->package-synopsis-set-id
+         conn synopsis-by-locale)
+  (let* ((package-synopsis-ids
+          (package-synopsis-data->package-synopsis-ids
+           conn
+           synopsis-by-locale))
+         (package-synopsis-set-id
+          (exec-query
+           conn
+           (string-append
+             "SELECT id FROM package_synopsis_sets"
+            " WHERE synopsis_ids = ARRAY["
+            (string-join (map number->string
+                              (sort package-synopsis-ids <)) ", ")
+            "]"))))
+    (string->number
+     (match package-synopsis-set-id
+       (((id)) id)
+       (()
+        (insert-package-synopsis-set conn package-synopsis-ids))))))
+
+(define (package-description-data->package-description-ids
+         conn descriptions-by-locale)
+  (insert-missing-data-and-return-all-ids
+   conn
+   "package_descriptions"
+   '(locale description)
+   (map (match-lambda
+          ((locale . description)
+           (list locale description)))
+        descriptions-by-locale)
+   #:delete-duplicates? #t))
+
+(define (insert-package-description-set conn package-description-ids)
+  (let ((query
+         (string-append
+          "INSERT INTO package_description_sets (description_ids) VALUES "
+          (string-append
+           "('{"
+           (string-join
+            (map number->string
+                 (sort package-description-ids <))
+            ", ")
+           "}')")
+          " RETURNING id")))
+    (match (exec-query conn query)
+      (((id)) id))))
+
+(define (package-description-data->package-description-set-id
+         conn descriptions-by-locale)
+  (let* ((package-description-ids
+          (package-description-data->package-description-ids
+           conn
+           descriptions-by-locale))
+         (package-description-set-id
+          (exec-query
+           conn
+           (string-append
+             "SELECT id FROM package_description_sets"
+            " WHERE description_ids = ARRAY["
+            (string-join (map number->string
+                              (sort package-description-ids <)) ", ")
+            "]"))))
+    (string->number
+     (match package-description-set-id
+       (((id)) id)
+       (()
+        (insert-package-description-set conn package-description-ids))))))
 
 (define (inferior-packages->package-metadata-ids conn
+                                                 inferior
                                                  packages
                                                  license-set-ids)
   (define package-metadata
     (map (lambda (package license-set-id)
-           (list (inferior-package-synopsis package)
-                 (inferior-package-description package)
-                 (non-empty-string-or-false
-                  (inferior-package-home-page package))
-                 (location->location-id
-                  conn
-                  (inferior-package-location package))
-                 license-set-id))
+           (let ((translated-package-descriptions-and-synopsis
+                  (inferior-packages->translated-package-descriptions-and-synopsis
+                   inferior (inferior-package-id package))))
+               (list (non-empty-string-or-false
+                      (inferior-package-home-page package))
+                     (location->location-id
+                      conn
+                      (inferior-package-location package))
+                     license-set-id
+                     (package-description-data->package-description-set-id
+                      conn
+                      (car translated-package-descriptions-and-synopsis))
+                     (package-synopsis-data->package-synopsis-set-id
+                      conn
+                      (cdr translated-package-descriptions-and-synopsis)))))
          packages
          license-set-ids))
 
   (insert-missing-data-and-return-all-ids
    conn
    "package_metadata"
-   '(synopsis description home_page location_id license_set_id)
+   '(home_page location_id license_set_id package_description_set_id package_synopsis_set_id)
    (map (match-lambda
-          ((synopsis description home-page location-id license-set-id)
-           (list synopsis
-                 description
-                 (if (string? home-page)
+          ((home-page location-id license-set-id package_description_set_id package_synopsis_set_id)
+           (list (if (string? home-page)
                      home-page
                      NULL)
                  location-id
-                 license-set-id)))
+                 license-set-id
+                 package_description_set_id
+                 package_synopsis_set_id)))
         package-metadata)
    ;; There can be duplicated entires in package-metadata, for example where
    ;; you have one package definition which interits from another, and just

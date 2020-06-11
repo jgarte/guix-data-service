@@ -735,7 +735,7 @@ WHERE job_id = $1"
          (packages-metadata-ids
           (with-time-logging "fetching inferior package metadata"
             (inferior-packages->package-metadata-ids
-             conn packages package-license-set-ids))))
+             conn inf packages package-license-set-ids))))
 
     (with-time-logging "getting package-ids"
       (inferior-packages->package-ids
