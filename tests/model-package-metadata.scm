@@ -39,45 +39,54 @@
 
     (inferior-packages->license-set-ids conn license-id-lists)))
 
-(with-mock-inferior-packages
- (lambda ()
-   (use-modules (guix-data-service model package)
-                (guix-data-service model git-repository)
-                (guix-data-service model guix-revision)
-                (guix-data-service model package-metadata))
+(mock
+ ((guix-data-service model package-metadata)
+  inferior-packages->translated-package-descriptions-and-synopsis
+  (lambda (inferior inferior-package)
+    (cons `(("en_US.utf8" . "Fake synopsis"))
+          `(("en_US.utf8" . "Fake description")))))
+ (with-mock-inferior-packages
+  (lambda ()
+    (use-modules (guix-data-service model package)
+                 (guix-data-service model git-repository)
+                 (guix-data-service model guix-revision)
+                 (guix-data-service model package-metadata))
 
-   (with-postgresql-connection
-    "test-model-package-metadata"
-    (lambda (conn)
-      (check-test-database! conn)
+    (with-postgresql-connection
+     "test-model-package-metadata"
+     (lambda (conn)
+       (check-test-database! conn)
 
-      (test-assert "inferior-packages->package-metadata-ids"
-        (with-postgresql-transaction
-         conn
-         (lambda (conn)
-           (match
-               (inferior-packages->package-metadata-ids
-                conn
-                (list mock-inferior-package-foo
-                      mock-inferior-package-foo-2)
-                (test-license-set-ids conn))
-             ((x) (number? x))))
-         #:always-rollback? #t))
+       (test-assert "inferior-packages->package-metadata-ids"
+         (with-postgresql-transaction
+          conn
+          (lambda (conn)
+            (match
+                (inferior-packages->package-metadata-ids
+                 conn
+                 ""
+                 (list mock-inferior-package-foo
+                       mock-inferior-package-foo-2)
+                 (test-license-set-ids conn))
+              ((x) (number? x))))
+          #:always-rollback? #t))
 
-      (with-postgresql-transaction
-       conn
-       (lambda (conn)
-         (test-equal "inferior-packages->package-metadata-ids"
-           (inferior-packages->package-metadata-ids
-            conn
-            (list mock-inferior-package-foo
-                  mock-inferior-package-foo-2)
-            (test-license-set-ids conn))
-           (inferior-packages->package-metadata-ids
-            conn
-            (list mock-inferior-package-foo
-                  mock-inferior-package-foo-2)
-            (test-license-set-ids conn)))
-         #:always-rollback? #t))))))
+       (with-postgresql-transaction
+        conn
+        (lambda (conn)
+          (test-equal "inferior-packages->package-metadata-ids"
+            (inferior-packages->package-metadata-ids
+             conn
+             ""
+             (list mock-inferior-package-foo
+                   mock-inferior-package-foo-2)
+             (test-license-set-ids conn))
+            (inferior-packages->package-metadata-ids
+             conn
+             ""
+             (list mock-inferior-package-foo
+                   mock-inferior-package-foo-2)
+             (test-license-set-ids conn)))
+          #:always-rollback? #t)))))))
 
 (test-end)
