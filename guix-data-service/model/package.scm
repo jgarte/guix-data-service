@@ -53,12 +53,13 @@
 
 (define* (select-packages-in-revision conn commit-hash
                                       #:key limit-results
-                                      after-name)
+                                      after-name
+                                      locale)
   (define query
     (string-append "
 WITH data AS (
-  SELECT packages.name, packages.version, package_metadata.synopsis,
-    package_metadata.description, package_metadata.home_page,
+  SELECT packages.name, packages.version, translated_package_synopsis.synopsis,
+    translated_package_descriptions.description, package_metadata.home_page,
     locations.file, locations.line, locations.column_number,
     (SELECT JSON_AGG((license_data.*))
      FROM (
@@ -74,6 +75,32 @@ WITH data AS (
     ON packages.package_metadata_id = package_metadata.id
   LEFT OUTER JOIN locations
     ON package_metadata.location_id = locations.id
+  INNER JOIN (
+    SELECT DISTINCT ON (package_synopsis_sets.id) package_synopsis_sets.id,
+             package_synopsis.synopsis
+    FROM package_synopsis_sets
+    INNER JOIN package_synopsis
+      ON package_synopsis.id = ANY (package_synopsis_sets.synopsis_ids)
+    ORDER BY package_synopsis_sets.id,
+             CASE WHEN package_synopsis.locale = $2 THEN 2
+                  WHEN package_synopsis.locale = 'en_US.utf8' THEN 1
+                  ELSE 0
+             END DESC
+  ) AS translated_package_synopsis
+    ON package_metadata.package_synopsis_set_id = translated_package_synopsis.id
+  INNER JOIN (
+    SELECT DISTINCT ON (package_description_sets.id) package_description_sets.id,
+            package_descriptions.description
+    FROM package_description_sets
+    INNER JOIN package_descriptions
+      ON package_descriptions.id = ANY (package_description_sets.description_ids)
+    ORDER BY package_description_sets.id,
+             CASE WHEN package_descriptions.locale = $2 THEN 2
+                  WHEN package_descriptions.locale = 'en_US.utf8' THEN 1
+                  ELSE 0
+             END DESC
+  ) AS translated_package_descriptions
+    ON package_metadata.package_description_set_id = translated_package_descriptions.id
   WHERE packages.id IN (
    SELECT package_derivations.package_id
    FROM package_derivations
@@ -88,7 +115,7 @@ WITH data AS (
   SELECT DISTINCT name
   FROM data"
     (if after-name
-        "\nWHERE name > $2\n"
+        "\nWHERE name > $3\n"
         "")
     "  ORDER BY name"
     (if limit-results
@@ -101,6 +128,7 @@ WHERE data.name IN (SELECT name FROM package_names);"))
 
   (exec-query conn query
               `(,commit-hash
+                ,locale
                 ,@(if after-name
                       (list after-name)
                       '()))))
@@ -113,8 +141,8 @@ WHERE data.name IN (SELECT name FROM package_names);"))
      "
 SELECT packages.name,
        packages.version,
-       package_metadata.synopsis,
-       package_metadata.description,
+       translated_package_synopsis.synopsis,
+       translated_package_descriptions.description,
        package_metadata.home_page,
        locations.file, locations.line, locations.column_number,
        (SELECT JSON_AGG((license_data.*))
@@ -131,6 +159,32 @@ INNER JOIN package_metadata
   ON packages.package_metadata_id = package_metadata.id
 LEFT OUTER JOIN locations
   ON package_metadata.location_id = locations.id
+INNER JOIN (
+  SELECT DISTINCT ON (package_synopsis_sets.id) package_synopsis_sets.id,
+           package_synopsis.synopsis
+  FROM package_synopsis_sets
+  INNER JOIN package_synopsis
+    ON package_synopsis.id = ANY (package_synopsis_sets.synopsis_ids)
+  ORDER BY package_synopsis_sets.id,
+           CASE WHEN package_synopsis.locale = $2 THEN 2
+                WHEN package_synopsis.locale = 'en_US.utf8' THEN 1
+                ELSE 0
+           END DESC
+) AS translated_package_synopsis
+    ON package_metadata.package_synopsis_set_id = translated_package_synopsis.id
+INNER JOIN (
+  SELECT DISTINCT ON (package_description_sets.id) package_description_sets.id,
+           package_descriptions.description
+  FROM package_description_sets
+  INNER JOIN package_descriptions
+    ON package_descriptions.id = ANY (package_description_sets.description_ids)
+  ORDER BY package_description_sets.id,
+           CASE WHEN package_descriptions.locale = $2 THEN 2
+                WHEN package_descriptions.locale = 'en_US.utf8' THEN 1
+                ELSE 0
+           END DESC
+) AS translated_package_descriptions
+    ON package_metadata.package_description_set_id = translated_package_descriptions.id
 WHERE packages.id IN (
  SELECT package_derivations.package_id
  FROM package_derivations

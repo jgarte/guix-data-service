@@ -125,7 +125,8 @@
                 (guard-against-mutually-exclusive-query-parameters
                  (parse-query-parameters
                   request
-                  `((after_name     ,identity)
+                  `((locale         ,identity #:default "en_US.utf8")
+                    (after_name     ,identity)
                     (field          ,identity #:multi-value
                                     #:default ("version" "synopsis"))
                     (search_query   ,identity)
@@ -535,6 +536,14 @@
                                     `("Revision " (samp ,commit-hash)))
                                    (header-link
                                     (string-append "/revision/" commit-hash)))
+  (define description-and-synopsis-locale-options
+    (map
+     (match-lambda
+       ((locale)
+        locale))
+     (package-description-and-synopsis-locale-options-guix-revision
+      conn (commit->revision-id conn commit-hash))))
+
   (if (any-invalid-query-parameters? query-parameters)
       (case (most-appropriate-mime-type
              '(application/json text/html)
@@ -548,6 +557,7 @@
                                          query-parameters
                                          '()
                                          '()
+                                         #f
                                          #f
                                          #:path-base path-base
                                          #:header-text header-text
@@ -568,7 +578,8 @@
                    conn
                    commit-hash
                    #:limit-results limit-results
-                   #:after-name (assq-ref query-parameters 'after_name))))
+                   #:after-name (assq-ref query-parameters 'after_name)
+                   #:locale (assq-ref query-parameters 'locale))))
              (git-repositories
               (git-repositories-containing-commit conn
                                                   commit-hash))
@@ -625,6 +636,7 @@
                                            packages
                                            git-repositories
                                            show-next-page?
+                                           description-and-synopsis-locale-options
                                            #:path-base path-base
                                            #:header-text header-text
                                            #:header-link header-link)
@@ -682,19 +694,25 @@
                                             "/revision/" commit-hash))
                                           version-history-link)
 
-  (define lint-warnings-locale-options
+  (define locale-options
     (map
      (match-lambda
        ((locale)
         locale))
-     (lint-warning-message-locales-for-revision conn commit-hash)))
+     (delete-duplicates
+      (append
+       (package-description-and-synopsis-locale-options-guix-revision
+           conn (commit->revision-id conn commit-hash))
+       (lint-warning-message-locales-for-revision conn commit-hash)))))
 
-  (let* ((metadata
+  (let* ((locale (assq-ref query-parameters 'locale))
+         (metadata
          (select-package-metadata-by-revision-name-and-version
           conn
           commit-hash
           name
-          version))
+          version
+          locale))
         (derivations
          (select-derivations-by-revision-name-and-version
           conn
@@ -704,7 +722,6 @@
         (git-repositories
          (git-repositories-containing-commit conn
                                              commit-hash))
-        (locale (assq-ref query-parameters 'locale))
         (lint-warnings
          (select-lint-warnings-by-revision-package-name-and-version
           conn
@@ -742,7 +759,7 @@
                                                   git-repositories
                                                   lint-warnings
                                                   query-parameters
-                                                  lint-warnings-locale-options
+                                                  locale-options
                                                   #:header-text header-text
                                                   #:header-link header-link
                                                   #:version-history-link

@@ -30,7 +30,9 @@
   #:use-module (guix-data-service model location)
   #:use-module (guix-data-service model utils)
   #:export (select-package-metadata-by-revision-name-and-version
-            inferior-packages->package-metadata-ids))
+            inferior-packages->package-metadata-ids
+
+            package-description-and-synopsis-locale-options-guix-revision))
 
 (define locales
   '("cs_CZ.utf8"
@@ -101,9 +103,9 @@
                   " AND ")))
 
 (define (select-package-metadata-by-revision-name-and-version
-         conn revision-commit-hash name version)
+         conn revision-commit-hash name version locale)
   (define query "
-SELECT package_metadata.synopsis, package_metadata.description,
+SELECT translated_package_synopsis.synopsis, translated_package_descriptions.description,
   package_metadata.home_page,
   locations.file, locations.line, locations.column_number,
   (SELECT JSON_AGG((license_data.*))
@@ -120,6 +122,42 @@ INNER JOIN packages
   ON package_metadata.id = packages.package_metadata_id
 LEFT OUTER JOIN locations
   ON package_metadata.location_id = locations.id
+INNER JOIN (
+  SELECT DISTINCT ON (package_description_sets.id) package_description_sets.id, package_descriptions.description
+  FROM package_descriptions
+  INNER JOIN package_description_sets
+    ON package_descriptions.id = ANY (package_description_sets.description_ids)
+  INNER JOIN package_metadata
+    ON package_metadata.package_description_set_id = package_description_sets.id
+  INNER JOIN packages
+    ON packages.package_metadata_id = package_metadata.id
+    AND packages.name = $2
+    AND packages.version = $3
+  ORDER BY package_description_sets.id,
+           CASE WHEN package_descriptions.locale = $4 THEN 2
+                WHEN package_descriptions.locale = 'en_US.utf8' THEN 1
+                ELSE 0
+          END DESC
+) AS translated_package_descriptions
+  ON package_metadata.package_description_set_id = translated_package_descriptions.id
+INNER JOIN (
+  SELECT DISTINCT ON (package_synopsis_sets.id) package_synopsis_sets.id, package_synopsis.synopsis
+  FROM package_synopsis
+  INNER JOIN package_synopsis_sets
+    ON package_synopsis.id = ANY (package_synopsis_sets.synopsis_ids)
+  INNER JOIN package_metadata
+    ON package_metadata.package_synopsis_set_id = package_synopsis_sets.id
+  INNER JOIN packages
+    ON packages.package_metadata_id = package_metadata.id
+    AND packages.name = $2
+    AND packages.version = $3
+  ORDER BY package_synopsis_sets.id,
+           CASE WHEN package_synopsis.locale = $4 THEN 2
+                WHEN package_synopsis.locale = 'en_US.utf8' THEN 1
+                ELSE 0
+          END DESC
+) AS translated_package_synopsis
+  ON package_metadata.package_synopsis_set_id = translated_package_synopsis.id
 WHERE packages.id IN (
   SELECT package_derivations.package_id
   FROM package_derivations
@@ -141,7 +179,7 @@ WHERE packages.id IN (
             (if (string-null? license-json)
                 #()
                 (json-string->scm license-json)))))
-   (exec-query conn query (list revision-commit-hash name version))))
+   (exec-query conn query (list revision-commit-hash name version locale))))
 
 (define (insert-package-metadata metadata-rows)
   (string-append "INSERT INTO package_metadata "
@@ -167,7 +205,7 @@ WHERE packages.id IN (
 (define (inferior-packages->translated-package-descriptions-and-synopsis inferior
                                                                          inferior-package-id)
 
-  (define (translate inferior-package-id)
+  (define (translate inferior-package)
     `(let* ((package (hashv-ref %package-table ,inferior-package-id))
             (source-locale "en_US.utf8")
             (source-synopsis
@@ -366,3 +404,26 @@ WHERE packages.id IN (
    ;; There is so much package metadata that it's worth creating a temporary
    ;; table
    #:use-temporary-table? #t))
+
+(define (package-description-and-synopsis-locale-options-guix-revision conn
+                                                                       revision-id)
+  (exec-query
+   conn
+   "SELECT DISTINCT coalesce(package_descriptions.locale, package_synopsis.locale)
+    FROM package_descriptions
+    INNER JOIN package_description_sets
+      ON package_descriptions.id = ANY (package_description_sets.description_ids)
+    INNER JOIN package_metadata
+      ON package_metadata.package_description_set_id = package_description_sets.id
+    INNER JOIN package_synopsis_sets
+      ON package_synopsis_sets.id = package_metadata.package_synopsis_set_id
+    INNER JOIN package_synopsis
+      ON package_synopsis.id = ANY (package_synopsis_sets.synopsis_ids)
+    INNER JOIN packages
+      ON packages.package_metadata_id = package_metadata.id
+    INNER JOIN package_derivations
+      ON package_derivations.package_id = packages.id
+    INNER JOIN guix_revision_package_derivations
+      ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+    WHERE guix_revision_package_derivations.revision_id = $1"
+   (list revision-id)))

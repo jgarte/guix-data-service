@@ -519,6 +519,7 @@
                                  packages
                                  git-repositories
                                  show-next-page?
+                                 locale-options
                                  #:key path-base
                                  header-text header-link)
   (define field-options
@@ -553,6 +554,12 @@
              (action "")
              (style "padding-bottom: 0")
              (class "form-horizontal"))
+          ,(form-horizontal-control
+            "Locale" query-parameters
+            #:options locale-options
+            #:allow-selecting-multiple-options #f
+            #:help-text
+            "Language.")
           ,(form-horizontal-control
             "Search query" query-parameters
             #:help-text
