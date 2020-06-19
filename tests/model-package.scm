@@ -45,6 +45,12 @@
   (list mock-inferior-package-foo
         mock-inferior-package-foo-2))
 
+(mock
+ ((guix-data-service model package-metadata)
+  inferior-packages->translated-package-descriptions-and-synopsis
+  (lambda (inferior inferior-package)
+    (cons `(("en_US.utf8" . "Fake synopsis"))
+          `(("en_US.utf8" . "Fake description")))))
 (with-mock-inferior-packages
  (lambda ()
    (use-modules (guix-data-service model package)
@@ -63,6 +69,7 @@
          (test-assert "inferior-packages->package-ids works once"
            (let ((package-metadata-ids (inferior-packages->package-metadata-ids
                                         conn
+                                        ""
                                         mock-inferior-packages
                                         (test-license-set-ids conn))))
              (match (inferior-packages->package-ids
@@ -78,6 +85,7 @@
        (lambda (conn)
          (let ((package-metadata-ids (inferior-packages->package-metadata-ids
                                       conn
+                                      ""
                                       mock-inferior-packages
                                       (test-license-set-ids conn))))
            (test-equal
@@ -91,6 +99,6 @@
               (zip (map mock-inferior-package-name mock-inferior-packages)
                    (map mock-inferior-package-version mock-inferior-packages)
                    package-metadata-ids)))))
-       #:always-rollback? #t)))))
+       #:always-rollback? #t))))))
 
 (test-end)
