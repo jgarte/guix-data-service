@@ -136,7 +136,7 @@ ORDER BY name ASC")
             (string->number column_number)
             derivation_file_name
             (filter (lambda (build)
-                      (assoc-ref build "status"))
+                      (string? (assoc-ref build "status")))
                     (vector->list
                      (json-string->scm builds-json))))))
    (exec-query conn query (list system commit-hash))))

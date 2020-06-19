@@ -179,7 +179,7 @@ ORDER BY derivations.system DESC,
                 target
                 file-name
                 (filter (lambda (build)
-                          (assoc-ref build "status"))
+                          (string? (assoc-ref build "status")))
                         (vector->list
                          (json-string->scm builds-json)))))
          ((file_name system target)

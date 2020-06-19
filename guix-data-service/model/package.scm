@@ -346,8 +346,7 @@ ORDER BY first_datetime DESC, package_version DESC")
                 (if (string-null? builds-json)
                     '()
                     (filter (lambda (build)
-                              (not (eq?  (assoc-ref build "build_server_id")
-                                         #nil)))
+                              (number? (assoc-ref build "build_server_id")))
                             (vector->list
                              (json-string->scm builds-json)))))))
        (exec-query
@@ -462,8 +461,7 @@ ORDER BY first_datetime DESC, package_version DESC")
                 (if (string-null? builds-json)
                     '()
                     (filter (lambda (build)
-                              (not (eq?  (assoc-ref build "build_server_id")
-                                         #nil)))
+                              (number? (assoc-ref build "build_server_id")))
                             (vector->list
                              (json-string->scm builds-json)))))))
        (exec-query
