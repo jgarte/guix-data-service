@@ -172,7 +172,8 @@
                   (guard-against-mutually-exclusive-query-parameters
                    (parse-query-parameters
                     request
-                    `((after_name     ,identity)
+                    `((locale         ,identity #:default "en_US.utf8")
+                      (after_name     ,identity)
                       (field          ,identity #:multi-value
                                       #:default ("version" "synopsis"))
                       (search_query   ,identity)
