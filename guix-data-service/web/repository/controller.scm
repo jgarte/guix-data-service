@@ -202,6 +202,36 @@
            (render-unknown-revision mime-types
                                     conn
                                     commit-hash))))
+    (('GET "repository" repository-id "branch" branch-name "latest-processed-revision" "package-derivations")
+     (let ((commit-hash
+            (latest-processed-commit-for-branch conn repository-id branch-name)))
+       (if commit-hash
+           (let ((parsed-query-parameters
+                  (guard-against-mutually-exclusive-query-parameters
+                   (parse-query-parameters
+                    request
+                    `((search_query   ,identity)
+                      (system ,parse-system #:multi-value)
+                      (target ,parse-target #:multi-value)
+                      (maximum_builds ,parse-number)
+                      (minimum_builds ,parse-number)
+                      (field          ,identity #:multi-value
+                                      #:default ("system" "target" "builds"))
+                      (after_name ,identity)
+                      (limit_results  ,parse-result-limit
+                                      #:no-default-when (all_results)
+                                      #:default 10)
+                      (all_results    ,parse-checkbox-value)))
+                   '((limit_results all_results)))))
+
+             (render-revision-package-derivations mime-types
+                                                  conn
+                                                  commit-hash
+                                                  parsed-query-parameters
+                                                  #:path-base path))
+           (render-unknown-revision mime-types
+                                    conn
+                                    commit-hash))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision" "package-reproducibility")
      (let ((commit-hash
             (latest-processed-commit-for-branch conn repository-id branch-name)))
