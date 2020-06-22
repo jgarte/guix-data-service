@@ -59,7 +59,8 @@
     (string-append "
 WITH data AS (
   SELECT packages.name, packages.version, translated_package_synopsis.synopsis,
-    translated_package_descriptions.description, package_metadata.home_page,
+    translated_package_synopsis.locale, translated_package_descriptions.description,
+    translated_package_descriptions.locale, package_metadata.home_page,
     locations.file, locations.line, locations.column_number,
     (SELECT JSON_AGG((license_data.*))
      FROM (
@@ -77,7 +78,7 @@ WITH data AS (
     ON package_metadata.location_id = locations.id
   INNER JOIN (
     SELECT DISTINCT ON (package_synopsis_sets.id) package_synopsis_sets.id,
-             package_synopsis.synopsis
+             package_synopsis.synopsis, package_synopsis.locale
     FROM package_synopsis_sets
     INNER JOIN package_synopsis
       ON package_synopsis.id = ANY (package_synopsis_sets.synopsis_ids)
@@ -90,7 +91,7 @@ WITH data AS (
     ON package_metadata.package_synopsis_set_id = translated_package_synopsis.id
   INNER JOIN (
     SELECT DISTINCT ON (package_description_sets.id) package_description_sets.id,
-            package_descriptions.description
+            package_descriptions.description, package_descriptions.locale
     FROM package_description_sets
     INNER JOIN package_descriptions
       ON package_descriptions.id = ANY (package_description_sets.description_ids)
@@ -142,7 +143,9 @@ WHERE data.name IN (SELECT name FROM package_names);"))
 SELECT packages.name,
        packages.version,
        translated_package_synopsis.synopsis,
+       translated_package_synopsis.locale,
        translated_package_descriptions.description,
+       translated_package_descriptions.locale,
        package_metadata.home_page,
        locations.file, locations.line, locations.column_number,
        (SELECT JSON_AGG((license_data.*))
@@ -161,7 +164,7 @@ LEFT OUTER JOIN locations
   ON package_metadata.location_id = locations.id
 INNER JOIN (
   SELECT DISTINCT ON (package_synopsis_sets.id) package_synopsis_sets.id,
-           package_synopsis.synopsis
+           package_synopsis.synopsis, package_synopsis.locale
   FROM package_synopsis_sets
   INNER JOIN package_synopsis
     ON package_synopsis.id = ANY (package_synopsis_sets.synopsis_ids)
@@ -174,7 +177,7 @@ INNER JOIN (
     ON package_metadata.package_synopsis_set_id = translated_package_synopsis.id
 INNER JOIN (
   SELECT DISTINCT ON (package_description_sets.id) package_description_sets.id,
-           package_descriptions.description
+           package_descriptions.description, package_descriptions.locale
   FROM package_description_sets
   INNER JOIN package_descriptions
     ON package_descriptions.id = ANY (package_description_sets.description_ids)

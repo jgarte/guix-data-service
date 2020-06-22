@@ -203,6 +203,18 @@
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
+        (a (@ (class "btn btn-default btn-lg pull-right")
+              (href ,(let ((query-params
+                            (query-parameters->string query-parameters)))
+                       (string-append header-link "/package/" name "/" version ".json"
+                                      (if (string-null? query-params)
+                                          ""
+                                          (string-append "?" query-params))))))
+           "View JSON")))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
         ,@(if version-history-link
               `((a (@ (class "btn btn-lg btn-default pull-right")
                       (href ,version-history-link)
@@ -215,7 +227,7 @@
        (div
         (@ (class "col-sm-12"))
         ,(match package-metadata
-           (((synopsis description home-page file line column-number
+           (((synopsis synopsis-locale description description-locale home-page file line column-number
                        licenses))
             `(dl
               (@ (class "dl-horizontal"))
@@ -620,7 +632,7 @@
           ,@(let ((fields (assq-ref query-parameters 'field)))
               (map
                (match-lambda
-                 ((name version synopsis description home-page
+                 ((name version synopsis _ description _ home-page
                         location-file location-line
                         location-column-number licenses)
                   `(tr

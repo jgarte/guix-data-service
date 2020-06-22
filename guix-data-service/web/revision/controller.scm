@@ -312,13 +312,14 @@
                                   commit-hash)))
     (_ #f)))
 
-(define (texinfo->variants-alist s)
+(define (texinfo->variants-alist s locale)
   (let ((stexi (texi-fragment->stexi s)))
     `((source . ,s)
       (html   . ,(with-output-to-string
                    (lambda ()
                      (sxml->html (stexi->shtml stexi)))))
-      (plain . ,(stexi->plain-text stexi)))))
+      (plain . ,(stexi->plain-text stexi))
+      (locale . ,locale))))
 
 (define (render-unknown-revision mime-types conn commit-hash)
   (case (most-appropriate-mime-type
@@ -597,7 +598,7 @@
               (packages
                . ,(list->vector
                    (map (match-lambda
-                          ((name version synopsis description home-page
+                          ((name version synopsis synopsis-locale description description-locale home-page
                                  location-file location-line
                                  location-column-number licenses)
                            `((name . ,name)
@@ -606,11 +607,11 @@
                                    '())
                              ,@(if (member "synopsis" fields)
                                    `((synopsis
-                                      . ,(texinfo->variants-alist synopsis)))
+                                      . ,(texinfo->variants-alist synopsis synopsis-locale)))
                                    '())
                              ,@(if (member "description" fields)
                                    `((description
-                                      . ,(texinfo->variants-alist description)))
+                                      . ,(texinfo->variants-alist description description-locale)))
                                    '())
                              ,@(if (member "home-page" fields)
                                    `((home-page . ,home-page))
@@ -737,9 +738,10 @@
         `((name . ,name)
           (version . ,version)
           ,@(match metadata
-              (((synopsis description home-page))
-               `((synopsis . ,synopsis)
-                 (description . ,description)
+              (((synopsis synopsis-locale description description-locale home-page file line column-number
+                          licenses))
+               `((synopsis . ,(texinfo->variants-alist synopsis synopsis-locale))
+                 (description . ,(texinfo->variants-alist description description-locale))
                  (home-page . ,home-page))))
           (derivations . ,(list->vector
                            (map (match-lambda

@@ -107,7 +107,8 @@
 (define (select-package-metadata-by-revision-name-and-version
          conn revision-commit-hash name version locale)
   (define query "
-SELECT translated_package_synopsis.synopsis, translated_package_descriptions.description,
+SELECT translated_package_synopsis.synopsis, translated_package_synopsis.locale,
+  translated_package_descriptions.description, translated_package_descriptions.locale,
   package_metadata.home_page,
   locations.file, locations.line, locations.column_number,
   (SELECT JSON_AGG((license_data.*))
@@ -125,7 +126,8 @@ INNER JOIN packages
 LEFT OUTER JOIN locations
   ON package_metadata.location_id = locations.id
 INNER JOIN (
-  SELECT DISTINCT ON (package_description_sets.id) package_description_sets.id, package_descriptions.description
+  SELECT DISTINCT ON (package_description_sets.id) package_description_sets.id,
+           package_descriptions.description, package_descriptions.locale
   FROM package_descriptions
   INNER JOIN package_description_sets
     ON package_descriptions.id = ANY (package_description_sets.description_ids)
@@ -143,7 +145,8 @@ INNER JOIN (
 ) AS translated_package_descriptions
   ON package_metadata.package_description_set_id = translated_package_descriptions.id
 INNER JOIN (
-  SELECT DISTINCT ON (package_synopsis_sets.id) package_synopsis_sets.id, package_synopsis.synopsis
+  SELECT DISTINCT ON (package_synopsis_sets.id) package_synopsis_sets.id,
+           package_synopsis.synopsis, package_synopsis.locale
   FROM package_synopsis
   INNER JOIN package_synopsis_sets
     ON package_synopsis.id = ANY (package_synopsis_sets.synopsis_ids)
@@ -175,9 +178,9 @@ WHERE packages.id IN (
 
   (map
    (match-lambda
-     ((synopsis description home-page file line column-number
+     ((synopsis synopsis-locale description description-locale home-page file line column-number
                 license-json)
-      (list synopsis description home-page file line column-number
+      (list synopsis synopsis-locale description description-locale home-page file line column-number
             (if (string-null? license-json)
                 #()
                 (json-string->scm license-json)))))
