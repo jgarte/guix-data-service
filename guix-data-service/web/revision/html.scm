@@ -688,7 +688,8 @@
                     (td (@ (class "text-right"))
                         (a (@ (href ,(string-append
                                       (string-drop-right path-base 1)
-                                      "/" name "/" version)))
+                                      "/" name "/" version
+                                      "?locale=" (assoc-ref query-parameters 'locale))))
                            "More information")))))
                packages))))))
       ,@(if show-next-page?
@@ -1939,7 +1940,8 @@ figure {
                                       (string-join
                                        (drop-right (string-split path-base #\/) 1)
                                        "/")
-                                      "/package/" package-name "/" package-version)))
+                                      "/package/" package-name "/" package-version
+                                      "?locale="  (assq-ref query-parameters 'locale))))
                            ,package-name " @ " ,package-version))
                     ,@(if (member "linter" fields)
                           `((td (span (@ (style "font-family: monospace; display: block;"))
