@@ -568,6 +568,7 @@
              (limit-results (or (assq-ref query-parameters 'limit_results)
                                 99999)) ; TODO There shouldn't be a limit
              (fields (assq-ref query-parameters 'field))
+             (locale (assq-ref query-parameters 'locale))
              (packages
               (if search-query
                   (search-packages-in-revision
@@ -587,7 +588,9 @@
              (show-next-page?
               (and (not search-query)
                    (>= (length packages)
-                       limit-results))))
+                       limit-results)))
+             (any-translations? (any-package-synopsis-or-descriptions-translations?
+                                packages locale)))
         (case (most-appropriate-mime-type
                '(application/json text/html)
                mime-types)
@@ -638,6 +641,7 @@
                                            git-repositories
                                            show-next-page?
                                            description-and-synopsis-locale-options
+                                           any-translations?
                                            #:path-base path-base
                                            #:header-text header-text
                                            #:header-link header-link)

@@ -32,7 +32,9 @@
             select-package-versions-for-revision
             package-versions-for-branch
             package-derivations-for-branch
-            package-outputs-for-branch))
+            package-outputs-for-branch
+
+            any-package-synopsis-or-descriptions-translations?))
 
 (define (select-existing-package-entries package-entries)
   (string-append "SELECT id, packages.name, packages.version, "
@@ -530,3 +532,11 @@ ORDER BY first_datetime DESC, package_version DESC")
               output-name
               system
               target))))
+
+(define (any-package-synopsis-or-descriptions-translations? packages locale)
+  (any
+   (match-lambda
+     ((name version synopsis synopsis-locale description description-locale _ _ _ _ _)
+      (or (string=? synopsis-locale locale)
+          (string=? description-locale locale))))
+   packages))

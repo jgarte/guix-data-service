@@ -532,6 +532,7 @@
                                  git-repositories
                                  show-next-page?
                                  locale-options
+                                 any-translations-available?
                                  #:key path-base
                                  header-text header-link)
   (define field-options
@@ -571,7 +572,10 @@
             #:options locale-options
             #:allow-selecting-multiple-options #f
             #:help-text
-            "Language.")
+            (if any-translations-available?
+                "Language."
+                '((span (@ (class "text-danger"))
+                       "No translations available in this page."))))
           ,(form-horizontal-control
             "Search query" query-parameters
             #:help-text
@@ -632,7 +636,7 @@
           ,@(let ((fields (assq-ref query-parameters 'field)))
               (map
                (match-lambda
-                 ((name version synopsis _ description _ home-page
+                 ((name version synopsis synopsis-locale description description-locale home-page
                         location-file location-line
                         location-column-number licenses)
                   `(tr
@@ -641,10 +645,20 @@
                           `((td ,version))
                           '())
                     ,(if (member "synopsis" fields)
-                         `((td ,(stexi->shtml (texi-fragment->stexi synopsis))))
+                         `((td ,(stexi->shtml (texi-fragment->stexi synopsis))
+                               ,(if (string=? synopsis-locale
+                                              (assq-ref query-parameters 'locale))
+                                    ""
+                                    '((span (@ (class "text-danger"))
+                                            "No translation available for synopsis.")))))
                          '())
                     ,(if (member "description" fields)
-                         `((td ,(stexi->shtml (texi-fragment->stexi description))))
+                         `((td ,(stexi->shtml (texi-fragment->stexi description))
+                               ,(if (string=? description-locale
+                                              (assq-ref query-parameters 'locale))
+                                    ""
+                                    '((span (@ (class "text-danger"))
+                                            "No translation available for description.")))))
                          '())
                     ,(if (member "home-page" fields)
                          `((td ,home-page))
