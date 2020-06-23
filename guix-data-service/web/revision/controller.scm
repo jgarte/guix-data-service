@@ -575,7 +575,8 @@
                    conn
                    commit-hash
                    search-query
-                   #:limit-results limit-results)
+                   #:limit-results limit-results
+                   #:locale locale)
                   (select-packages-in-revision
                    conn
                    commit-hash

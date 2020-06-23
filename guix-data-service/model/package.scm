@@ -138,7 +138,9 @@ WHERE data.name IN (SELECT name FROM package_names);"))
 
 (define* (search-packages-in-revision conn commit-hash
                                       search-query
-                                      #:key limit-results)
+                                      #:key
+                                      limit-results
+                                      locale)
   (define query
     (string-append
      "
@@ -171,7 +173,7 @@ INNER JOIN (
   INNER JOIN package_synopsis
     ON package_synopsis.id = ANY (package_synopsis_sets.synopsis_ids)
   ORDER BY package_synopsis_sets.id,
-           CASE WHEN package_synopsis.locale = $2 THEN 2
+           CASE WHEN package_synopsis.locale = $3 THEN 2
                 WHEN package_synopsis.locale = 'en_US.utf8' THEN 1
                 ELSE 0
            END DESC
@@ -184,7 +186,7 @@ INNER JOIN (
   INNER JOIN package_descriptions
     ON package_descriptions.id = ANY (package_description_sets.description_ids)
   ORDER BY package_description_sets.id,
-           CASE WHEN package_descriptions.locale = $2 THEN 2
+           CASE WHEN package_descriptions.locale = $3 THEN 2
                 WHEN package_descriptions.locale = 'en_US.utf8' THEN 1
                 ELSE 0
            END DESC
@@ -222,7 +224,7 @@ ORDER BY (
          "")))
 
   (exec-query conn query
-              (list commit-hash search-query)))
+              (list commit-hash search-query locale)))
 
 (define (count-packages-in-revision conn commit-hash)
   (define query
