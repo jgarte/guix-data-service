@@ -1083,14 +1083,20 @@
                . ,(list->vector
                    (map (match-lambda
                           ((id lint-checker-name lint-checker-description
+                               lint-checker-description-locale
                                lint-checker-network-dependent
                                package-name package-version
                                file line-number column-number
-                               message)
+                               message message-locale)
                            `((package . ((name    . ,package-name)
                                          (version . ,package-version)))
                              ,@(if (member "message" fields)
-                                   `((message . ,message))
+                                   `((message . ,message)
+                                     (message-locale . ,message-locale))
+                                   '())
+                             ,@(if (member "linter" fields)
+                                   `((lint-checker-description . ,lint-checker-description)
+                                     (lint-checker-description-locale . ,lint-checker-description-locale))
                                    '())
                              ,@(if (member "location" fields)
                                    `((location . ((file          . ,file)

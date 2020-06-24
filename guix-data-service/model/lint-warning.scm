@@ -63,15 +63,16 @@
     (string-append "
 SELECT DISTINCT ON (lint_warnings.id) lint_warnings.id,
             lint_checkers.name, translated_lint_checker_descriptions.description,
-            lint_checkers.network_dependent, packages.name, packages.version,
+            translated_lint_checker_descriptions.locale, lint_checkers.network_dependent,
+            packages.name, packages.version,
             locations.file, locations.line, locations.column_number,
-            lint_warning_messages.message
+            lint_warning_messages.message, lint_warning_messages.locale
 FROM lint_warnings
 INNER JOIN lint_checkers
   ON lint_warnings.lint_checker_id = lint_checkers.id
 INNER JOIN (
   SELECT DISTINCT ON (lint_checkers.id) lint_checkers.id AS lint_checker_id,
-              lint_checker_descriptions.description
+              lint_checker_descriptions.description, lint_checker_descriptions.locale
   FROM guix_revision_lint_checkers
   INNER JOIN guix_revisions
     ON guix_revision_lint_checkers.guix_revision_id = guix_revisions.id

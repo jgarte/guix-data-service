@@ -1945,10 +1945,10 @@ figure {
           ,@(let ((fields (assq-ref query-parameters 'field)))
               (map
                (match-lambda
-                 ((id lint-checker-name lint-checker-description
+                 ((id lint-checker-name lint-checker-description lint-checker-description-locale
                       lint-checker-network-dependent
                       package-name package-version file line-number column-number
-                      message)
+                      message message-locale)
                   `(tr
                     (td (a (@ (href ,(string-append
                                       (string-join
