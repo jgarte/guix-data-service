@@ -16,12 +16,16 @@
 ;;; <http://www.gnu.org/licenses/>.
 
 (define-module (guix-data-service model lint-warning)
+  #:use-module (ice-9 match)
+  #:use-module (srfi srfi-1)
   #:use-module (squee)
   #:use-module (guix-data-service model utils)
   #:export (lint-warnings-data->lint-warning-ids
             insert-guix-revision-lint-warnings
             lint-warnings-for-guix-revision
-            select-lint-warnings-by-revision-package-name-and-version))
+            select-lint-warnings-by-revision-package-name-and-version
+
+            any-translated-lint-warnings?))
 
 (define (lint-warnings-data->lint-warning-ids
          conn
@@ -206,3 +210,13 @@ WHERE packages.id IN (
   (exec-query conn
               query
               (list commit-hash name version locale)))
+
+(define (any-translated-lint-warnings? lint-warnings-data locale)
+  (any
+   (match-lambda
+     ((lint-warnings-id lint-checker-name lint-checker-description
+                        description-locale network-dependent package-name
+                        packages-version file line column message message-locale)
+      (or (string=? description-locale locale)
+          (string=? message-locale locale))))
+   lint-warnings-data))

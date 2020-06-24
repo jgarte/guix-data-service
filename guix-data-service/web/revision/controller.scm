@@ -1071,7 +1071,9 @@
                                                #:locale locale
                                                #:package-query package-query
                                                #:linters linters
-                                               #:message-query message-query)))
+                                               #:message-query message-query))
+             (any-translated-lint-warnings?
+              (any-translated-lint-warnings? lint-warnings locale)))
         (case (most-appropriate-mime-type
                '(application/json text/html)
                mime-types)
@@ -1113,6 +1115,7 @@
                                                 git-repositories
                                                 lint-checker-options
                                                 lint-warnings-locale-options
+                                                any-translated-lint-warnings?
                                                 #:path-base path-base
                                                 #:header-text header-text
                                                 #:header-link header-link)

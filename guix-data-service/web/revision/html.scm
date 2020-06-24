@@ -1848,6 +1848,7 @@ figure {
                                       git-repositories
                                       lint-checker-options
                                       lint-warnings-locale-options
+                                      any-translated-lint-warnings?
                                       #:key path-base
                                       header-text header-link)
   (define field-options
@@ -1886,7 +1887,10 @@ figure {
             #:options lint-warnings-locale-options
             #:allow-selecting-multiple-options #f
             #:help-text
-            "Language")
+            (if any-translated-lint-warnings?
+            "Language"
+            '((span (@ (class "text-danger"))
+                    "No translations available in this page"))))
           ,(form-horizontal-control
             "Package query" query-parameters
             #:help-text
@@ -1961,10 +1965,22 @@ figure {
                           `((td (span (@ (style "font-family: monospace; display: block;"))
                                       ,lint-checker-name)
                                 (p (@ (style "font-size: small; margin: 6px 0 0px;"))
-                                   ,lint-checker-description)))
+                                   ,lint-checker-description)
+                                ,(if (string=? lint-checker-description-locale
+                                              (assq-ref query-parameters 'locale))
+                                    ""
+                                    '((span (@ (class "text-danger")
+                                               (style "font-size: small; display: block;"))
+                                           "No translation available for lint checker description.")))))
                           '())
                     ,@(if (member "message" fields)
-                          `((td ,message))
+                          `((td ,message
+                                ,(if (string=? message-locale
+                                               (assq-ref query-parameters 'locale))
+                                     ""
+                                     '((span (@ (class "text-danger")
+                                                (style "font-size: small; display: block;"))
+                                             "\nNo translation available for lint warning message.")))))
                           '())
                     ,@(if (member "location" fields)
                           `((td
