@@ -147,6 +147,15 @@
          (render-unknown-revision mime-types
                                   conn
                                   commit-hash)))
+    (('GET "revision" commit-hash "packages-translation-availability")
+     (if (guix-commit-exists? conn commit-hash)
+         (render-revision-packages-translation-availability mime-types
+                                                            conn
+                                                            commit-hash
+                                                            #:path-base path)
+         (render-unknown-revision mime-types
+                                  conn
+                                  commit-hash)))
     (('GET "revision" commit-hash "package" name)
      (if (guix-commit-exists? conn commit-hash)
          (render-revision-package mime-types
@@ -647,6 +656,41 @@
                                            #:header-text header-text
                                            #:header-link header-link)
             #:extra-headers http-headers-for-unchanging-content))))))
+
+(define* (render-revision-packages-translation-availability mime-types
+                                                            conn
+                                                            commit-hash
+                                                            #:key
+                                                            path-base
+                                                            (header-link
+                                                             (string-append
+                                                              "/revision/" commit-hash))
+                                                            (header-text
+                                                             `("Revision " (samp ,commit-hash))))
+  (let ((package-synopsis-counts
+         (synopsis-counts-by-locale conn
+                                    (commit->revision-id conn
+                                                         commit-hash)))
+        (package-description-counts
+         (description-counts-by-locale conn
+                                       (commit->revision-id conn
+                                                            commit-hash))))
+    (case (most-appropriate-mime-type
+           '(application/json text/html)
+           mime-types)
+      ((application/json)
+       (render-json
+        `((package-synopsis-counts . ,package-synopsis-counts)
+          (package-description-counts . ,package-description-counts))))
+      (else
+       (render-html
+        #:sxml
+        (view-revision-packages-translation-availability commit-hash
+                                                         package-synopsis-counts
+                                                         package-description-counts
+                                                         #:path-base path-base
+                                                         #:header-link header-link
+                                                         #:header-text header-text))))))
 
 (define* (render-revision-package mime-types
                                   conn

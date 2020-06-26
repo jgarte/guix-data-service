@@ -34,6 +34,7 @@
             view-revision-package-and-version
             view-revision
             view-revision-packages
+            view-revision-packages-translation-availability
             view-revision-package-derivations
             view-revision-package-derivation-outputs
             view-revision-system-tests
@@ -716,6 +717,114 @@
                                        (car (last packages)))))
                   "Next page")))
             '())))))
+
+(define* (view-revision-packages-translation-availability commit-hash
+                                                         package-synopsis-counts
+                                                         package-description-counts
+                                                         #:key
+                                                         path-base header-link
+                                                         header-text)
+  (define total-package-synopsis
+    (assoc-ref package-synopsis-counts "en_US.utf8"))
+
+  (define total-package-descriptions
+    (assoc-ref package-description-counts "en_US.utf8"))
+
+  (assoc-remove! package-synopsis-counts "en_US.utf8")
+  (assoc-remove! package-description-counts "en_US.utf8")
+
+  (define synopsis-percentages
+    (map
+     (match-lambda
+       ((locale . count)
+        (exact->inexact
+         (* 100 (/ (or count
+                       0)
+                   total-package-synopsis)))))
+     package-synopsis-counts))
+
+  (define description-percentages
+    (map
+     (match-lambda
+       ((locale . count)
+        (exact->inexact
+         (* 100 (/ (or count
+                       0)
+                   total-package-descriptions)))))
+     package-description-counts))
+
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h3 (a (@ (style "white-space: nowrap;")
+                  (href ,header-link))
+               ,@header-text)))
+       (div
+        (@ (class "col-sm-12"))
+        (a (@ (class "btn btn-default btn-lg pull-right")
+              (href ,(string-append path-base ".json")))
+           "View JSON")))
+      (div (@ (class "row"))
+           (div (@ (class "col-sm-6"))
+            (table (@ (class "table"))
+                   (thead
+                    (tr
+                     (th (@ (scope "col")) "Locale")
+                     (th (@ (scope "col")) "Translated Package Synopsis")))
+                   (tbody
+                    ,@(map
+                       (lambda (synopsis-locale synopsis-percentage)
+                         `(tr
+                           (th (@ (scope "row")) ,synopsis-locale)
+                           (td
+                            ,(simple-format #f "~~~A%" (inexact->exact
+                                                        (round synopsis-percentage)))
+                            (div (@ (class "progress"))
+                                 (div (@ (class "progress-bar")
+                                         (role "progressbar")
+                                         (aria-valuenow ,synopsis-percentage)
+                                         (aria-valuemin "0")
+                                         (aria-valuemax "100")
+                                         (style ,(string-append
+                                                  "width: "
+                                                  (number->string
+                                                   synopsis-percentage)
+                                                  "%;"))))))))
+                       (map car package-synopsis-counts)
+                       synopsis-percentages))))
+           (div (@ (class "col-sm-6"))
+            (table (@ (class "table"))
+                   (thead
+                    (tr
+                     (th (@ (scope "col")) "Locale")
+                     (th (@ (scope "col")) "Translated Package Descriptions")))
+                   (tbody
+                    ,@(map
+                       (lambda (description-locale description-percentage)
+                         `(tr
+                           (th (@ (scope "row")) ,description-locale)
+                           (td
+                            ,(simple-format #f "~~~A%" (inexact->exact
+                                                        (round description-percentage)))
+                            (div (@ (class "progress"))
+                                 (div (@ (class "progress-bar")
+                                         (role "progressbar")
+                                         (aria-valuenow ,description-percentage)
+                                         (aria-valuemin "0")
+                                         (aria-valuemax "100")
+                                         (style ,(string-append
+                                                  "width: "
+                                                  (number->string
+                                                   description-percentage)
+                                                  "%;"))))))))
+                       (map car package-description-counts)
+                       description-percentages)))))))))
 
 (define* (view-revision-system-tests commit-hash
                                      system-tests

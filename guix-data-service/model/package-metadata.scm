@@ -34,7 +34,10 @@
             inferior-packages->package-metadata-ids
             inferior-packages->translated-package-descriptions-and-synopsis
 
-            package-description-and-synopsis-locale-options-guix-revision))
+            package-description-and-synopsis-locale-options-guix-revision
+
+            synopsis-counts-by-locale
+            description-counts-by-locale))
 
 (define locales
   '("cs_CZ.utf8"
@@ -434,3 +437,59 @@ WHERE packages.id IN (
       ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
     WHERE guix_revision_package_derivations.revision_id = $1"
    (list revision-id)))
+
+(define (synopsis-counts-by-locale conn revision-id)
+  (define synopsis-counts
+    "
+SELECT package_synopsis.locale, COUNT(package_synopsis.synopsis)  AS translated_synopsis
+FROM package_synopsis_sets
+INNER JOIN package_synopsis
+  ON package_synopsis.id = ANY (package_synopsis_sets.synopsis_ids)
+WHERE package_synopsis_sets.id IN (
+  SELECT package_metadata.package_synopsis_set_id
+  FROM packages
+  INNER JOIN package_derivations
+    ON packages.id = package_derivations.package_id
+  INNER JOIN guix_revision_package_derivations
+    ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+  INNER JOIN guix_revisions
+    ON guix_revision_package_derivations.revision_id = guix_revisions.id
+  INNER JOIN package_metadata
+    ON package_metadata.id = packages.package_metadata_id
+   WHERE guix_revisions.id = $1)
+GROUP BY package_synopsis.locale;
+")
+  (map
+   (match-lambda
+     ((locale synopsis-counts)
+      `(,locale . ,(string->number synopsis-counts))))
+   (exec-query conn synopsis-counts
+               (list revision-id))))
+
+(define (description-counts-by-locale conn revision-id)
+  (define description-counts
+    "
+SELECT package_descriptions.locale, COUNT(package_descriptions.description)  AS translated_description
+FROM package_description_sets
+INNER JOIN package_descriptions
+  ON package_descriptions.id = ANY (package_description_sets.description_ids)
+ WHERE package_description_sets.id IN (
+  SELECT package_metadata.package_description_set_id
+  FROM packages
+  INNER JOIN package_derivations
+    ON packages.id = package_derivations.package_id
+  INNER JOIN guix_revision_package_derivations
+    ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+  INNER JOIN guix_revisions
+    ON guix_revision_package_derivations.revision_id = guix_revisions.id
+  INNER JOIN package_metadata
+    ON package_metadata.id = packages.package_metadata_id
+   WHERE guix_revisions.id = $1)
+GROUP BY package_descriptions.locale;
+")
+  (map
+   (match-lambda
+     ((locale description-counts)
+      `(,locale . ,(string->number description-counts))))
+   (exec-query conn description-counts
+               (list revision-id))))
