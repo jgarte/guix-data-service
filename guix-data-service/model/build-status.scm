@@ -75,9 +75,11 @@ VALUES "
                "("
                (number->string build-id)
                ","
-               (string-append "to_timestamp("
-                              (number->string timestamp)
-                              ")")
+               (if timestamp
+                   (string-append "to_timestamp("
+                                  (number->string timestamp)
+                                  ")")
+                   "NULL")
                ","
                (quote-string status)
                ")")))

@@ -61,3 +61,4 @@ build_servers_lookup_builds 2020-05-24T15:18:09Z Christopher Baines <mail@cbaine
 make_nar_urls_file_size_optional 2020-06-03T05:27:29Z Christopher Baines <mail@cbaines.net> # Make the nar_urls.file_size optional
 translations_for_lint_checker_descriptions 2020-05-22T19:49:37Z daniela <daniela@linux-ijv5> # Support translations for lint checker descriptions
 translations_for_package_synopsis_and_descriptions 2020-06-09T12:42:54Z daniela <daniela@linux-ijv5> # Support translations for package synopsis and descriptions
+build_status_nullable_timestamp 2020-06-27T12:34:29Z Christopher Baines <mail@cbaines.net> # Make build_status.timestamp nullable
