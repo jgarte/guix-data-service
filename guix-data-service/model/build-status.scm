@@ -52,21 +52,10 @@ WHERE builds.build_server_id = $1 AND
                                (number->string build-id))))
 
 (define (insert-build-status conn build-id timestamp status)
-  (define query
-    (string-append
-     "
-INSERT INTO build_status (build_id, timestamp, status)
-VALUES ("
-     (number->string build-id)
-     ", "
-     (string-append "to_timestamp("
-                    (number->string timestamp)
-                    ")")
-     ", "
-     (quote-string status)
-     ")"))
-
-  (exec-query conn query '()))
+  (insert-build-statuses
+   conn
+   (list build-id)
+   `((,timestamp ,status))))
 
 (define (insert-build-statuses conn build-ids data)
   (define query
