@@ -27,9 +27,6 @@
 (define (view-build query-parameters
                     build
                     required-failed-builds)
-  (define derivation
-    (assq-ref query-parameters 'derivation_file_name))
-
   (layout
    #:body
    `(,(header)
@@ -43,13 +40,13 @@
       (div
        (@ (class "row"))
        ,@(match build
-           ((url statuses)
+           ((url derivation-file-name statuses)
             `((div
                (@ (class "col-sm-6"))
                (dl
                 (@ (class "dl-horizontal"))
                 (dt "Derivation")
-                (dd ,(display-possible-store-item derivation))
+                (dd ,(display-possible-store-item derivation-file-name))
                 (dt "Build server URL")
                 (dd (a (@ (href ,url))
                        ,url))))
@@ -65,7 +62,10 @@
                 (tbody
                  ,@(map (lambda (status)
                           `(tr
-                            (td ,(assoc-ref status "timestamp"))
+                            (td ,(let ((timestamp (assoc-ref status "timestamp")))
+                                   (if (eq? timestamp 'null)
+                                       "(unknown)"
+                                       timestamp)))
                             (td ,(build-status-span
                                   (assoc-ref status "status")))))
                         (vector->list statuses)))))))))

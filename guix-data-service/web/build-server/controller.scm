@@ -53,18 +53,25 @@
                              #f))))
       (let* ((derivation-file-name
               (assq-ref query-parameters 'derivation_file_name))
+             (build-server-build-id
+              (assq-ref query-parameters 'build_server_build_id))
              (build
-              (select-build-by-build-server-and-derivation-file-name
-               conn
-               build-server-id
-               derivation-file-name)))
+              (if build-server-build-id
+                  (select-build-by-build-server-and-build-server-build-id
+                   conn
+                   build-server-id
+                   build-server-build-id)
+                  (select-build-by-build-server-and-derivation-file-name
+                   conn
+                   build-server-id
+                   derivation-file-name))))
         (if build
             (render-html
              #:sxml
              (view-build query-parameters
                          build
                          (if (string=?
-                              (assoc-ref (last (vector->list (second build)))
+                              (assoc-ref (last (vector->list (third build)))
                                          "status")
                               "failed-dependency")
                              (select-required-builds-that-failed
@@ -105,6 +112,9 @@
                             build-server-id
                             (map (lambda (item)
                                    (assoc-ref item "derivation"))
+                                 items)
+                            (map (lambda (item)
+                                   (assoc-ref item "build_id"))
                                  items))))
         (insert-build-statuses
          conn
@@ -212,7 +222,8 @@
      (let ((parsed-query-parameters
             (parse-query-parameters
              request
-             `((derivation_file_name ,identity #:required)))))
+             `((derivation_file_name  ,identity)
+               (build_server_build_id ,identity)))))
        (render-build mime-types
                      conn
                      (string->number build-server-id)

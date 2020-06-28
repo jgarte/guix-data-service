@@ -631,15 +631,24 @@ time."
                  ,(build-status-span "")))
               (map
                (match-lambda
-                 ((build-server-id build-server-url timestamp status)
+                 ((build-server-id build-server-url
+                                   build-server-build-id
+                                   timestamp status)
+                  (define build-url
+                    (if (string? build-server-build-id)
+                        (simple-format
+                         #f "/build-server/~A/build?build_server_build_id=~A"
+                         build-server-id
+                         build-server-build-id)
+                        (simple-format
+                         #f "/build-server/~A/build?derivation_file_name=~A"
+                         build-server-id
+                         (second derivation))))
+
                   `(div
                     (@ (class "text-center"))
                     (div
-                     (a (@ (href
-                            ,(simple-format
-                              #f "/build-server/~A/build?derivation_file_name=~A"
-                              build-server-id
-                              (second derivation))))
+                     (a (@ (href ,build-url))
                         ,(build-status-span status)))
                     (a (@ (style "display: inline-block; margin-top: 0.4em;")
                           (href ,(simple-format

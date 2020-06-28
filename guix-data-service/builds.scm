@@ -284,6 +284,7 @@ WHERE derivation_output_details.path = $1"
                         conn
                         build-server-id
                         derivation
+                        #f
                         #:derivation-output-details-set-id
                         (match
                             (vhash-assoc
@@ -333,7 +334,8 @@ WHERE derivation_output_details.path = $1"
          (let ((build-id
                 (ensure-build-exists conn
                                      build-server-id
-                                     (assoc-ref data "derivation"))))
+                                     (assoc-ref data "derivation")
+                                     #f)))
            (insert-build-statuses-from-data
             conn
             build-server-id

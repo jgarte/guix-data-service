@@ -23,6 +23,7 @@
   #:export (select-build-stats
             select-builds-with-context
             select-builds-with-context-by-derivation-file-name
+            select-build-by-build-server-and-build-server-build-id
             select-build-by-build-server-and-derivation-file-name
             select-required-builds-that-failed
             update-builds-derivation-output-details-set-id
@@ -198,6 +199,7 @@ LIMIT 100"))
     "
 SELECT build_servers.id,
        build_servers.url,
+       builds.build_server_build_id,
        latest_build_status.timestamp,
        latest_build_status.status
 FROM builds
@@ -219,11 +221,50 @@ ORDER BY latest_build_status.timestamp DESC")
 
   (exec-query conn query (list derivation-file-name)))
 
+(define (select-build-by-build-server-and-build-server-build-id
+         conn build-server-id build-server-build-id)
+  (define query
+    "
+SELECT build_servers.url,
+       builds.derivation_file_name,
+       JSON_AGG(
+         json_build_object(
+           'timestamp', build_status.timestamp,
+           'status', build_status.status
+         )
+         ORDER BY build_status.timestamp
+       ) AS statuses
+FROM builds
+INNER JOIN build_servers
+  ON build_servers.id = builds.build_server_id
+INNER JOIN build_status
+  ON builds.id = build_status.build_id
+INNER JOIN derivations_by_output_details_set
+  ON builds.derivation_output_details_set_id =
+     derivations_by_output_details_set.derivation_output_details_set_id
+INNER JOIN derivations
+  ON derivations.id = derivations_by_output_details_set.derivation_id
+WHERE build_server_id = $1 AND
+      builds.build_server_build_id = $2
+GROUP BY build_servers.url, builds.derivation_file_name")
+
+  (match (exec-query conn
+                     query
+                     (list (number->string build-server-id)
+                           build-server-build-id))
+    (((build-server-url derivation-file-name statuses-json))
+     (list build-server-url
+           derivation-file-name
+           (json-string->scm statuses-json)))
+    (()
+     #f)))
+
 (define (select-build-by-build-server-and-derivation-file-name
          conn build-server-id derivation-file-name)
   (define query
     "
 SELECT build_servers.url,
+       builds.derivation_file_name,
        JSON_AGG(
          json_build_object(
            'timestamp', build_status.timestamp,
@@ -243,14 +284,17 @@ INNER JOIN derivations
   ON derivations.id = derivations_by_output_details_set.derivation_id
 WHERE build_server_id = $1 AND
       derivations.file_name = $2
-GROUP BY build_servers.url")
+GROUP BY build_servers.url, builds.derivation_file_name")
 
   (match (exec-query conn
                      query
                      (list (number->string build-server-id)
                            derivation-file-name))
-    (((build-server-url statuses-json))
+    (((build-server-url derivation-file-name statuses-json))
+     ;; Returning the derivation-file-name is for consistency with
+     ;; select-build-by-build-server-and-build-server-build-id
      (list build-server-url
+           derivation-file-name
            (json-string->scm statuses-json)))
     (()
      #f)))
@@ -310,6 +354,23 @@ WHERE build_server_id = $1 AND derivation_file_name = $2")
     (_
      #f)))
 
+(define (select-build-id-by-build-server-and-build-server-build-id
+         conn build-server-id build-server-build-id)
+  (define query
+    "
+SELECT id
+FROM builds
+WHERE build_server_id = $1 AND build_server_build_id = $2")
+
+  (match (exec-query conn
+                     query
+                     (list (number->string build-server-id)
+                           build-server-build-id))
+    (((id))
+     (string->number id))
+    (_
+     #f)))
+
 (define (update-builds-derivation-output-details-set-id conn derivation-file-names)
   (exec-query
    conn
@@ -344,16 +405,21 @@ WHERE derivations.file_name = $1"
     (_
      #f)))
 
-(define (insert-builds conn build-server-id derivation-file-names)
+(define (insert-builds conn build-server-id derivation-file-names
+                       build-server-build-ids)
   (let ((build-ids
          (insert-missing-data-and-return-all-ids
           conn
           "builds"
-          '(build_server_id derivation_file_name)
-          (map (lambda (derivation-file-name)
+          '(build_server_id derivation_file_name build_server_build_id)
+          (map (lambda (derivation-file-name build-server-build-id)
                  (list build-server-id
-                       derivation-file-name))
-               derivation-file-names)
+                       derivation-file-name
+                       (if (string? build-server-build-id)
+                           build-server-build-id
+                           '())))
+               derivation-file-names
+               build-server-build-ids)
           #:delete-duplicates? #t)))
 
     (exec-query
@@ -375,13 +441,15 @@ UPDATE builds SET derivation_output_details_set_id = (
     build-ids))
 
 (define* (insert-build conn build-server-id derivation-file-name
+                       build-server-build-id
                        #:key derivation-output-details-set-id)
   (match (exec-query
           conn
           (string-append
            "
 INSERT INTO builds
-  (build_server_id, derivation_file_name, derivation_output_details_set_id)
+  (build_server_id, derivation_file_name, derivation_output_details_set_id,
+   build_server_build_id)
 VALUES ("
            (number->string build-server-id)
            ", "
@@ -396,6 +464,10 @@ VALUES ("
                derivation-file-name))
              number->string)
             "NULL")
+           ", "
+           (or (and=> build-server-build-id
+                      quote-string)
+               "NULL")
            ")
 RETURNING (id)"))
     (((id))
@@ -404,10 +476,14 @@ RETURNING (id)"))
 (define* (ensure-build-exists conn
                               build-server-id
                               derivation-file-name
+                              build-server-build-id
                               #:key derivation-output-details-set-id)
   (let ((existing-build-id
-         (select-build-id-by-build-server-and-derivation-file-name
-          conn build-server-id derivation-file-name)))
+         (if build-server-build-id
+             (select-build-id-by-build-server-and-build-server-build-id
+              conn build-server-id build-server-build-id)
+             (select-build-id-by-build-server-and-derivation-file-name
+              conn build-server-id derivation-file-name))))
 
     (if existing-build-id
         (begin
@@ -423,5 +499,6 @@ WHERE builds.id = $1 AND derivation_output_details_set_id IS NULL"
         (insert-build conn
                       build-server-id
                       derivation-file-name
+                      build-server-build-id
                       #:derivation-output-details-set-id
                       derivation-output-details-set-id))))
