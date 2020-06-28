@@ -30,12 +30,12 @@
                         build-server-id
                         token-seed)))
     (string-filter
+     ;; Remove the + / and = to make handling the value easier
+     char-set:letter+digit
      (base64-encode
       (bytevector-hash
        (string->utf8 source-string)
-       (hash-algorithm sha1)))
-     ;; Remove the + / and = to make handling the value easier
-     char-set:letter+digit)))
+       (hash-algorithm sha1))))))
 
 (define (compute-tokens-for-build-server conn secret-key-base build-server-id)
   (define query
