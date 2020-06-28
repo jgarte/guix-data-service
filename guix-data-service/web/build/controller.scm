@@ -77,7 +77,7 @@
          #:sxml (view-builds parsed-query-parameters
                              build-status-strings
                              (map (match-lambda
-                                    ((id url lookup-all-derivations)
+                                    ((id url lookup-all-derivations lookup-builds)
                                      (cons url id)))
                                   (select-build-servers conn))
                              (select-build-stats
