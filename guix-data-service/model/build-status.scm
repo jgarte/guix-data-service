@@ -85,6 +85,8 @@ VALUES "
                ")")))
            data
            build-ids)
-      ", ")))
+      ", ")
+     "
+ON CONFLICT DO NOTHING"))
 
   (exec-query conn query '()))
