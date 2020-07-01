@@ -365,7 +365,8 @@
                                                       first-guix-revision-commit
                                                       first-datetime
                                                       last-guix-revision-commit
-                                                      last-datetime)
+                                                      last-datetime
+                                                      builds)
                                      `((version . ,package-version)
                                        (derivation . ,derivation-file-name)
                                        (first_revision
@@ -373,7 +374,9 @@
                                            (datetime . ,first-datetime)))
                                        (last_revision
                                         . ((commit . ,last-guix-revision-commit)
-                                           (datetime . ,last-datetime))))))
+                                           (datetime . ,last-datetime)))
+                                       (builds
+                                        . ,(list->vector builds)))))
                                   package-derivations))))))
         (else
          (render-html
@@ -430,7 +433,8 @@
                                                       first-guix-revision-commit
                                                       first-datetime
                                                       last-guix-revision-commit
-                                                      last-datetime)
+                                                      last-datetime
+                                                      builds)
                                      `((version . ,package-version)
                                        (derivation . ,derivation-file-name)
                                        (first_revision
@@ -438,7 +442,9 @@
                                            (datetime . ,first-datetime)))
                                        (last_revision
                                         . ((commit . ,last-guix-revision-commit)
-                                           (datetime . ,last-datetime))))))
+                                           (datetime . ,last-datetime)))
+                                       (builds
+                                        . ,(list->vector builds)))))
                                   package-outputs))))))
         (else
          (render-html
