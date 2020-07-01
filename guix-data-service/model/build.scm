@@ -227,18 +227,20 @@ ORDER BY latest_build_status.timestamp DESC")
     "
 SELECT build_servers.url,
        builds.derivation_file_name,
-       JSON_AGG(
-         json_build_object(
-           'timestamp', build_status.timestamp,
-           'status', build_status.status
-         )
-         ORDER BY build_status.timestamp
+       (
+         SELECT JSON_AGG(
+                  json_build_object(
+                    'timestamp', build_status.timestamp,
+                    'status', build_status.status
+                  )
+                  ORDER BY build_status.timestamp
+                )
+         FROM build_status
+         WHERE build_status.build_id = builds.id
        ) AS statuses
 FROM builds
 INNER JOIN build_servers
   ON build_servers.id = builds.build_server_id
-INNER JOIN build_status
-  ON builds.id = build_status.build_id
 INNER JOIN derivations_by_output_details_set
   ON builds.derivation_output_details_set_id =
      derivations_by_output_details_set.derivation_output_details_set_id
@@ -246,7 +248,7 @@ INNER JOIN derivations
   ON derivations.id = derivations_by_output_details_set.derivation_id
 WHERE build_server_id = $1 AND
       builds.build_server_build_id = $2
-GROUP BY build_servers.url, builds.derivation_file_name")
+GROUP BY builds.id, build_servers.url, builds.derivation_file_name")
 
   (match (exec-query conn
                      query
@@ -265,18 +267,20 @@ GROUP BY build_servers.url, builds.derivation_file_name")
     "
 SELECT build_servers.url,
        builds.derivation_file_name,
-       JSON_AGG(
-         json_build_object(
-           'timestamp', build_status.timestamp,
-           'status', build_status.status
-         )
-         ORDER BY build_status.timestamp
+       (
+         SELECT JSON_AGG(
+                  json_build_object(
+                    'timestamp', build_status.timestamp,
+                    'status', build_status.status
+                  )
+                  ORDER BY build_status.timestamp
+                )
+         FROM build_status
+         WHERE build_status.build_id = builds.id
        ) AS statuses
 FROM builds
 INNER JOIN build_servers
   ON build_servers.id = builds.build_server_id
-INNER JOIN build_status
-  ON builds.id = build_status.build_id
 INNER JOIN derivations_by_output_details_set
   ON builds.derivation_output_details_set_id =
      derivations_by_output_details_set.derivation_output_details_set_id
@@ -284,7 +288,7 @@ INNER JOIN derivations
   ON derivations.id = derivations_by_output_details_set.derivation_id
 WHERE build_server_id = $1 AND
       derivations.file_name = $2
-GROUP BY build_servers.url, builds.derivation_file_name")
+GROUP BY builds.id, build_servers.url, builds.derivation_file_name")
 
   (match (exec-query conn
                      query
