@@ -64,3 +64,4 @@ translations_for_package_synopsis_and_descriptions 2020-06-09T12:42:54Z daniela 
 build_status_nullable_timestamp 2020-06-27T12:34:29Z Christopher Baines <mail@cbaines.net> # Make build_status.timestamp nullable
 build_add_build_server_build_id 2020-06-27T12:48:57Z Christopher Baines <mail@cbaines.net> # Add builds.build_server_build_id
 build_status_add_unique_index 2020-06-30T17:19:30Z Christopher Baines <mail@cbaines.net> # Add a unique index to the build_status table
+builds_remove_build_server_id_derivation_unique_constraint 2020-06-30T20:17:48Z Christopher Baines <mail@cbaines.net> # Allow multiple builds of the same derivation per build server
