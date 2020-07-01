@@ -19,6 +19,7 @@
   #:use-module (ice-9 match)
   #:use-module (squee)
   #:use-module (json)
+  #:use-module (guix-data-service database)
   #:use-module (guix-data-service model utils)
   #:export (select-build-stats
             select-builds-with-context
@@ -145,7 +146,8 @@ ORDER BY status"))
   (define query
     (string-append
      "
-SELECT builds.id, build_servers.url, derivations.file_name,
+SELECT builds.id, build_servers.url,
+       builds.build_server_build_id, derivations.file_name,
        latest_build_status.timestamp, latest_build_status.status
 FROM builds
 INNER JOIN build_servers ON build_servers.id = builds.build_server_id
@@ -181,17 +183,17 @@ ON latest_build_status.build_id = builds.id
 ORDER BY latest_build_status.timestamp DESC
 LIMIT 100"))
 
-  (exec-query conn
-              query
-              `(,@(if revision-commit
-                      (list revision-commit)
-                      '())
-                ,@(if system
-                      (list system)
-                      '())
-                ,@(if target
-                      (list target)
-                      '()))))
+  (exec-query-with-null-handling conn
+                                 query
+                                 `(,@(if revision-commit
+                                         (list revision-commit)
+                                         '())
+                                   ,@(if system
+                                         (list system)
+                                         '())
+                                   ,@(if target
+                                         (list target)
+                                         '()))))
 
 (define (select-builds-with-context-by-derivation-file-name
          conn derivation-file-name)

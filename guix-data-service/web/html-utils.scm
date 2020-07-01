@@ -25,6 +25,7 @@
 
             build-status-value->display-string
             build-status-span
+            build-url
             build-status-alist->build-icon))
 
 (define (sexp-div sexp)
@@ -66,6 +67,17 @@
      ("canceled" . "Canceled")
      ("" . "Unknown"))
    value))
+
+(define (build-url build-server-id build-server-build-id derivation-file-name)
+  (if (string? build-server-build-id)
+      (simple-format
+       #f "/build-server/~A/build?build_server_build_id=~A"
+       build-server-id
+       build-server-build-id)
+      (simple-format
+       #f "/build-server/~A/build?derivation_file_name=~A"
+       build-server-id
+       derivation-file-name)))
 
 (define (build-status-span status)
   `(span (@ (class ,(string-append

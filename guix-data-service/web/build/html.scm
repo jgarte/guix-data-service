@@ -103,14 +103,15 @@
          (tbody
           ,@(map
              (match-lambda
-               ((build-id build-server-url derivation-file-name
+               ((build-id build-server-url build-server-build-id
+                          derivation-file-name
                           timestamp status)
                 `(tr
                   (td (@ (class "text-center"))
                       (a (@ (href
-                             ,(simple-format
-                               #f "/build-server/~A/build?derivation_file_name=~A"
+                             ,(build-url
                                (assoc-ref build-server-options build-server-url)
+                               build-server-build-id
                                derivation-file-name)))
                          ,(build-status-span status)))
                   (td (a (@ (href ,derivation-file-name))
