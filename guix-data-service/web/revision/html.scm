@@ -1922,9 +1922,8 @@ figure {
          (thead
           (tr
            (th (@ (class "col-xs-2")) "Status")
-           (th (@ (class "col-xs-9")) "Derivation")
-           (th (@ (class "col-xs-1")) "Started at")
-           (th (@ (class "col-xs-1")) "Finished at")
+           (th (@ (class "col-xs-10")) "Derivation")
+           (th (@ (class "col-xs-1")) "Timestamp")
            (th (@ (class "col-xs-1")) "")))
          (tbody
           ,@(map
