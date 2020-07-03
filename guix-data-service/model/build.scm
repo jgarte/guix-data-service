@@ -119,7 +119,8 @@ ORDER BY status"))
 
 (define* (select-builds-with-context conn build-statuses build-server-ids
                                      #:key revision-commit
-                                     system target)
+                                     system target
+                                     limit)
   (define where-conditions
     (filter
      string?
@@ -180,8 +181,12 @@ ON latest_build_status.build_id = builds.id
                         "WHERE "
                         (string-join where-conditions " AND ")))
                    "
-ORDER BY latest_build_status.timestamp DESC
-LIMIT 100"))
+ORDER BY latest_build_status.timestamp DESC NULLS LAST, derivations.file_name
+"
+                   (if limit
+                       (string-append
+                        "LIMIT " (number->string limit))
+                       "")))
 
   (exec-query-with-null-handling conn
                                  query
