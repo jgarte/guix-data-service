@@ -282,12 +282,18 @@
     (('GET "revision" commit-hash "builds")
      (if (guix-commit-exists? conn commit-hash)
          (let ((parsed-query-parameters
-                (parse-query-parameters
-                 request
-                 `((build_status ,parse-build-status #:multi-value)
-                   (build_server ,(parse-build-server conn) #:multi-value)
-                   (system ,parse-system #:default "x86_64-linux")
-                   (target ,parse-target #:default "")))))
+                (guard-against-mutually-exclusive-query-parameters
+                 (parse-query-parameters
+                  request
+                  `((build_status ,parse-build-status #:multi-value)
+                    (build_server ,(parse-build-server conn) #:multi-value)
+                    (system ,parse-system #:default "x86_64-linux")
+                    (target ,parse-target #:default "")
+                    (limit_results         ,parse-result-limit
+                                           #:no-default-when (all_results)
+                                           #:default 50)
+                    (all_results           ,parse-checkbox-value)))
+                 '((limit_results all_results)))))
 
            (render-revision-builds mime-types
                                    conn
@@ -1057,7 +1063,9 @@
                                                  'build_server)
                                        #:revision-commit commit-hash
                                        #:system system
-                                       #:target target))))))
+                                       #:target target
+                                       #:limit (assq-ref query-parameters
+                                                         'limit_results)))))))
 
 (define* (render-revision-lint-warnings mime-types
                                         conn

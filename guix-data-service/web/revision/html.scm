@@ -1908,6 +1908,13 @@ figure {
             #:allow-selecting-multiple-options #f
             #:help-text "Only include derivations that are build for this system."
             #:font-family "monospace")
+          ,(form-horizontal-control
+            "Limit results" query-parameters
+            #:help-text "The maximum number of results to return.")
+          ,(form-horizontal-control
+            "All results" query-parameters
+            #:type "checkbox"
+            #:help-text "Return all results")
           (div (@ (class "form-group form-group-lg"))
                (div (@ (class "col-sm-offset-2 col-sm-10"))
                     (button (@ (type "submit")
@@ -1915,6 +1922,7 @@ figure {
                             "Update results")))))))
       (div
        (@ (class "row"))
+       (p "Showing " ,(length builds) " results")
        (div
         (@ (class "col-sm-12"))
         (table
