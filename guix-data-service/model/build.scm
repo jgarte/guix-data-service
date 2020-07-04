@@ -24,6 +24,7 @@
   #:export (select-build-stats
             select-builds-with-context
             select-builds-with-context-by-derivation-file-name
+            select-builds-with-context-by-derivation-output
             select-build-by-build-server-and-build-server-build-id
             select-build-by-build-server-and-derivation-file-name
             select-required-builds-that-failed
@@ -227,6 +228,35 @@ WHERE derivations.file_name = $1
 ORDER BY latest_build_status.timestamp DESC")
 
   (exec-query conn query (list derivation-file-name)))
+
+(define (select-builds-with-context-by-derivation-output conn output)
+  (define query
+    "
+SELECT build_servers.id,
+       build_servers.url,
+       builds.build_server_build_id,
+       builds.derivation_file_name,
+       latest_build_status.timestamp,
+       latest_build_status.status
+FROM builds
+INNER JOIN build_servers ON build_servers.id = builds.build_server_id
+INNER JOIN
+(
+  SELECT DISTINCT ON (build_id) *
+  FROM build_status
+  ORDER BY build_id, id DESC
+) AS latest_build_status
+  ON latest_build_status.build_id = builds.id
+INNER JOIN derivation_output_details_sets
+  ON builds.derivation_output_details_set_id =
+     derivation_output_details_sets.id
+INNER JOIN derivation_output_details
+  ON ARRAY[derivation_output_details.id] <@
+     derivation_output_details_sets.derivation_output_details_ids
+WHERE derivation_output_details.path = $1
+ORDER BY latest_build_status.timestamp DESC")
+
+  (exec-query-with-null-handling conn query (list output)))
 
 (define (select-build-by-build-server-and-build-server-build-id
          conn build-server-id build-server-build-id)

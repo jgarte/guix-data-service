@@ -175,7 +175,9 @@
                                            conn output-id))))
                                      derivations)
                                 (select-nars-for-output conn
-                                                        filename)))))))
+                                                        filename)
+                                (select-builds-with-context-by-derivation-output
+                                 conn filename)))))))
 
 (define handle-static-assets
   (if assets-dir-in-store?

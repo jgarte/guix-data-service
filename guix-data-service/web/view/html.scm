@@ -439,7 +439,8 @@ time."
 (define (view-store-item filename
                          derivations
                          derivations-using-store-item-list
-                         nars)
+                         nars
+                         builds)
   (layout
    #:body
    `(,(header)
@@ -495,6 +496,21 @@ time."
                           (dd ,(assoc-ref signature "host_name"))))
                       signatures)))))))
            nars)))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h2 "Builds")
+        ,@(map
+           (match-lambda
+             ((build-server-id build-server-url build-server-build-id
+                               derivation-file-name
+                               timestamp status)
+              `(a (@ (href ,(build-url build-server-id
+                                       build-server-build-id
+                                       derivation-file-name)))
+                  ,(build-status-span status))))
+           builds)))
       ,@(map (lambda (derivation derivations-using-store-item)
                `((div
                   (@ (class "row"))
