@@ -371,7 +371,17 @@ LEFT OUTER JOIN (
   ORDER BY build_id, id DESC
 ) AS latest_build_status
   ON builds.id = latest_build_status.build_id
-WHERE latest_build_status.status = 'failed'")
+WHERE latest_build_status.status = 'failed'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM builds AS successful_builds
+    INNER JOIN build_status AS successful_builds_build_status
+      ON successful_builds.id = successful_builds_build_status.build_id
+    WHERE successful_builds.derivation_output_details_set_id =
+          builds.derivation_output_details_set_id
+      AND successful_builds.build_server_id = $2
+      AND successful_builds_build_status.status = 'succeeded'
+  )")
 
   (exec-query conn
               query
