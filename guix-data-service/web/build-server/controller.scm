@@ -70,19 +70,21 @@
              #:sxml
              (view-build query-parameters
                          build
-                         (if (member
-                              (assoc-ref (last (vector->list (third build)))
-                                         "status")
-                              '("failed-dependency"
-                                "scheduled")) ; scheduled, because the
-                                              ; guix-build-coordinator doesn't
-                                              ; mark builds as
-                                              ; failed-dependency
-                             (select-required-builds-that-failed
-                              conn
-                              build-server-id
-                              derivation-file-name)
-                             #f)))
+                         (match build
+                           ((url derivation-file-name statuses)
+                            (if (member
+                                 (assoc-ref (last (vector->list statuses))
+                                            "status")
+                                 '("failed-dependency"
+                                   "scheduled")) ; scheduled, because the
+                                                 ; guix-build-coordinator
+                                                 ; doesn't mark builds as
+                                                 ; failed-dependency
+                                (select-required-builds-that-failed
+                                 conn
+                                 build-server-id
+                                 derivation-file-name)
+                                #f)))))
             (render-html
              #:sxml (general-not-found
                      "Build not found"
