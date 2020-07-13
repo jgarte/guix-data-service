@@ -70,10 +70,14 @@
              #:sxml
              (view-build query-parameters
                          build
-                         (if (string=?
+                         (if (member
                               (assoc-ref (last (vector->list (third build)))
                                          "status")
-                              "failed-dependency")
+                              '("failed-dependency"
+                                "scheduled")) ; scheduled, because the
+                                              ; guix-build-coordinator doesn't
+                                              ; mark builds as
+                                              ; failed-dependency
                              (select-required-builds-that-failed
                               conn
                               build-server-id
