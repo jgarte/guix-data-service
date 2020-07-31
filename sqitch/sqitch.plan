@@ -66,3 +66,4 @@ build_add_build_server_build_id 2020-06-27T12:48:57Z Christopher Baines <mail@cb
 build_status_add_unique_index 2020-06-30T17:19:30Z Christopher Baines <mail@cbaines.net> # Add a unique index to the build_status table
 builds_remove_build_server_id_derivation_unique_constraint 2020-06-30T20:17:48Z Christopher Baines <mail@cbaines.net> # Allow multiple builds of the same derivation per build server
 derivation_output_details_sets_derivation_output_details_ids_index 2020-07-04T07:56:49Z Christopher Baines <mail@cbaines.net> # Add GIN index on derivation_output_details_ids
+add-tsvectors-per-locale 2020-07-16T18:19:44Z daniela <daniela@linux-ijv5> # Add tsvectors per locale
