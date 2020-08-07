@@ -17,6 +17,7 @@
 
 (define-module (guix-data-service jobs load-new-guix-revision)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-11)
   #:use-module (ice-9 match)
   #:use-module (ice-9 threads)
   #:use-module (ice-9 textual-ports)
@@ -732,18 +733,23 @@ WHERE job_id = $1"
              conn
              (inferior-packages->license-id-lists
               conn
-              (inferior-packages->license-data inf packages)))))
-         (packages-metadata-ids
-          (with-time-logging "fetching inferior package metadata"
-            (inferior-packages->package-metadata-ids
-             conn inf packages package-license-set-ids))))
+              (inferior-packages->license-data inf packages))))))
+    (let*-values
+        (((all-package-metadata-ids new-package-metadata-ids)
+           (with-time-logging "fetching inferior package metadata"
+             (inferior-packages->package-metadata-ids
+              conn inf packages package-license-set-ids))))
 
-    (with-time-logging "getting package-ids"
-      (inferior-packages->package-ids
-       conn
-       (zip (map inferior-package-name packages)
-            (map inferior-package-version packages)
-            packages-metadata-ids)))))
+      (with-time-logging "fetching package metadata tsvector entries"
+        (insert-package-metadata-tsvector-entries
+         conn new-package-metadata-ids))
+
+      (with-time-logging "getting package-ids"
+        (inferior-packages->package-ids
+         conn
+         (zip (map inferior-package-name packages)
+              (map inferior-package-version packages)
+              all-package-metadata-ids))))))
 
 (define (insert-lint-warnings conn inferior-package-id->package-database-id
                               lint-checker-ids

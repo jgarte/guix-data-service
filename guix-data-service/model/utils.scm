@@ -365,28 +365,30 @@ WHERE table_name = $1"
                    (exec-query conn (insert-sql missing-entries)))))
          (new-entries-lookup-vhash
           (two-lists->vhash missing-entries
-                            new-entries)))
-
-    (if sets-of-data?
-        (map (lambda (field-value-lists)
-               ;; Normalise the result at this point, ensuring that the id's
-               ;; in the set are sorted
-               (sort
-                (map (lambda (field-values)
-                       (cdr
-                        (or (vhash-assoc (normalise-values field-values)
-                                         existing-entries)
-                            (vhash-assoc field-values
-                                         new-entries-lookup-vhash)
-                            (error "missing entry" field-values))))
-                     field-value-lists)
-                <))
-             data)
-        (map (lambda (field-values)
-               (cdr
-                (or (vhash-assoc (normalise-values field-values)
-                                 existing-entries)
-                    (vhash-assoc field-values
-                                 new-entries-lookup-vhash)
-                    (error "missing entry" field-values))))
-             data))))
+                            new-entries))
+         (all-ids
+          (if sets-of-data?
+              (map (lambda (field-value-lists)
+                     ;; Normalise the result at this point, ensuring that the id's
+                     ;; in the set are sorted
+                     (sort
+                      (map (lambda (field-values)
+                             (cdr
+                              (or (vhash-assoc (normalise-values field-values)
+                                               existing-entries)
+                                  (vhash-assoc field-values
+                                               new-entries-lookup-vhash)
+                                  (error "missing entry" field-values))))
+                           field-value-lists)
+                      <))
+                   data)
+              (map (lambda (field-values)
+                     (cdr
+                      (or (vhash-assoc (normalise-values field-values)
+                                       existing-entries)
+                          (vhash-assoc field-values
+                                       new-entries-lookup-vhash)
+                          (error "missing entry" field-values))))
+                   data))))
+    (values all-ids
+            new-entries)))
