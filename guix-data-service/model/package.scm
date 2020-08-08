@@ -143,79 +143,68 @@ WHERE data.name IN (SELECT name FROM package_names);"))
                                       locale)
   (define query
     (string-append
-     "
-SELECT packages.name,
-       packages.version,
-       translated_package_synopsis.synopsis,
-       translated_package_synopsis.locale,
-       translated_package_descriptions.description,
-       translated_package_descriptions.locale,
-       package_metadata.home_page,
-       locations.file, locations.line, locations.column_number,
-       (SELECT JSON_AGG((license_data.*))
-        FROM (
-          SELECT licenses.name, licenses.uri, licenses.comment
-          FROM licenses
-          INNER JOIN license_sets ON licenses.id = ANY(license_sets.license_ids)
-          WHERE license_sets.id = package_metadata.license_set_id
-          ORDER BY licenses.name
-        ) AS license_data
-       ) AS licenses
-FROM packages
-INNER JOIN package_metadata
-  ON packages.package_metadata_id = package_metadata.id
-LEFT OUTER JOIN locations
-  ON package_metadata.location_id = locations.id
-INNER JOIN (
-  SELECT DISTINCT ON (package_synopsis_sets.id) package_synopsis_sets.id,
-           package_synopsis.synopsis, package_synopsis.locale
-  FROM package_synopsis_sets
+"
+WITH search_results AS (
+  SELECT DISTINCT ON (packages.name) packages.name,
+         packages.version, package_synopsis.synopsis,
+         package_synopsis.locale AS synopsis_locale,
+         package_descriptions.description,
+         package_descriptions.locale AS description_locale,
+         package_metadata.home_page,
+         package_metadata_tsvectors.synopsis_and_description,
+         locations.file, locations.line, locations.column_number,
+         (SELECT JSON_AGG((license_data.*))
+          FROM (
+            SELECT licenses.name, licenses.uri, licenses.comment
+            FROM licenses
+            INNER JOIN license_sets ON licenses.id = ANY(license_sets.license_ids)
+            WHERE license_sets.id = package_metadata.license_set_id
+            ORDER BY licenses.name
+           ) AS license_data
+          ) AS licenses
+  FROM packages
+  INNER JOIN package_metadata
+    ON packages.package_metadata_id = package_metadata.id
+  LEFT OUTER JOIN locations
+    ON package_metadata.location_id = locations.id
+  INNER JOIN package_metadata_tsvectors
+    ON package_metadata_tsvectors.package_metadata_id = package_metadata.id
   INNER JOIN package_synopsis
-    ON package_synopsis.id = ANY (package_synopsis_sets.synopsis_ids)
-  ORDER BY package_synopsis_sets.id,
-           CASE WHEN package_synopsis.locale = $3 THEN 2
-                WHEN package_synopsis.locale = 'en_US.utf8' THEN 1
-                ELSE 0
-           END DESC
-) AS translated_package_synopsis
-    ON package_metadata.package_synopsis_set_id = translated_package_synopsis.id
-INNER JOIN (
-  SELECT DISTINCT ON (package_description_sets.id) package_description_sets.id,
-           package_descriptions.description, package_descriptions.locale
-  FROM package_description_sets
+    ON package_metadata_tsvectors.package_synopsis_id = package_synopsis.id
   INNER JOIN package_descriptions
-    ON package_descriptions.id = ANY (package_description_sets.description_ids)
-  ORDER BY package_description_sets.id,
-           CASE WHEN package_descriptions.locale = $3 THEN 2
-                WHEN package_descriptions.locale = 'en_US.utf8' THEN 1
-                ELSE 0
-           END DESC
-) AS translated_package_descriptions
-    ON package_metadata.package_description_set_id = translated_package_descriptions.id
-WHERE packages.id IN (
- SELECT package_derivations.package_id
- FROM package_derivations
- INNER JOIN guix_revision_package_derivations
-   ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
- INNER JOIN guix_revisions
-   ON guix_revision_package_derivations.revision_id = guix_revisions.id
- WHERE guix_revisions.commit = $1
+    ON package_metadata_tsvectors.package_description_id = package_descriptions.id
+  WHERE packages.id IN (
+    SELECT package_derivations.package_id
+    FROM package_derivations
+    INNER JOIN guix_revision_package_derivations
+      ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+    INNER JOIN guix_revisions
+      ON guix_revision_package_derivations.revision_id = guix_revisions.id
+    WHERE guix_revisions.commit = $1
+  )
+  AND package_metadata_tsvectors.synopsis_and_description @@ plainto_tsquery($2)
+  ORDER BY name,
+    CASE WHEN package_metadata_tsvectors.locale = 'en_US.utf8' THEN 2
+         WHEN package_metadata_tsvectors.locale = $3 THEN 1
+         ELSE 0
+    END DESC
 )
-AND to_tsvector(name || ' ' || synopsis) @@ plainto_tsquery($2)
+SELECT name, version, synopsis, synopsis_locale,
+       description, description_locale,
+       home_page, file, line, column_number, licenses
+FROM search_results
 ORDER BY (
            ts_rank_cd(
-             to_tsvector(name),
-             plainto_tsquery($2),
-             2 -- divide rank by the document length
+              setweight(to_tsvector(name), 'A'),
+              plainto_tsquery($2),
+              2 -- divide rank by the document length
+           ) +
+           ts_rank_cd(
+              synopsis_and_description,
+              plainto_tsquery($2),
+              32 -- divide the rank by itself + 1
            )
-           * 4 -- as the name is more important
-         ) +
-         ts_rank_cd(
-           to_tsvector(synopsis),
-           plainto_tsquery($2),
-           32 -- divide the rank by itself + 1
          ) DESC,
-          -- to make the order stable
          name,
          version
 "
