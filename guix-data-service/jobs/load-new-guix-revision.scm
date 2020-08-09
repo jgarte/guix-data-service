@@ -362,7 +362,7 @@ WHERE job_id = $1"
 
       #f)))
 
-(define (all-inferior-lint-warnings inf store)
+(define (all-inferior-lint-warnings inf store packages)
   (define locales
     '("cs_CZ.utf8"
       "da_DK.utf8"
@@ -435,17 +435,18 @@ WHERE job_id = $1"
           (match-lambda
             ((package-id . warnings)
              (not (null? warnings))))
-          (hash-map->list
-           (lambda (package-id package)
-             (cons
-              package-id
-              (map process-lint-warning
-                   (if (and lint-checker-requires-store?-defined?
-                            (lint-checker-requires-store? checker))
+          (map
+           (lambda (package-id)
+             (let ((package (hashv-ref %package-table package-id)))
+               (cons
+                package-id
+                (map process-lint-warning
+                     (if (and lint-checker-requires-store?-defined?
+                              (lint-checker-requires-store? checker))
 
-                       (check package #:store store)
-                       (check package)))))
-           %package-table)))))
+                         (check package #:store store)
+                         (check package))))))
+           (list ,@(map inferior-package-id packages)))))))
 
   (and
    (or (inferior-eval '(and (resolve-module '(guix lint) #:ensure #f)
@@ -1152,7 +1153,7 @@ WHERE job_id = $1"
                    (inferior-packages inf))))
                (inferior-lint-warnings
                 (with-time-logging "fetching inferior lint warnings"
-                  (all-inferior-lint-warnings inf store)))
+                  (all-inferior-lint-warnings inf store packages)))
                (inferior-data-4-tuples
                 (with-time-logging "getting inferior derivations"
                   (all-inferior-package-derivations store inf packages)))
