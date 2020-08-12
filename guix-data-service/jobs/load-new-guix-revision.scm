@@ -740,9 +740,10 @@ WHERE job_id = $1"
              (inferior-packages->package-metadata-ids
               conn inf packages package-license-set-ids))))
 
-      (with-time-logging "fetching package metadata tsvector entries"
-        (insert-package-metadata-tsvector-entries
-         conn new-package-metadata-ids))
+      (unless (null? new-package-metadata-ids)
+        (with-time-logging "fetching package metadata tsvector entries"
+          (insert-package-metadata-tsvector-entries
+           conn new-package-metadata-ids)))
 
       (with-time-logging "getting package-ids"
         (inferior-packages->package-ids
