@@ -552,13 +552,12 @@
                                     `("Revision " (samp ,commit-hash)))
                                    (header-link
                                     (string-append "/revision/" commit-hash)))
-  (define description-and-synopsis-locale-options
+  (define (description-and-synopsis-locale-options locale-data)
     (map
      (match-lambda
        ((locale)
         locale))
-     (package-description-and-synopsis-locale-options-guix-revision
-      conn (commit->revision-id conn commit-hash))))
+     locale-data))
 
   (if (any-invalid-query-parameters? query-parameters)
       (case (most-appropriate-mime-type
@@ -650,18 +649,23 @@
                         packages))))
             #:extra-headers http-headers-for-unchanging-content))
           (else
-           (render-html
-            #:sxml (view-revision-packages commit-hash
-                                           query-parameters
-                                           packages
-                                           git-repositories
-                                           show-next-page?
-                                           description-and-synopsis-locale-options
-                                           any-translations?
-                                           #:path-base path-base
-                                           #:header-text header-text
-                                           #:header-link header-link)
-            #:extra-headers http-headers-for-unchanging-content))))))
+           (let ((locale-options
+                  (description-and-synopsis-locale-options
+                   (package-description-and-synopsis-locale-options-guix-revision
+                    conn
+                    (commit->revision-id conn commit-hash)))))
+               (render-html
+                #:sxml (view-revision-packages commit-hash
+                                               query-parameters
+                                               packages
+                                               git-repositories
+                                               show-next-page?
+                                               locale-options
+                                               any-translations?
+                                               #:path-base path-base
+                                               #:header-text header-text
+                                               #:header-link header-link)
+                #:extra-headers http-headers-for-unchanging-content)))))))
 
 (define* (render-revision-packages-translation-availability mime-types
                                                             conn
