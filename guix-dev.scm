@@ -75,7 +75,7 @@
      ("guile-gcrypt" ,guile3.0-gcrypt)
      ("guile-lzlib" ,guile-lzlib)
      ("guile-readline" ,guile3.0-readline)
-     ("guile" ,guile-next)
+     ("guile" ,guile-3.0)
      ("sqitch" ,sqitch)))
   (native-inputs
    `(("autoconf" ,autoconf)
