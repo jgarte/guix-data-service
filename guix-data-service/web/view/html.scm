@@ -602,7 +602,11 @@ time."
               (a (@ (class "btn btn-lg btn-default")
                     (href ,(string-append file-name "/plain"))
                     (role "button"))
-                 "Plain view"))))))
+                 "Plain view")
+              (a (@ (class "btn btn-lg btn-default")
+                    (href ,(string-append file-name "/json"))
+                    (role "button"))
+                 "View JSON"))))))
       (div
        (@ (class "row"))
        (div

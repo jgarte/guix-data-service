@@ -106,6 +106,54 @@
                  "No derivation found with this file name.")
          #:code 404))))
 
+(define (render-json-derivation conn derivation-file-name)
+   (let ((derivation (select-derivation-by-file-name conn
+                                                    derivation-file-name)))
+     (if derivation
+        (let ((derivation-inputs (select-derivation-inputs-by-derivation-id
+                                  conn
+                                  (first derivation)))
+              (derivation-outputs (select-derivation-outputs-by-derivation-id
+                                   conn
+                                   (first derivation)))
+              (derivation-sources (select-derivation-sources-by-derivation-id
+                                   conn
+                                   (first derivation))))
+          (render-json
+           `((inputs . ,(list->vector
+                                    (map
+                                     (match-lambda
+                                       ((filename outputs)
+                                        `((filename . ,filename)
+                                          (out_name
+                                           . ,(list->vector
+                                               (map
+                                                (lambda (output)
+                                                  (assoc-ref output "output_name"))
+                                                (vector->list outputs)))))))
+                                     derivation-inputs)))
+             (outputs . ,(list->vector
+                                     (map
+                                      (match-lambda
+                                        ((output-name path hash-algorithm hash recursive?)
+                                         `((output-name . ,output-name)
+                                           (path . ,path)
+                                           (hash-algorithm . ,hash-algorithm)
+                                           (recursive? . ,recursive?))))
+                                      derivation-outputs)))
+             (sources . ,(list->vector derivation-sources))
+             ,@(match derivation
+                 ((_ _ builder args env-var system)
+                  `((system . ,system)
+                    (builder . ,builder)
+                    (arguments . ,(list->vector args))
+                    (environment-variables
+                     . ,(map (lambda (var)
+                               (cons (assq-ref var 'key)
+                                     (assq-ref var 'value)))
+                             env-var))))))))
+        (render-json '((error . "invalid path"))))))
+
 (define (render-formatted-derivation conn derivation-file-name)
   (let ((derivation (select-derivation-by-file-name conn
                                                     derivation-file-name)))
@@ -336,6 +384,11 @@
          (not-found (request-uri request))))
     (('GET "gnu" "store" filename "narinfos")
      (render-narinfos conn filename))
+    (('GET "gnu" "store" filename "json")
+     (if (string-suffix? ".drv" filename)
+         (render-json-derivation conn
+                                 (string-append "/gnu/store/" filename))
+         '()))
     (('GET "build-servers")
      (delegate-to-with-secret-key-base build-server-controller))
     (('GET "dumps" _ ...)
