@@ -73,6 +73,7 @@
      ("guile-squee" ,guile3.0-squee)
      ("guile-fibers" ,guile3.0-fibers)
      ("guile-gcrypt" ,guile3.0-gcrypt)
+     ("guile-lzlib" ,guile-lzlib)
      ("guile-readline" ,guile3.0-readline)
      ("guile" ,guile-next)
      ("sqitch" ,sqitch)))

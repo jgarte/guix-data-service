@@ -31,6 +31,11 @@ if test "x$have_email" != "xyes"; then
   AC_MSG_ERROR([Guile email is missing; please install it.])
 fi
 
+GUILE_MODULE_AVAILABLE([have_lzlib], [(lzlib)])
+if test "x$have_lzlib" != "xyes"; then
+  AC_MSG_ERROR([Guile-Lzlib is missing; please install it.])
+fi
+
 guilemoduledir="${datarootdir}/guile/site/${GUILE_EFFECTIVE_VERSION}"
 AC_SUBST([guilemoduledir])
 AC_SUBST([GUILE_EFFECTIVE_VERSION])

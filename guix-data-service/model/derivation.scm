@@ -27,7 +27,7 @@
   #:use-module (guix base16)
   #:use-module (guix base32)
   #:use-module (guix serialization)
-  #:use-module (guix lzlib)
+  #:use-module (lzlib)
   #:use-module (guix inferior)
   #:use-module (guix memoization)
   #:use-module (guix derivations)
