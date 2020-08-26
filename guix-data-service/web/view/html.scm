@@ -456,9 +456,16 @@ time."
        (div
         (@ (class "col-sm-12"))
         (h2 "Nars")
-        (a (@ (class "btn btn-default btn-lg pull-right")
-              (href ,(string-append filename "/narinfos")))
-           "View narinfo details")
+        (div
+         (@ (class "btn-group pull-right")
+            (role group))
+         (a (@ (class "btn btn-default btn-lg")
+               (href ,(string-append filename "/narinfos")))
+            "View narinfo details")
+         (a (@ (class "btn btn-lg btn-default")
+               (href ,(string-append filename "/json"))
+               (role "button"))
+            "View JSON"))
         ,@(map
            (match-lambda
              ((hash-algorithm hash size urls signatures)

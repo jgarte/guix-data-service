@@ -227,6 +227,59 @@
                                 (select-builds-with-context-by-derivation-output
                                  conn filename)))))))
 
+(define (render-json-store-item conn filename)
+  (let ((derivation (select-derivation-by-output-filename conn filename)))
+    (match derivation
+      (()
+       (match (select-derivation-source-file-by-store-path conn filename)
+         (()
+          (render-json '((error . "store item not found"))))
+         ((id)
+          (render-json
+           `((derivation-source-file
+              . ,(list->vector
+                  (map
+                   (match-lambda
+                     ((key . value)
+                      `((,key . ,value))))
+                   (select-derivation-source-file-nar-details-by-file-name
+                    conn
+                    filename)))))))))
+      (derivations
+       (render-json
+        `((nars . ,(list->vector
+                    (map
+                     (match-lambda
+                       ((_ hash _ urls signatures)
+                        `((hash . ,hash)
+                          (urls
+                           . ,(list->vector
+                               (map
+                                (lambda (url-data)
+                                  `((size . ,(assoc-ref url-data "size"))
+                                    (compression . ,(assoc-ref url-data "compression"))
+                                    (url . ,(assoc-ref url-data "url"))))
+                                urls)))
+                          (signatures
+                           . ,(list->vector
+                               (map
+                                (lambda (signature)
+                                  `((version . ,(assoc-ref signature "version"))
+                                    (host-name . ,(assoc-ref signature "host_name"))))
+                                signatures))))))
+                     (select-nars-for-output conn filename))))
+          (derivations
+           . ,(list->vector
+               (map
+                (match-lambda
+                  ((filename output-id)
+                   `((filename . ,filename)
+                     (derivations-using-store-item
+                      . ,(list->vector
+                          (map car (select-derivations-using-output
+                                    conn output-id)))))))
+                derivations)))))))))
+
 (define handle-static-assets
   (if assets-dir-in-store?
       (static-asset-from-store-renderer)
@@ -388,7 +441,7 @@
      (if (string-suffix? ".drv" filename)
          (render-json-derivation conn
                                  (string-append "/gnu/store/" filename))
-         '()))
+         (render-json-store-item conn (string-append "/gnu/store/" filename))))
     (('GET "build-servers")
      (delegate-to-with-secret-key-base build-server-controller))
     (('GET "dumps" _ ...)
