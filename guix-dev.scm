@@ -67,7 +67,7 @@
   (source #f)
   (build-system gnu-build-system)
   (inputs
-   `(("guix" ,guile3.0-guix)
+   `(("guix" ,guix)
      ("guile-email" ,guile3.0-email)
      ("guile-json" ,guile3.0-json)
      ("guile-squee" ,guile3.0-squee)
@@ -75,7 +75,7 @@
      ("guile-gcrypt" ,guile3.0-gcrypt)
      ("guile-lzlib" ,guile-lzlib)
      ("guile-readline" ,guile3.0-readline)
-     ("guile" ,guile-3.0)
+     ("guile" ,guile-3.0-latest)
      ("sqitch" ,sqitch)))
   (native-inputs
    `(("autoconf" ,autoconf)
