@@ -61,6 +61,32 @@
       guile3.0-readline
       guile-readline))
 
+(define-public guile-prometheus
+  (package
+    (name "guile-prometheus")
+    (version "0")
+    (source (origin
+              (method git-fetch)
+              (uri (git-reference
+                    (commit "3df4221c477bd8e6955480a0e5fc0c37a96133c7")
+                    (url "https://git.cbaines.net/git/guile/prometheus")))
+              (sha256
+               (base32
+                "0dnv9kbrylkrv5lsmmcksq68wi7bvkfsk8cl4759qwqkbjci26hd"))
+              (file-name (string-append name "-" version "-checkout"))))
+    (build-system gnu-build-system)
+    (native-inputs
+     `(("pkg-config" ,pkg-config)
+       ("autoconf" ,autoconf)
+       ("automake" ,automake)))
+    (inputs
+     `(("guile" ,guile-3.0)))
+    (home-page "https://git.cbaines.net/guile/prometheus/")
+    (synopsis "")
+    (description
+     "")
+    (license license:gpl3+)))
+
 (package
   (name "guix-data-service")
   (version "0.0.0")
@@ -75,6 +101,7 @@
      ("guile-gcrypt" ,guile3.0-gcrypt)
      ("guile-lzlib" ,guile-lzlib)
      ("guile-readline" ,guile3.0-readline)
+     ("guile-prometheus" ,guile-prometheus)
      ("guile" ,guile-3.0-latest)
      ("sqitch" ,sqitch)))
   (native-inputs
