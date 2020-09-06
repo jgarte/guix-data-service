@@ -33,9 +33,11 @@
   #:use-module (texinfo html)
   #:use-module (squee)
   #:use-module (json)
+  #:use-module (prometheus)
   #:use-module (guix-data-service config)
   #:use-module (guix-data-service comparison)
   #:use-module (guix-data-service database)
+  #:use-module (guix-data-service metrics)
   #:use-module (guix-data-service model git-branch)
   #:use-module (guix-data-service model git-repository)
   #:use-module (guix-data-service model guix-revision)
@@ -79,6 +81,46 @@
   (fold (lambda (f val) (and=> val f))
         target
         (list functions ...)))
+
+(define render-metrics
+  (let* ((registry                  (make-metrics-registry
+                                     #:namespace "guixdataservice"))
+         (table-row-estimate-metric (make-gauge-metric registry
+                                                       "table_row_estimate"
+                                                       #:labels '(name)))
+         (table-bytes-metric        (make-gauge-metric registry
+                                                       "table_bytes"
+                                                       #:labels '(name)))
+         (table-index-bytes-metric  (make-gauge-metric registry
+                                                       "table_index_bytes"
+                                                       #:labels '(name)))
+         (table-toast-bytes-metric  (make-gauge-metric registry
+                                                       "table_toast_bytes"
+                                                       #:labels '(name))))
+    (lambda (conn)
+      (let ((metric-values (fetch-high-level-table-size-metrics conn)))
+        (for-each (match-lambda
+                    ((name row-estimate table-bytes index-bytes toast-bytes)
+
+                     (metric-set table-row-estimate-metric
+                                 row-estimate
+                                 #:label-values `((name . ,name)))
+                     (metric-set table-bytes-metric
+                                 table-bytes
+                                 #:label-values `((name . ,name)))
+                     (metric-set table-index-bytes-metric
+                                 index-bytes
+                                 #:label-values `((name . ,name)))
+                     (metric-set table-toast-bytes-metric
+                                 toast-bytes
+                                 #:label-values `((name . ,name)))))
+                  metric-values))
+
+      (list (build-response
+             #:code 200
+             #:headers '((content-type . (text/plain))))
+            (lambda (port)
+              (write-metrics registry port))))))
 
 (define (render-derivation conn derivation-file-name)
   (let ((derivation (select-derivation-by-file-name conn
@@ -403,6 +445,8 @@
      (render-html
       #:sxml (view-statistics (count-guix-revisions conn)
                               (count-derivations conn))))
+    (('GET "metrics")
+     (render-metrics conn))
     (('GET "revision" args ...)
      (delegate-to revision-controller))
     (('GET "repositories")
