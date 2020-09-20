@@ -85,6 +85,10 @@
 (define render-metrics
   (let* ((registry                  (make-metrics-registry
                                      #:namespace "guixdataservice"))
+
+         (revisions-count-metric    (make-gauge-metric registry
+                                                       "revision_count"))
+
          (table-row-estimate-metric (make-gauge-metric registry
                                                        "table_row_estimate"
                                                        #:labels '(name)))
@@ -115,6 +119,9 @@
                                  toast-bytes
                                  #:label-values `((name . ,name)))))
                   metric-values))
+
+      (metric-set revisions-count-metric
+                  (count-guix-revisions conn))
 
       (list (build-response
              #:code 200
