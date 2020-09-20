@@ -348,10 +348,7 @@
                   (with-postgresql-connection
                    "web healthcheck"
                    (lambda (conn)
-                     (number?
-                      (string->number
-                       (first
-                        (count-guix-revisions conn)))))))
+                     (number? (count-guix-revisions conn)))))
                 (lambda (key . args)
                   #f))))
          (render-json

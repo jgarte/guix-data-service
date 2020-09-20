@@ -30,10 +30,10 @@
             guix-revisions-cgit-url-bases))
 
 (define (count-guix-revisions conn)
-  (first
-   (exec-query
-    conn
-    "SELECT COUNT(*) FROM guix_revisions")))
+  (match (exec-query
+          conn
+          "SELECT COUNT(*) FROM guix_revisions")
+    (((x)) (string->number x))))
 
 (define (most-recent-n-guix-revisions conn n)
   (exec-query conn "SELECT * FROM guix_revisions ORDER BY id DESC LIMIT 10"))
