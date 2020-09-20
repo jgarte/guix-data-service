@@ -31,6 +31,8 @@
 (setvbuf (current-output-port) 'line)
 (setvbuf (current-error-port) 'line)
 
+(setlocale LC_ALL "en_US.utf8")
+
 (debug-set! width 256)
 
 (match (command-line)
