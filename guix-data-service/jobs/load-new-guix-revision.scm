@@ -62,6 +62,7 @@
             combine-log-parts!
             fetch-unlocked-jobs
             process-load-new-guix-revision-job
+            select-load-new-guix-revision-job-metrics
             select-job-for-commit
             select-jobs-and-events
             select-recent-job-events
@@ -1326,6 +1327,25 @@ RETURNING id;")
     ((result)
      result)
     (() #f)))
+
+(define (select-load-new-guix-revision-job-metrics conn)
+  (define query
+    "
+SELECT COALESCE(git_repositories.label, git_repositories.url) AS repository_label,
+       succeeded_at IS NOT NULL AS completed,
+       COUNT(*)
+FROM load_new_guix_revision_jobs
+INNER JOIN git_repositories
+  ON load_new_guix_revision_jobs.git_repository_id =
+      git_repositories.id
+GROUP BY 1, 2")
+
+  (map (match-lambda
+         ((label completed count)
+          (list label
+                (string=? "t" completed)
+                (string->number count))))
+       (exec-query conn query)))
 
 (define (select-job-for-commit conn commit)
   (let ((result

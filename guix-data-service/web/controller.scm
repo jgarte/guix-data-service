@@ -89,6 +89,12 @@
          (revisions-count-metric    (make-gauge-metric registry
                                                        "revision_count"))
 
+         (load-new-guix-revision-job-count (make-gauge-metric
+                                            registry
+                                            "load_new_guix_revision_job_count"
+                                            #:labels '(repository_label
+                                                       completed)))
+
          (table-row-estimate-metric (make-gauge-metric registry
                                                        "table_row_estimate"
                                                        #:labels '(name)))
@@ -122,6 +128,16 @@
 
       (metric-set revisions-count-metric
                   (count-guix-revisions conn))
+
+      (for-each (match-lambda
+                  ((repository-label completed count)
+                   (metric-set
+                    load-new-guix-revision-job-count
+                    count
+                    #:label-values
+                    `((repository_label . ,repository-label)
+                      (completed        . ,(if completed "yes" "no"))))))
+                (select-load-new-guix-revision-job-metrics conn))
 
       (list (build-response
              #:code 200
