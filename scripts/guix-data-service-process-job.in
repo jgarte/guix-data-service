@@ -31,6 +31,8 @@
 (setvbuf (current-output-port) 'line)
 (setvbuf (current-error-port) 'line)
 
+(debug-set! width 256)
+
 (match (command-line)
   ((name job)
    (process-load-new-guix-revision-job job)))
