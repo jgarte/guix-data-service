@@ -20,61 +20,18 @@
   #:use-module (ice-9 match)
   #:use-module (squee)
   #:use-module (guix-data-service database)
+  #:use-module (guix-data-service model package-derivation-by-guix-revision-range)
   #:export (delete-data-for-branch
             delete-data-for-all-deleted-branches))
 
-(define (delete-data-for-branch conn git-repository-id branch-name)
-  (define commits
-    (map car
-         (exec-query conn
-                     "
-SELECT commit
-FROM git_branches
-WHERE git_repository_id = $1 AND name = $2"
-                     (list (number->string git-repository-id)
-                           branch-name))))
-
-
-  (with-postgresql-transaction
-   conn
-   (lambda (conn)
-     (exec-query
-      conn
-      (simple-format
-       #f
-       "
-DELETE FROM git_branches
-WHERE git_repository_id = ~A AND
-  name = '~A' AND
-  commit IN (~A)"
-       git-repository-id
-       branch-name
-       (string-join
-        (map (lambda (commit)
-               (string-append "'" commit "'"))
-             commits)
-        ", ")))
-
-     (for-each
-      (lambda (table)
-        (exec-query
-         conn
-         (simple-format
-          #f
-          "
-DELETE FROM ~A
-WHERE branch_name = $1 AND git_repository_id = $2"
-          table)
-         (list branch-name
-               (number->string git-repository-id))))
-      '("package_derivations_by_guix_revision_range"))
-
-     (for-each
-      (lambda (table)
-        (exec-query
-         conn
-         (string-append
-          "
+(define (delete-revisions-from-branch conn git-repository-id branch-name commits)
+  (define (delete-jobs conn)
+    (for-each
+     (lambda (table)
+       (exec-query
+        conn
+        (string-append
+         "
 DELETE FROM " table "
 WHERE job_id IN (
   SELECT id
@@ -88,22 +45,46 @@ WHERE job_id IN (
    ", ")
   ")
 )")))
-      '("load_new_guix_revision_job_events"
-        "load_new_guix_revision_job_logs"))
+     '("load_new_guix_revision_job_events"
+       "load_new_guix_revision_job_logs"))
 
-     (exec-query
-      conn
-      (string-append
-       "
+    (exec-query
+     conn
+     (string-append
+      "
 DELETE FROM load_new_guix_revision_jobs
 WHERE git_repository_id = " (number->string git-repository-id) " AND
   commit IN ("
+(string-join
+ (map (lambda (commit)
+        (string-append "'" commit "'"))
+      commits)
+ ", ")
+")")))
+
+  (define (delete-from-git-branches conn)
+    (exec-query
+     conn
+     (simple-format
+      #f
+      "
+DELETE FROM git_branches
+WHERE git_repository_id = ~A AND
+  name = '~A' AND
+  commit IN (~A)"
+      git-repository-id
+      branch-name
       (string-join
        (map (lambda (commit)
               (string-append "'" commit "'"))
             commits)
-       ", ")
-      ")"))
+       ", "))))
+
+  (with-postgresql-transaction
+   conn
+   (lambda (conn)
+     (delete-from-git-branches conn)
+     (delete-jobs conn)
 
      (let ((guix-revision-ids
             (map
@@ -130,6 +111,14 @@ WHERE guix_revisions.git_repository_id = "
 )")))))
 
        (unless (null? guix-revision-ids)
+         (for-each (lambda (guix-revision-id)
+                     (delete-guix-revision-package-derivation-entries
+                      conn
+                      git-repository-id
+                      guix-revision-id
+                      branch-name))
+                   guix-revision-ids)
+
          (for-each
           (lambda (table)
             (exec-query
@@ -163,6 +152,22 @@ DELETE FROM guix_revisions
 WHERE id IN ("
            (string-join guix-revision-ids ", ")
            ")")))))))
+
+(define (delete-data-for-branch conn git-repository-id branch-name)
+  (define commits
+    (map car
+         (exec-query conn
+                     "
+SELECT commit
+FROM git_branches
+WHERE git_repository_id = $1 AND name = $2"
+                     (list (number->string git-repository-id)
+                           branch-name))))
+
+  (delete-revisions-from-branch conn
+                                git-repository-id
+                                branch-name
+                                commits))
 
 (define (delete-data-for-all-branches-but-master)
   (with-postgresql-connection

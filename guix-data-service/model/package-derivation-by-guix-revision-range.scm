@@ -20,7 +20,9 @@
   #:use-module (squee)
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service utils)
-  #:export (update-package-derivations-table
+  #:export (delete-guix-revision-package-derivation-entries
+            insert-guix-revision-package-derivation-entries
+            update-package-derivations-table
             rebuild-package-derivations-table))
 
 (define (delete-guix-revision-package-derivation-entries conn
