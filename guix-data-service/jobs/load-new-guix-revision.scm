@@ -452,8 +452,7 @@ WHERE job_id = $1"
 
   (and
    (or (inferior-eval '(and (resolve-module '(guix lint) #:ensure #f)
-                            (use-modules (guix lint)
-                                         (guix i18n))
+                            (use-modules (guix lint))
                             #t)
                       inf)
        (begin
@@ -1140,6 +1139,15 @@ WHERE job_id = $1"
                                  (guix derivations)
                                  (gnu tests))
                    inf)
+
+    ;; For G_ and P_
+    (or (inferior-eval '(and (resolve-module '(guix i18n) #:ensure #f)
+                             (use-modules (guix i18n))
+                             #t)
+                       inf)
+        (inferior-eval '(use-modules (guix ui))
+                       inf))
+
     (inferior-eval '(when (defined? '%graft?) (%graft? #f)) inf)
 
     (catch
