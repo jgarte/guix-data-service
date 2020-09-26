@@ -22,6 +22,7 @@
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service model package-derivation-by-guix-revision-range)
   #:export (delete-data-for-branch
+            delete-revisions-from-branch-except-most-recent-n
             delete-data-for-all-deleted-branches))
 
 (define (delete-revisions-from-branch conn git-repository-id branch-name commits)
@@ -114,7 +115,7 @@ WHERE guix_revisions.git_repository_id = "
          (for-each (lambda (guix-revision-id)
                      (delete-guix-revision-package-derivation-entries
                       conn
-                      git-repository-id
+                      (number->string git-repository-id)
                       guix-revision-id
                       branch-name))
                    guix-revision-ids)
@@ -168,6 +169,36 @@ WHERE git_repository_id = $1 AND name = $2"
                                 git-repository-id
                                 branch-name
                                 commits))
+
+(define (delete-revisions-from-branch-except-most-recent-n conn
+                                                           git-repository-id
+                                                           branch-name
+                                                           n)
+  (define commits
+    (map car
+         (exec-query conn
+                     "
+SELECT commit
+FROM git_branches
+WHERE git_repository_id = $1 AND name = $2
+ORDER BY datetime DESC
+OFFSET $3"
+                     (list (number->string git-repository-id)
+                           branch-name
+                           (number->string n)))))
+
+  (unless (null? commits)
+    (simple-format #t "deleting ~A commits\n" (length commits))
+    (delete-revisions-from-branch conn
+                                  git-repository-id
+                                  branch-name
+                                  commits)
+
+    (simple-format #t "repopulating package_derivations_by_guix_revision_range\n")
+    (insert-guix-revision-package-derivation-entries conn
+                                                     (number->string
+                                                      git-repository-id)
+                                                     branch-name)))
 
 (define (delete-data-for-all-branches-but-master)
   (with-postgresql-connection
