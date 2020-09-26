@@ -33,7 +33,8 @@
 
 (setlocale LC_ALL "en_US.UTF-8")
 
-(debug-set! width 256)
+;; Make stack traces more useful
+(setenv "COLUMNS" "256")
 
 (match (command-line)
   ((name job)
