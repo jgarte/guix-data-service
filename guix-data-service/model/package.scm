@@ -144,7 +144,19 @@ WHERE data.name IN (SELECT name FROM package_names);"))
   (define query
     (string-append
 "
-WITH search_results AS (
+WITH revision_packages AS (
+  SELECT *
+  FROM packages
+  WHERE packages.id IN (
+    SELECT package_derivations.package_id
+    FROM package_derivations
+    INNER JOIN guix_revision_package_derivations
+      ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+    INNER JOIN guix_revisions
+      ON guix_revision_package_derivations.revision_id = guix_revisions.id
+    WHERE guix_revisions.commit = $1
+  )
+), search_results AS (
   SELECT DISTINCT ON (packages.name) packages.name,
          packages.version, package_synopsis.synopsis,
          package_synopsis.locale AS synopsis_locale,
@@ -162,7 +174,7 @@ WITH search_results AS (
             ORDER BY licenses.name
            ) AS license_data
           ) AS licenses
-  FROM packages
+  FROM revision_packages AS packages
   INNER JOIN package_metadata
     ON packages.package_metadata_id = package_metadata.id
   LEFT OUTER JOIN locations
@@ -173,16 +185,11 @@ WITH search_results AS (
     ON package_metadata_tsvectors.package_synopsis_id = package_synopsis.id
   INNER JOIN package_descriptions
     ON package_metadata_tsvectors.package_description_id = package_descriptions.id
-  WHERE packages.id IN (
-    SELECT package_derivations.package_id
-    FROM package_derivations
-    INNER JOIN guix_revision_package_derivations
-      ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
-    INNER JOIN guix_revisions
-      ON guix_revision_package_derivations.revision_id = guix_revisions.id
-    WHERE guix_revisions.commit = $1
+  WHERE (
+    to_tsvector(packages.name) @@ (plainto_tsquery($2) || plainto_tsquery(REPLACE($2, '-', ' ')))
+    OR
+    package_metadata_tsvectors.synopsis_and_description @@ plainto_tsquery($2)
   )
-  AND package_metadata_tsvectors.synopsis_and_description @@ plainto_tsquery($2)
   ORDER BY name,
     CASE WHEN package_metadata_tsvectors.locale = 'en_US.UTF-8' THEN 2
          WHEN package_metadata_tsvectors.locale = $3 THEN 1
@@ -198,7 +205,7 @@ ORDER BY (
               setweight(to_tsvector(name), 'A'),
               plainto_tsquery($2),
               2 -- divide rank by the document length
-           ) +
+           ) * 1.5 +
            ts_rank_cd(
               synopsis_and_description,
               plainto_tsquery($2),
