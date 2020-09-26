@@ -74,7 +74,7 @@
               request
               `((base_commit   ,(parse-commit conn) #:required)
                 (target_commit ,(parse-commit conn) #:required)
-                (locale        ,identity #:default "en_US.utf8")))))
+                (locale        ,identity #:default "en_US.UTF-8")))))
        (render-compare mime-types
                        conn
                        parsed-query-parameters)))
@@ -86,7 +86,7 @@
                 (base_datetime   ,parse-datetime #:required)
                 (target_branch   ,identity #:required)
                 (target_datetime ,parse-datetime #:required)
-                (locale          ,identity #:default "en_US.utf8")))))
+                (locale          ,identity #:default "en_US.UTF-8")))))
        (render-compare-by-datetime mime-types
                                    conn
                                    parsed-query-parameters)))

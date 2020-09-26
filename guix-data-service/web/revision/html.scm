@@ -725,13 +725,13 @@
                                                          path-base header-link
                                                          header-text)
   (define total-package-synopsis
-    (assoc-ref package-synopsis-counts "en_US.utf8"))
+    (assoc-ref package-synopsis-counts "en_US.UTF-8"))
 
   (define total-package-descriptions
-    (assoc-ref package-description-counts "en_US.utf8"))
+    (assoc-ref package-description-counts "en_US.UTF-8"))
 
-  (assoc-remove! package-synopsis-counts "en_US.utf8")
-  (assoc-remove! package-description-counts "en_US.utf8")
+  (assoc-remove! package-synopsis-counts "en_US.UTF-8")
+  (assoc-remove! package-description-counts "en_US.UTF-8")
 
   (define synopsis-percentages
     (map

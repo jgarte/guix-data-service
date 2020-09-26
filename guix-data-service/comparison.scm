@@ -634,7 +634,7 @@ WITH base_lint_warnings AS (
     ORDER BY lint_checkers.id,
              CASE
                WHEN lint_checker_descriptions.locale = $3 THEN 2
-               WHEN lint_checker_descriptions.locale = 'en_US.utf8' THEN 1
+               WHEN lint_checker_descriptions.locale = 'en_US.UTF-8' THEN 1
                ELSE 0
              END DESC
   ) AS translated_lint_checker_descriptions
@@ -653,7 +653,7 @@ WITH base_lint_warnings AS (
   ORDER BY lint_warnings.id,
            CASE
              WHEN lint_warning_messages.locale = $3 THEN 2
-             WHEN lint_warning_messages.locale = 'en_US.utf8' THEN 1
+             WHEN lint_warning_messages.locale = 'en_US.UTF-8' THEN 1
            ELSE 0 END DESC
 ), target_lint_warnings AS (
   SELECT DISTINCT ON (lint_warnings.id) lint_warnings.id,
@@ -684,7 +684,7 @@ WITH base_lint_warnings AS (
     ORDER BY lint_checkers.id,
              CASE
                WHEN lint_checker_descriptions.locale = $3 THEN 2
-               WHEN lint_checker_descriptions.locale = 'en_US.utf8' THEN 1
+               WHEN lint_checker_descriptions.locale = 'en_US.UTF-8' THEN 1
                ELSE 0
              END DESC
   ) AS translated_lint_checker_descriptions
@@ -703,7 +703,7 @@ WITH base_lint_warnings AS (
   ORDER BY lint_warnings.id,
           CASE
             WHEN lint_warning_messages.locale = $3 THEN 2
-            WHEN lint_warning_messages.locale = 'en_US.utf8' THEN 1
+            WHEN lint_warning_messages.locale = 'en_US.UTF-8' THEN 1
           ELSE 0 END DESC
 )
 SELECT coalesce(

@@ -366,19 +366,19 @@ WHERE job_id = $1"
 
 (define (all-inferior-lint-warnings inf store packages)
   (define locales
-    '("cs_CZ.utf8"
-      "da_DK.utf8"
-      "de_DE.utf8"
-      "eo_EO.utf8"
-      "es_ES.utf8"
-      "fr_FR.utf8"
-      "hu_HU.utf8"
-      "pl_PL.utf8"
-      "pt_BR.utf8"
-      ;;"sr_SR.utf8"
-      "sv_SE.utf8"
-      "vi_VN.utf8"
-      "zh_CN.utf8"))
+    '("cs_CZ.UTF-8"
+      "da_DK.UTF-8"
+      "de_DE.UTF-8"
+      "eo_EO.UTF-8"
+      "es_ES.UTF-8"
+      "fr_FR.UTF-8"
+      "hu_HU.UTF-8"
+      "pl_PL.UTF-8"
+      "pt_BR.UTF-8"
+      ;;"sr_SR.UTF-8"
+      "sv_SE.UTF-8"
+      "vi_VN.UTF-8"
+      "zh_CN.UTF-8"))
 
   (define (lint-warnings-for-checker checker-name)
     `(lambda (store)
@@ -406,7 +406,7 @@ WHERE job_id = $1"
                          file)
                      line
                      column)))
-            (let* ((source-locale "en_US.utf8")
+            (let* ((source-locale "en_US.UTF-8")
                    (source-message
                     (begin
                       (setlocale LC_MESSAGES source-locale)
@@ -464,7 +464,7 @@ WHERE job_id = $1"
           (inferior-eval
            `(begin
               (define (lint-descriptions-by-locale checker)
-                (let* ((source-locale "en_US.utf8")
+                (let* ((source-locale "en_US.UTF-8")
                        (source-description
                         (begin
                           (setlocale LC_MESSAGES source-locale)
@@ -1125,24 +1125,14 @@ WHERE job_id = $1"
       (error "error: inferior is #f"))
 
     ;; Normalise the locale for the inferior process
-    (catch
-      #t
+    (with-exception-handler
+        (lambda (key . args)
+          (simple-format
+           (current-error-port)
+           "warning: failed to set locale to en_US.UTF-8: ~A ~A\n"
+           key args))
       (lambda ()
-        (inferior-eval '(setlocale LC_ALL "en_US.utf8") inf))
-      (lambda (key . args)
-        (simple-format (current-error-port)
-                       "warning: failed to set locale to en_US.utf8: ~A ~A\n"
-                       key args)
-        (display "trying to setlocale to en_US.UTF-8 instead\n"
-                 (current-error-port))
-        (with-exception-handler
-            (lambda (key . args)
-              (simple-format
-               (current-error-port)
-               "warning: failed to set locale to en_US.UTF-8: ~A ~A\n"
-               key args))
-          (lambda ()
-            (inferior-eval '(setlocale LC_ALL "en_US.UTF-8") inf)))))
+        (inferior-eval '(setlocale LC_ALL "en_US.UTF-8") inf)))
 
     (inferior-eval '(use-modules (srfi srfi-1)
                                  (srfi srfi-34)

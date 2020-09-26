@@ -42,19 +42,19 @@
             description-counts-by-locale))
 
 (define locales
-  '("cs_CZ.utf8"
-    "da_DK.utf8"
-    "de_DE.utf8"
-    "eo_EO.utf8"
-    "es_ES.utf8"
-    "fr_FR.utf8"
-    "hu_HU.utf8"
-    "pl_PL.utf8"
-    "pt_BR.utf8"
-    ;;"sr_SR.utf8"
-    "sv_SE.utf8"
-    "vi_VN.utf8"
-    "zh_CN.utf8"))
+  '("cs_CZ.UTF-8"
+    "da_DK.UTF-8"
+    "de_DE.UTF-8"
+    "eo_EO.UTF-8"
+    "es_ES.UTF-8"
+    "fr_FR.UTF-8"
+    "hu_HU.UTF-8"
+    "pl_PL.UTF-8"
+    "pt_BR.UTF-8"
+    ;;"sr_SR.UTF-8"
+    "sv_SE.UTF-8"
+    "vi_VN.UTF-8"
+    "zh_CN.UTF-8"))
 
 (define inferior-package-id
   (@@ (guix inferior) inferior-package-id))
@@ -144,7 +144,7 @@ INNER JOIN (
     AND packages.version = $3
   ORDER BY package_description_sets.id,
            CASE WHEN package_descriptions.locale = $4 THEN 2
-                WHEN package_descriptions.locale = 'en_US.utf8' THEN 1
+                WHEN package_descriptions.locale = 'en_US.UTF-8' THEN 1
                 ELSE 0
           END DESC
 ) AS translated_package_descriptions
@@ -163,7 +163,7 @@ INNER JOIN (
     AND packages.version = $3
   ORDER BY package_synopsis_sets.id,
            CASE WHEN package_synopsis.locale = $4 THEN 2
-                WHEN package_synopsis.locale = 'en_US.utf8' THEN 1
+                WHEN package_synopsis.locale = 'en_US.UTF-8' THEN 1
                 ELSE 0
           END DESC
 ) AS translated_package_synopsis
@@ -217,7 +217,7 @@ WHERE packages.id IN (
 
   (define (translate inferior-package-id)
     `(let* ((package (hashv-ref %package-table ,inferior-package-id))
-            (source-locale "en_US.utf8")
+            (source-locale "en_US.UTF-8")
             (source-synopsis
               (begin
                 (setlocale LC_MESSAGES source-locale)
@@ -505,7 +505,7 @@ INSERT INTO package_metadata_tsvectors (package_metadata_id, locale,
             synopsis_and_description, package_synopsis_id, package_description_id)
 SELECT DISTINCT ON (package_metadata.id, locale)
          package_metadata.id,
-         CASE WHEN translated_package_synopsis.locale != 'en_US.utf8'
+         CASE WHEN translated_package_synopsis.locale != 'en_US.UTF-8'
               THEN translated_package_synopsis.locale
               ELSE translated_package_descriptions.locale
          END AS locale,
@@ -524,7 +524,7 @@ INNER JOIN (
   INNER JOIN package_descriptions
     ON package_descriptions.id = ANY (package_description_sets.description_ids)
   ORDER BY package_description_sets.id,
-           CASE WHEN package_descriptions.locale = 'en_US.utf8' THEN 1
+           CASE WHEN package_descriptions.locale = 'en_US.UTF-8' THEN 1
                 ELSE 2
            END DESC
 ) AS translated_package_descriptions
@@ -537,7 +537,7 @@ INNER JOIN (
   INNER JOIN package_synopsis
     ON package_synopsis.id = ANY (package_synopsis_sets.synopsis_ids)
   ORDER BY package_synopsis_sets.id,
-           CASE WHEN package_synopsis.locale = 'en_US.utf8' THEN 1
+           CASE WHEN package_synopsis.locale = 'en_US.UTF-8' THEN 1
                 ELSE 2
            END DESC
 ) AS translated_package_synopsis
@@ -545,7 +545,7 @@ INNER JOIN (
      translated_package_synopsis.package_synopsis_set_id
   AND (translated_package_descriptions.locale =
        translated_package_synopsis.locale
-       OR translated_package_descriptions.locale = 'en_US.utf8')
+       OR translated_package_descriptions.locale = 'en_US.UTF-8')
 WHERE package_metadata.id IN ("
          (string-join
           (map number->string

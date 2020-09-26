@@ -86,7 +86,7 @@ WITH data AS (
       ON package_synopsis.id = ANY (package_synopsis_sets.synopsis_ids)
     ORDER BY package_synopsis_sets.id,
              CASE WHEN package_synopsis.locale = $2 THEN 2
-                  WHEN package_synopsis.locale = 'en_US.utf8' THEN 1
+                  WHEN package_synopsis.locale = 'en_US.UTF-8' THEN 1
                   ELSE 0
              END DESC
   ) AS translated_package_synopsis
@@ -99,7 +99,7 @@ WITH data AS (
       ON package_descriptions.id = ANY (package_description_sets.description_ids)
     ORDER BY package_description_sets.id,
              CASE WHEN package_descriptions.locale = $2 THEN 2
-                  WHEN package_descriptions.locale = 'en_US.utf8' THEN 1
+                  WHEN package_descriptions.locale = 'en_US.UTF-8' THEN 1
                   ELSE 0
              END DESC
   ) AS translated_package_descriptions
@@ -184,7 +184,7 @@ WITH search_results AS (
   )
   AND package_metadata_tsvectors.synopsis_and_description @@ plainto_tsquery($2)
   ORDER BY name,
-    CASE WHEN package_metadata_tsvectors.locale = 'en_US.utf8' THEN 2
+    CASE WHEN package_metadata_tsvectors.locale = 'en_US.UTF-8' THEN 2
          WHEN package_metadata_tsvectors.locale = $3 THEN 1
          ELSE 0
     END DESC

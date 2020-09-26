@@ -90,7 +90,7 @@ INNER JOIN (
   ORDER BY lint_checkers.id,
            CASE
              WHEN lint_checker_descriptions.locale = $2 THEN 2
-             WHEN lint_checker_descriptions.locale = 'en_US.utf8' THEN 1
+             WHEN lint_checker_descriptions.locale = 'en_US.UTF-8' THEN 1
              ELSE 0
            END DESC
 ) AS translated_lint_checker_descriptions
@@ -131,7 +131,7 @@ INNER JOIN lint_warning_messages
                    " ORDER BY lint_warnings.id,
                               CASE
                                 WHEN lint_warning_messages.locale = $2 THEN 2
-                                WHEN lint_warning_messages.locale = 'en_US.utf8' THEN 1
+                                WHEN lint_warning_messages.locale = 'en_US.UTF-8' THEN 1
                                 ELSE 0
                               END DESC"))
 
@@ -174,7 +174,7 @@ INNER JOIN (
   ORDER BY lint_checkers.id,
            CASE
              WHEN lint_checker_descriptions.locale = $4 THEN 2
-             WHEN lint_checker_descriptions.locale = 'en_US.utf8' THEN 1
+             WHEN lint_checker_descriptions.locale = 'en_US.UTF-8' THEN 1
              ELSE 0
            END DESC
 ) AS translated_lint_checker_descriptions
@@ -202,7 +202,7 @@ WHERE packages.id IN (
   ORDER BY lint_warnings.id,
            CASE
              WHEN lint_warning_messages.locale = $4 THEN 2
-             WHEN lint_warning_messages.locale = 'en_US.utf8' THEN 1
+             WHEN lint_warning_messages.locale = 'en_US.UTF-8' THEN 1
              ELSE 0
            END DESC
 ")

@@ -172,7 +172,7 @@
                   (guard-against-mutually-exclusive-query-parameters
                    (parse-query-parameters
                     request
-                    `((locale         ,identity #:default "en_US.utf8")
+                    `((locale         ,identity #:default "en_US.UTF-8")
                       (after_name     ,identity)
                       (field          ,identity #:multi-value
                                       #:default ("version" "synopsis"))
@@ -262,7 +262,7 @@
            (let ((parsed-query-parameters
                   (parse-query-parameters
                    request
-                   `((locale         ,identity #:default "en_US.utf8")
+                   `((locale         ,identity #:default "en_US.UTF-8")
                      (package_query  ,identity)
                      (linter         ,identity #:multi-value)
                      (message_query  ,identity)
@@ -293,7 +293,7 @@
            (parsed-query-parameters
             (parse-query-parameters
              request
-             `((locale ,identity #:default "en_US.utf8")))))
+             `((locale ,identity #:default "en_US.UTF-8")))))
        (if commit-hash
            (render-revision-package-version mime-types
                                             conn

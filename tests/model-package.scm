@@ -49,8 +49,8 @@
  ((guix-data-service model package-metadata)
   inferior-packages->translated-package-descriptions-and-synopsis
   (lambda (inferior inferior-package)
-    (cons `(("en_US.utf8" . "Fake synopsis"))
-          `(("en_US.utf8" . "Fake description")))))
+    (cons `(("en_US.UTF-8" . "Fake synopsis"))
+          `(("en_US.UTF-8" . "Fake description")))))
 (with-mock-inferior-packages
  (lambda ()
    (use-modules (guix-data-service model package)
