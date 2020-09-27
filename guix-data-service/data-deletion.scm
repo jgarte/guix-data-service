@@ -268,6 +268,36 @@ FROM (
 WHERE commit = ''")))))
 
 (define (delete-unreferenced-derivations)
+  (define (delete-builds-for-derivation-output-details-set
+           conn
+           derivation-output-details-set-id)
+    (let ((build-ids
+           (map car
+                (exec-query
+                 conn
+                 "
+SELECT id
+FROM builds
+WHERE derivation_output_details_set_id = $1"
+                 derivation-output-details-set-id))))
+
+      (unless (null? build-ids)
+        (exec-query
+         conn
+         (string-append
+          "
+DELETE FROM build_status WHERE build_id IN ("
+          (string-join build-ids ",")
+          ")"))
+
+        (exec-query
+         conn
+         (string-append
+          "
+DELETE FROM builds WHERE id IN ("
+          (string-join build-ids ",")
+          ")")))))
+
   (define (maybe-delete-derivation conn id file-name)
     (match (map
             car
@@ -348,6 +378,10 @@ WHERE derivation_id = $1"
 
              (when (<= (string->number count)
                        1)
+               (delete-builds-for-derivation-output-details-set
+                conn
+                derivation-output-details-set-id)
+
                (exec-query
                 conn
                 "
