@@ -23,7 +23,9 @@
   #:use-module (guix-data-service model package-derivation-by-guix-revision-range)
   #:export (delete-data-for-branch
             delete-revisions-from-branch-except-most-recent-n
-            delete-data-for-all-deleted-branches))
+            delete-revisions-for-all-branches-except-most-recent-n
+            delete-data-for-all-deleted-branches
+            delete-unreferenced-derivations))
 
 (define (delete-revisions-from-branch conn git-repository-id branch-name commits)
   (define (delete-jobs conn)
@@ -111,15 +113,16 @@ WHERE guix_revisions.git_repository_id = "
     FROM git_branches
 )")))))
 
-       (unless (null? guix-revision-ids)
-         (for-each (lambda (guix-revision-id)
-                     (delete-guix-revision-package-derivation-entries
-                      conn
-                      (number->string git-repository-id)
-                      guix-revision-id
-                      branch-name))
-                   guix-revision-ids)
+       (exec-query
+        conn
+        "
+DELETE FROM package_derivations_by_guix_revision_range
+WHERE git_repository_id = $1 AND
+      branch_name = $2"
+        (list (number->string git-repository-id)
+              branch-name))
 
+       (unless (null? guix-revision-ids)
          (for-each
           (lambda (table)
             (exec-query
@@ -152,7 +155,13 @@ DELETE FROM ~A WHERE ~A IN (VALUES ~A)"
 DELETE FROM guix_revisions
 WHERE id IN ("
            (string-join guix-revision-ids ", ")
-           ")")))))))
+           ")
+AND id NOT IN (
+  SELECT id FROM guix_revisions
+  INNER JOIN git_branches ON
+    git_branches.commit = guix_revisions.commit AND
+    git_branches.git_repository_id = guix_revisions.git_repository_id
+)")))))))
 
 (define (delete-data-for-branch conn git-repository-id branch-name)
   (define commits
@@ -188,7 +197,7 @@ OFFSET $3"
                            (number->string n)))))
 
   (unless (null? commits)
-    (simple-format #t "deleting ~A commits\n" (length commits))
+    (simple-format #t "deleting ~A commits from ~A\n" (length commits) branch-name)
     (delete-revisions-from-branch conn
                                   git-repository-id
                                   branch-name
@@ -199,6 +208,24 @@ OFFSET $3"
                                                      (number->string
                                                       git-repository-id)
                                                      branch-name)))
+
+(define (delete-revisions-for-all-branches-except-most-recent-n n)
+  (with-postgresql-connection
+   "data-deletion"
+   (lambda (conn)
+     (for-each
+      (match-lambda
+        ((git-repository-id branch-name)
+         (delete-revisions-from-branch-except-most-recent-n
+          conn
+          (string->number git-repository-id)
+          branch-name
+          n)))
+      (exec-query
+       conn
+       "
+SELECT DISTINCT git_repository_id, name
+FROM git_branches")))))
 
 (define (delete-data-for-all-branches-but-master)
   (with-postgresql-connection
