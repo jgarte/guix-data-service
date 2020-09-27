@@ -26,6 +26,8 @@
              (srfi srfi-37)
              (ice-9 match)
              (guix-data-service database)
+             (guix-data-service data-deletion)
+             (guix-data-service model package-derivation-by-guix-revision-range)
              (guix-data-service jobs load-new-guix-revision))
 
 (setvbuf (current-output-port) 'line)
@@ -36,6 +38,12 @@
 ;; Make stack traces more useful
 (setenv "COLUMNS" "256")
 
-(match (command-line)
-  ((name job)
-   (process-load-new-guix-revision-job job)))
+;; (with-postgresql-connection
+;;  "foo"
+;;  rebuild-package-derivations-table)
+;;(delete-revisions-for-all-branches-except-most-recent-n 100)
+(delete-unreferenced-derivations)
+
+;; (match (command-line)
+;;   ((name job)
+;;    (process-load-new-guix-revision-job job)))

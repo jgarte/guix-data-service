@@ -64,19 +64,45 @@
     (('GET "repository" id)
      (match (select-git-repository conn id)
        ((label url cgit-url-base)
-        (render-html
-         #:sxml
-         (view-git-repository
-          (string->number id)
-          label url cgit-url-base
-          (all-branches-with-most-recent-commit conn
-                                                (string->number id)))))
+        (let ((branches
+               (all-branches-with-most-recent-commit conn
+                                                     (string->number id))))
+          (case (most-appropriate-mime-type
+                 '(application/json text/html)
+                 mime-types)
+            ((application/json)
+             (render-json
+              `((id . ,id)
+                (label . ,label)
+                (url . ,url)
+                (branches
+                 . ,(list->vector
+                     (map (match-lambda
+                            ((name commit date revision-exists? job-events)
+                             `((name . ,name)
+                               (commit . ,commit))))
+                          branches))))))
+            (else
+             (render-html
+              #:sxml
+              (view-git-repository
+               (string->number id)
+               label url cgit-url-base
+               branches))))))
        (#f
-        (render-html
-         #:sxml (general-not-found
-                 "Repository not found"
-                 "")
-         #:code 404))))
+        (case (most-appropriate-mime-type
+               '(application/json text/html)
+               mime-types)
+          ((application/json)
+           (render-json
+            '((error . "Repository not found"))
+            #:code 404))
+          (else
+           (render-html
+            #:sxml (general-not-found
+                    "Repository not found"
+                    "")
+            #:code 404))))))
     (('GET "repository" repository-id "branch" branch-name)
      (let ((parsed-query-parameters
             (parse-query-parameters
