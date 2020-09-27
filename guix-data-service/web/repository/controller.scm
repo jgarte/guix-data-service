@@ -44,9 +44,23 @@
   (match method-and-path-components
     (('GET "repositories")
      (let ((git-repositories (all-git-repositories conn)))
-       (render-html
-        #:sxml
-        (view-git-repositories git-repositories))))
+       (case (most-appropriate-mime-type
+              '(application/json text/html)
+              mime-types)
+         ((application/json)
+          (render-json
+           `((repositories
+              . ,(list->vector
+                  (map (match-lambda
+                         ((id label url cgit-base-url)
+                          `((id    . ,id)
+                            (label . ,label)
+                            (url   . ,url))))
+                       git-repositories))))))
+         (else
+          (render-html
+           #:sxml
+           (view-git-repositories git-repositories))))))
     (('GET "repository" id)
      (match (select-git-repository conn id)
        ((label url cgit-url-base)
