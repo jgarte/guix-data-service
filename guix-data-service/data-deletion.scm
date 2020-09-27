@@ -279,7 +279,7 @@ WHERE commit = ''")))))
 SELECT id
 FROM builds
 WHERE derivation_output_details_set_id = $1"
-                 derivation-output-details-set-id))))
+                 (list derivation-output-details-set-id)))))
 
       (unless (null? build-ids)
         (exec-query
