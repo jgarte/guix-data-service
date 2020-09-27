@@ -423,7 +423,22 @@
            mime-types)
       ((application/json)
        (render-json
-        '()))                           ; TODO
+        `((commit . ,commit-hash)
+          (system . ,(assq-ref query-parameters 'system))
+          (system_tests
+           . ,(list->vector
+               (map
+                (match-lambda
+                  ((name description file line column-number
+                         derivation-file-name builds)
+                   `((name . ,name)
+                     (description . ,description)
+                     (location . ((file . ,file)
+                                  (line . ,line)
+                                  (column-number . ,column-number)))
+                     (derivation . ,derivation-file-name)
+                     (builds . ,(list->vector builds)))))
+                system-tests))))))
       (else
        (render-html
         #:sxml (view-revision-system-tests

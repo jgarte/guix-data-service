@@ -868,6 +868,16 @@
                     (button (@ (type "submit")
                                (class "btn btn-lg btn-primary"))
                             "Update results")))))
+        (a (@ (class "btn btn-lg btn-default pull-right")
+              (href ,(let ((query-parameter-string
+                            (query-parameters->string query-parameters)))
+                       (string-append
+                        path-base ".json"
+                        (if (string-null? query-parameter-string)
+                            ""
+                            (string-append "?" query-parameter-string)))))
+              (role "button"))
+           "View JSON")
         (table
          (@ (class "table"))
          (thead
