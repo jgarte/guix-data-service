@@ -38,12 +38,6 @@
 ;; Make stack traces more useful
 (setenv "COLUMNS" "256")
 
-;; (with-postgresql-connection
-;;  "foo"
-;;  rebuild-package-derivations-table)
-;;(delete-revisions-for-all-branches-except-most-recent-n 100)
-(delete-unreferenced-derivations)
-
-;; (match (command-line)
-;;   ((name job)
-;;    (process-load-new-guix-revision-job job)))
+(match (command-line)
+  ((name job)
+   (process-load-new-guix-revision-job job)))
