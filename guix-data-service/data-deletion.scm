@@ -298,7 +298,7 @@ DELETE FROM builds WHERE id IN ("
           (string-join build-ids ",")
           ")")))))
 
-  (define (maybe-delete-derivation conn id file-name)
+  (define (maybe-delete-derivation conn id)
     (match (map
             car
             (exec-query
@@ -390,10 +390,11 @@ WHERE id = $1"
                 (list derivation-output-details-set-id)))))))
 
        (let ((input-derivations
-              (exec-query
-               conn
-               "
-SELECT DISTINCT derivations.id, derivations.file_name
+              (map car
+                   (exec-query
+                    conn
+                    "
+SELECT DISTINCT derivations.id
 FROM derivations
 WHERE derivations.id IN (
   SELECT derivation_outputs.derivation_id
@@ -402,7 +403,7 @@ WHERE derivations.id IN (
     ON derivation_outputs.id = derivation_inputs.derivation_output_id
   WHERE derivation_inputs.derivation_id = $1
 )"
-               (list id))))
+                    (list id)))))
 
          (exec-query
           conn
@@ -419,10 +420,9 @@ DELETE FROM derivations WHERE id = $1"
          ;; Look at the inputs to see if they can be deleted too, as one of
          ;; the derivations that was using them has now been deleted.
          (fold
-          (match-lambda*
-            (((id file-name) result)
-             (+ result
-                (maybe-delete-derivation conn id file-name))))
+          (lambda (id result)
+            (+ result
+               (maybe-delete-derivation conn id)))
           1
           input-derivations)))))
 
@@ -431,38 +431,54 @@ DELETE FROM derivations WHERE id = $1"
    (lambda (conn)
      (define (delete-batch conn)
        (let* ((derivations
-               (exec-query
-                conn
-                "
-SELECT id, file_name
-FROM derivations
-LIMIT 10000000"))
+               (map car
+                    (exec-query
+                     conn
+                     "
+SELECT DISTINCT derivation_id
+FROM derivation_outputs
+WHERE NOT EXISTS (
+  -- This isn't a perfect check, as this will select some derivations that are
+  -- used, but maybe-delete-derivation includes the proper check
+  SELECT 1
+  FROM derivation_inputs
+  WHERE derivation_output_id = derivation_outputs.id
+) AND NOT EXISTS (
+  SELECT 1
+  FROM package_derivations
+  WHERE package_derivations.derivation_id = derivation_outputs.derivation_id
+) AND NOT EXISTS (
+  SELECT 1 FROM channel_instances
+  WHERE derivation_id = derivation_outputs.derivation_id
+) AND NOT EXISTS (
+  SELECT 1 FROM guix_revision_system_test_derivations
+  WHERE derivation_id = derivation_outputs.derivation_id
+) LIMIT 10000000")))
               (derivations-count (length derivations)))
          (simple-format (current-error-port)
                         "Looking at ~A derivations\n"
                         derivations-count)
          (let ((deleted-count
                 (fold
-                 (match-lambda*
-                   (((id file-name) index result)
-                    (when (eq? 0 (modulo index 50000))
-                      (simple-format #t "~A/~A (~A%)  (deleted ~A so far)\n"
-                                     index derivations-count
-                                     (exact->inexact
-                                      (rationalize
-                                       (* 100 (/ index derivations-count))
-                                       1))
-                                     result))
-                    (+ result
-                       (with-postgresql-transaction
-                        conn
-                        (lambda (conn)
-                          (exec-query
-                           conn
-                           "
+                 (lambda (id index result)
+                   (when (eq? 0 (modulo index 50000))
+                     (simple-format #t "~A/~A (~A%)  (deleted ~A so far)\n"
+                                    index derivations-count
+                                    (exact->inexact
+                                     (rationalize
+                                      (* 100 (/ index derivations-count))
+                                      1))
+                                    result))
+                   (+ result
+                      (with-postgresql-transaction
+                       conn
+                       (lambda (conn)
+                         (exec-query
+                          conn
+                          "
 SET CONSTRAINTS derivations_by_output_details_set_derivation_id_fkey DEFERRED")
 
-                          (maybe-delete-derivation conn id file-name))))))
+                         (maybe-delete-derivation conn id)))))
                  0
                  derivations
                  (iota derivations-count))))
