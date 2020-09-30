@@ -389,42 +389,19 @@ DELETE FROM derivation_output_details_sets
 WHERE id = $1"
                 (list derivation-output-details-set-id)))))))
 
-       (let ((input-derivations
-              (map car
-                   (exec-query
-                    conn
-                    "
-SELECT DISTINCT derivations.id
-FROM derivations
-WHERE derivations.id IN (
-  SELECT derivation_outputs.derivation_id
-  FROM derivation_outputs
-  INNER JOIN derivation_inputs
-    ON derivation_outputs.id = derivation_inputs.derivation_output_id
-  WHERE derivation_inputs.derivation_id = $1
-)"
-                    (list id)))))
-
-         (exec-query
-          conn
-          "
+       (exec-query
+        conn
+        "
 DELETE FROM derivation_inputs WHERE derivation_id = $1"
-          (list id))
+        (list id))
 
-         (exec-query
-          conn
-          "
+       (exec-query
+        conn
+        "
 DELETE FROM derivations WHERE id = $1"
-          (list id))
+        (list id))
 
-         ;; Look at the inputs to see if they can be deleted too, as one of
-         ;; the derivations that was using them has now been deleted.
-         (fold
-          (lambda (id result)
-            (+ result
-               (maybe-delete-derivation conn id)))
-          1
-          input-derivations)))))
+       1)))
 
   (with-postgresql-connection
    "data-deletion"
