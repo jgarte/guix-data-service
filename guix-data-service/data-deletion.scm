@@ -313,16 +313,6 @@ AND NOT EXISTS (
     FROM derivation_outputs
     WHERE derivation_id = $1
   )
-) AND NOT EXISTS (
-  SELECT 1
-  FROM package_derivations
-  WHERE package_derivations.derivation_id = derivation_outputs.derivation_id
-) AND NOT EXISTS (
-  SELECT 1 FROM channel_instances
-  WHERE derivation_id = $1
-) AND NOT EXISTS (
-  SELECT 1 FROM guix_revision_system_test_derivations
-  WHERE derivation_id = $1
 )
 RETURNING derivation_outputs.derivation_output_details_id"
              (list id)))
