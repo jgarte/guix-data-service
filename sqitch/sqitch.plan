@@ -69,3 +69,4 @@ derivation_output_details_sets_derivation_output_details_ids_index 2020-07-04T07
 add-tsvectors-per-locale 2020-07-16T18:19:44Z daniela <daniela@linux-ijv5> # Add tsvectors per locale
 change_package_descriptions_index 2020-08-23T11:56:00Z Christopher Baines <mail@cbaines.net> # Change the package_descriptions index
 change_locale_values 2020-09-26T10:20:22Z Christopher Baines <mail@cbaines.net> # Change locale values
+change_autovacuum_config 2020-10-01T21:24:46Z Christopher Baines <mail@cbaines.net> # Change autovacuum config
