@@ -74,7 +74,7 @@
 (define* (make-postgresql-connection-channel name
                                              #:key
                                              (statement-timeout #f)
-                                             (threads 4))
+                                             (threads 2))
   (parameterize (((@@ (fibers internal) current-fiber) #f))
     (let ((channel (make-channel)))
       (for-each
