@@ -21,6 +21,7 @@
   #:use-module (ice-9 vlist)
   #:use-module (ice-9 pretty-print)
   #:use-module (ice-9 textual-ports)
+  #:use-module (ice-9 string-fun)
   #:use-module (rnrs bytevectors)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-11)
@@ -106,7 +107,28 @@
                                                        #:labels '(name)))
          (table-toast-bytes-metric  (make-gauge-metric registry
                                                        "table_toast_bytes"
-                                                       #:labels '(name))))
+                                                       #:labels '(name)))
+
+         (pg-stat-fields '(seq-scan seq-tup-read idx-scan idx-tup-fetch
+                           n-tup-ins n-tup-upd n-tup-del
+                           n-tup-hot-upd n-live-tup n-dead-tup
+                           n-mod-since-analyze last-vacuum
+                           last-autovacuum last-analyze last-autoanalyze
+                           vacuum-count autovacuum-count
+                           analyze-count autoanalyze-count))
+
+         (pg-stat-metrics (map (lambda (field)
+                                 (cons
+                                  field
+                                  (make-gauge-metric
+                                   registry
+                                   (string-append "pg_stat_"
+                                                  (string-replace-substring
+                                                   (symbol->string field)
+                                                   "-"
+                                                   "_"))
+                                   #:labels '(name))))
+                               pg-stat-fields)))
     (lambda (conn)
       (let ((metric-values (fetch-high-level-table-size-metrics conn)))
         (for-each (match-lambda
@@ -128,6 +150,20 @@
 
       (metric-set revisions-count-metric
                   (count-guix-revisions conn))
+
+      (map (lambda (field-values)
+             (let ((name (assq-ref field-values 'name)))
+               (for-each
+                (match-lambda
+                  (('name . _) #f)
+                  ((field . value)
+                   (let ((metric (or (assq-ref pg-stat-metrics field)
+                                     (error field))))
+                     (metric-set metric
+                                 value
+                                 #:label-values `((name . ,name))))))
+                field-values)))
+           (fetch-pg-stat-user-tables-metrics conn))
 
       (for-each (match-lambda
                   ((repository-label completed count)

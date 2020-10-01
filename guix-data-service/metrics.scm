@@ -18,7 +18,8 @@
 (define-module (guix-data-service metrics)
   #:use-module (ice-9 match)
   #:use-module (squee)
-  #:export (fetch-high-level-table-size-metrics))
+  #:export (fetch-high-level-table-size-metrics
+            fetch-pg-stat-user-tables-metrics))
 
 (define (fetch-high-level-table-size-metrics conn)
   ;; Adapted from https://wiki.postgresql.org/wiki/Disk_Usage
@@ -76,4 +77,47 @@ FROM (
                 (or (string->number table-bytes) 0)
                 (or (string->number index-bytes) 0)
                 (or (string->number toast-bytes) 0))))
+       (exec-query conn query)))
+
+(define (fetch-pg-stat-user-tables-metrics conn)
+  (define query
+    "
+SELECT relname, seq_scan, seq_tup_read,
+       idx_scan, idx_tup_fetch,
+       n_tup_ins, n_tup_upd, n_tup_del, n_tup_hot_upd,
+       n_live_tup, n_dead_tup, n_mod_since_analyze,
+       COALESCE(extract(epoch from last_vacuum), 0),
+       COALESCE(extract(epoch from last_autovacuum), 0),
+       COALESCE(extract(epoch from last_analyze), 0),
+       COALESCE(extract(epoch from last_autoanalyze), 0),
+       vacuum_count, autovacuum_count, analyze_count, autoanalyze_count
+ FROM pg_stat_user_tables")
+
+  (map (match-lambda
+         ((relname seq-scan seq-tup-read
+                   idx-scan idx-tup-fetch
+                   n-tup-ins n-tup-upd n-tup-del n-tup-hot-upd
+                   n-live-tup n-dead-tup n-mod-since-analyze
+                   last-vacuum last-autovacuum last-analyze last-autoanalyze
+                   vacuum-count autovacuum-count analyze-count autoanalyze-count)
+          `((name                . ,relname)
+            (seq-scan            . ,seq-scan)
+            (seq-tup-read        . ,seq-tup-read)
+            (idx-scan            . ,idx-scan)
+            (idx-tup-fetch       . ,idx-tup-fetch)
+            (n-tup-ins           . ,n-tup-ins)
+            (n-tup-upd           . ,n-tup-upd)
+            (n-tup-del           . ,n-tup-del)
+            (n-tup-hot-upd       . ,n-tup-hot-upd)
+            (n-live-tup          . ,n-live-tup)
+            (n-dead-tup          . ,n-dead-tup)
+            (n-mod-since-analyze . ,n-mod-since-analyze)
+            (last-vacuum         . ,last-vacuum)
+            (last-autovacuum     . ,last-autovacuum)
+            (last-analyze        . ,last-analyze)
+            (last-autoanalyze    . ,last-autoanalyze)
+            (vacuum-count        . ,vacuum-count)
+            (autovacuum-count    . ,autovacuum-count)
+            (analyze-count       . ,analyze-count)
+            (autoanalyze-count   . ,autoanalyze-count))))
        (exec-query conn query)))
