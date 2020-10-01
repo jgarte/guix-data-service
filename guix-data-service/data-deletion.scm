@@ -432,15 +432,7 @@ WHERE NOT EXISTS (
                         derivations-count)
          (let ((deleted-count
                 (fold
-                 (lambda (id index result)
-                   (when (eq? 0 (modulo index 50000))
-                     (simple-format #t "~A/~A (~A%)  (deleted ~A so far)\n"
-                                    index derivations-count
-                                    (exact->inexact
-                                     (rationalize
-                                      (* 100 (/ index derivations-count))
-                                      1))
-                                    result))
+                 (lambda (id result)
                    (+ result
                       (with-postgresql-transaction/through-channel
                        conn-channel
@@ -452,8 +444,7 @@ SET CONSTRAINTS derivations_by_output_details_set_derivation_id_fkey DEFERRED")
 
                          (maybe-delete-derivation conn id)))))
                  0
-                 derivations
-                 (iota derivations-count))))
+                 derivations)))
            (simple-format (current-error-port)
                           "Deleted ~A derivations\n"
                           deleted-count)
