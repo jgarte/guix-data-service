@@ -83,7 +83,7 @@ FROM (
   (define query
     "
 SELECT relname, seq_scan, seq_tup_read,
-       idx_scan, idx_tup_fetch,
+       COALESCE(idx_scan, 0), COALESCE(idx_tup_fetch, 0),
        n_tup_ins, n_tup_upd, n_tup_del, n_tup_hot_upd,
        n_live_tup, n_dead_tup, n_mod_since_analyze,
        COALESCE(extract(epoch from last_vacuum), 0),
