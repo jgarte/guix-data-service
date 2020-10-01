@@ -18,6 +18,7 @@
 (define-module (guix-data-service data-deletion)
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 match)
+  #:use-module (ice-9 threads)
   #:use-module (squee)
   #:use-module (guix-data-service utils)
   #:use-module (guix-data-service database)
@@ -432,19 +433,20 @@ WHERE NOT EXISTS (
                         derivations-count)
          (let ((deleted-count
                 (fold
-                 (lambda (id result)
-                   (+ result
-                      (with-postgresql-transaction/through-channel
-                       conn-channel
-                       (lambda (conn)
-                         (exec-query
-                          conn
-                          "
+                 (lambda (count result)
+                   (+ result count))
+                 0
+                 (par-map (lambda (derivation-id)
+                            (with-postgresql-transaction/through-channel
+                             conn-channel
+                             (lambda (conn)
+                               (exec-query
+                                conn
+                                "
 SET CONSTRAINTS derivations_by_output_details_set_derivation_id_fkey DEFERRED")
 
-                         (maybe-delete-derivation conn id)))))
-                 0
-                 derivations)))
+                               (maybe-delete-derivation conn derivation-id))))
+                          derivations))))
            (simple-format (current-error-port)
                           "Deleted ~A derivations\n"
                           deleted-count)
@@ -453,8 +455,10 @@ SET CONSTRAINTS derivations_by_output_details_set_derivation_id_fkey DEFERRED")
      (let loop ((total-deleted 0))
        (let ((batch-deleted-count (delete-batch conn)))
          (if (eq? 0 batch-deleted-count)
-             (simple-format
-              (current-output-port)
-              "Finished deleting derivations, deleted ~A in total\n"
-              total-deleted)
+             (begin
+               (close-postgresql-connection-channel conn-channel)
+               (simple-format
+                (current-output-port)
+                "Finished deleting derivations, deleted ~A in total\n"
+                total-deleted))
              (loop (+ total-deleted batch-deleted-count))))))))
