@@ -19,6 +19,7 @@
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 match)
   #:use-module (squee)
+  #:use-module (guix-data-service utils)
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service model package-derivation-by-guix-revision-range)
   #:export (delete-data-for-branch
@@ -393,6 +394,10 @@ DELETE FROM derivations WHERE id = $1"
 
        1)))
 
+  (define conn-channel
+    (make-postgresql-connection-channel
+     "data-deletion-thread"))
+
   (with-postgresql-connection
    "data-deletion"
    (lambda (conn)
@@ -437,8 +442,8 @@ WHERE NOT EXISTS (
                                       1))
                                     result))
                    (+ result
-                      (with-postgresql-transaction
-                       conn
+                      (with-postgresql-transaction/through-channel
+                       conn-channel
                        (lambda (conn)
                          (exec-query
                           conn
