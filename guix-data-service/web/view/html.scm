@@ -658,9 +658,11 @@ time."
                  ,(build-status-span "")))
               (map
                (match-lambda
-                 ((build-server-id build-server-url
-                                   build-server-build-id
-                                   timestamp status)
+                 ((build-id build-server-id
+                            build-server-url
+                            build-server-build-id
+                            timestamp
+                            status)
                   `(div
                     (@ (class "text-center"))
                     (div

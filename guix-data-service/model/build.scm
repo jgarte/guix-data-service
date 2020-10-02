@@ -205,27 +205,24 @@ ORDER BY latest_build_status.timestamp DESC NULLS LAST, derivations.file_name
          conn derivation-file-name)
   (define query
     "
-SELECT build_servers.id,
+SELECT DISTINCT ON (builds.id)
+       builds.id,
+       build_servers.id,
        build_servers.url,
        builds.build_server_build_id,
-       latest_build_status.timestamp,
-       latest_build_status.status
+       build_status.timestamp,
+       build_status.status
 FROM builds
 INNER JOIN build_servers ON build_servers.id = builds.build_server_id
-INNER JOIN
-(
-  SELECT DISTINCT ON (build_id) *
-  FROM build_status
-  ORDER BY build_id, id DESC
-) AS latest_build_status
-  ON latest_build_status.build_id = builds.id
+INNER JOIN build_status
+  ON build_status.build_id = builds.id
 INNER JOIN derivations_by_output_details_set
   ON builds.derivation_output_details_set_id =
      derivations_by_output_details_set.derivation_output_details_set_id
 INNER JOIN derivations
   ON derivations.id = derivations_by_output_details_set.derivation_id
 WHERE derivations.file_name = $1
-ORDER BY latest_build_status.timestamp DESC")
+ORDER BY builds.id, build_status.timestamp DESC")
 
   (exec-query conn query (list derivation-file-name)))
 
