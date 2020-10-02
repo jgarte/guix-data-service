@@ -17,6 +17,7 @@
 
 (define-module (guix-data-service data-deletion)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-11)
   #:use-module (ice-9 match)
   #:use-module (ice-9 threads)
   #:use-module (squee)
@@ -300,6 +301,17 @@ DELETE FROM builds WHERE id IN ("
           (string-join build-ids ",")
           ")")))))
 
+  (define (delete-unreferenced-derivations-source-files conn)
+    (exec-query
+     conn
+     "
+DELETE FROM derivation_source_files
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM derivation_sources
+  WHERE derivation_source_file_id = derivation_source_files.id
+)"))
+
   (define (maybe-delete-derivation conn id)
     (match (map
             car
@@ -457,6 +469,10 @@ SET CONSTRAINTS derivations_by_output_details_set_derivation_id_fkey DEFERRED")
          (if (eq? 0 batch-deleted-count)
              (begin
                (close-postgresql-connection-channel conn-channel)
+               (simple-format
+                (current-output-port)
+                "Deleting unused derivation_source_files entries")
+               (delete-unreferenced-derivations-source-files conn)
                (simple-format
                 (current-output-port)
                 "Finished deleting derivations, deleted ~A in total\n"
