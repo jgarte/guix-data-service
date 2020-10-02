@@ -65,9 +65,12 @@
     (with-throw-handler
       #t
       (lambda ()
-        (let ((result (f conn)))
-          (pg-conn-finish conn)
-          result))
+        (call-with-values
+            (lambda ()
+              (f conn))
+          (lambda vals
+            (pg-conn-finish conn)
+            (apply values vals))))
       (lambda (key . args)
         (pg-conn-finish conn)))))
 
