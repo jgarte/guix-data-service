@@ -71,3 +71,4 @@ change_package_descriptions_index 2020-08-23T11:56:00Z Christopher Baines <mail@
 change_locale_values 2020-09-26T10:20:22Z Christopher Baines <mail@cbaines.net> # Change locale values
 change_autovacuum_config 2020-10-01T21:24:46Z Christopher Baines <mail@cbaines.net> # Change autovacuum config
 change_derivation_source_file_nars_constraint 2020-10-02T17:12:58Z Christopher Baines <mail@cbaines.net> # Change derivation source file nars constraint
+add_derivation_sources_derivation_source_file_id_index 2020-10-02T19:11:59Z Christopher Baines <mail@cbaines.net> # Add derivation_sources.derivation_source_file_id index
