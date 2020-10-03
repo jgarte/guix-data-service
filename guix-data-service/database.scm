@@ -44,7 +44,7 @@
 (define pg-conn-finish
   (@@ (squee) pg-conn-finish))
 
-(define* (with-postgresql-connection name f #:key (statement-timeout #f))
+(define (open-postgresql-connection name statement-timeout)
   (define paramstring
     (string-append
      (or (getenv "GUIX_DATA_SERVICE_DATABASE_PARAMSTRING")
@@ -62,8 +62,13 @@
        conn
        (simple-format #f "SET statement_timeout = ~A"
                       statement-timeout)))
+
+    conn))
+
+(define* (with-postgresql-connection name f #:key (statement-timeout #f))
+  (let ((conn (open-postgresql-connection name statement-timeout)))
     (with-throw-handler
-      #t
+        #t
       (lambda ()
         (call-with-values
             (lambda ()
