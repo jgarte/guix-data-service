@@ -391,8 +391,7 @@
 
 (define* (controller request method-and-path-components
                      mime-types body
-                     secret-key-base
-                     #:key postgresql-statement-timeout)
+                     secret-key-base)
   (define (controller-thunk)
     (match method-and-path-components
       (('GET "assets" rest ...)
@@ -430,16 +429,14 @@
                       "The README.html file does not exist")
               #:code 404))))
       (_
-       (with-postgresql-connection
-        "web"
+       (with-thread-postgresql-connection
         (lambda (conn)
           (controller-with-database-connection request
                                                method-and-path-components
                                                mime-types
                                                body
                                                conn
-                                               secret-key-base))
-        #:statement-timeout postgresql-statement-timeout))))
+                                               secret-key-base))))))
   (call-with-error-handling
    controller-thunk
    #:on-error 'backtrace

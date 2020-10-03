@@ -31,6 +31,7 @@
              (gcrypt pk-crypto)
              (guix pki)
              (guix-data-service config)
+             (guix-data-service database)
              (guix-data-service web server)
              (guix-data-service web controller)
              (guix-data-service web nar controller))
@@ -194,9 +195,12 @@
                    (assq-ref opts 'host)
                    (assq-ref opts 'port))
 
-    (start-guix-data-service-web-server
-     (assq-ref opts 'port)
-     (assq-ref opts 'host)
-     (assq-ref opts 'secret-key-base)
-     #:postgresql-statement-timeout
+    (with-postgresql-connection-per-thread
+     "web"
+     (lambda ()
+       (start-guix-data-service-web-server
+        (assq-ref opts 'port)
+        (assq-ref opts 'host)
+        (assq-ref opts 'secret-key-base)))
+     #:statement-timeout
      (assq-ref opts 'postgresql-statement-timeout))))
