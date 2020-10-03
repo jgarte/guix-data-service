@@ -94,7 +94,7 @@
      (body (a (@ (id "top")))
            ,@body
            (footer
-            (p "Copyright © 2016—2019 by the GNU Guix community."
+            (p "Copyright © 2016—2020 by the GNU Guix community."
                (br)
                "Now with even more " (span (@ (class "lambda")) "λ") "! ")
             (p "This is free software.  Download the "
