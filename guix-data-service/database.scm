@@ -26,6 +26,9 @@
   #:use-module (guix-data-service config)
   #:export (with-postgresql-connection
 
+            with-postgresql-connection-per-thread
+            with-thread-postgresql-connection
+
             make-postgresql-connection-channel
             close-postgresql-connection-channel
             exec-query/through-channel
@@ -78,6 +81,60 @@
             (apply values vals))))
       (lambda (key . args)
         (pg-conn-finish conn)))))
+
+(define %postgresql-connection-parameters
+  (make-parameter #f))
+
+(define %postgresql-connections-hash-table
+  (make-parameter #f))
+
+(define* (with-postgresql-connection-per-thread name thunk
+                                                #:key (statement-timeout #f))
+  (parameterize ((%postgresql-connection-parameters
+                  (list name statement-timeout))
+                 (%postgresql-connections-hash-table
+                  (make-hash-table)))
+    (call-with-values
+        thunk
+      (lambda vals
+        (hash-for-each
+         (lambda (thread conn)
+           (pg-conn-finish conn))
+         (%postgresql-connections-hash-table))
+
+        (apply values vals)))))
+
+(define %thread-postgresql-connection
+  (make-thread-local-fluid))
+
+(define (with-thread-postgresql-connection f)
+  (define (set-current-thread-connection conn)
+    (if conn
+        (hash-set! (%postgresql-connections-hash-table)
+                   (current-thread)
+                   conn)
+        (hash-remove! (%postgresql-connections-hash-table)
+                      (current-thread)))
+    (fluid-set! %thread-postgresql-connection
+                conn))
+
+  (let ((conn (fluid-ref %thread-postgresql-connection)))
+    (if conn
+        ;; Assume an exception here could mean the connection has failed, so
+        ;; close it
+        (with-exception-handler
+            (lambda (exn)
+              (pg-conn-finish conn)
+              (set-current-thread-connection #f)
+              (raise-exception exn))
+          (lambda ()
+            (f conn)))
+
+        (let ((conn (apply open-postgresql-connection
+                           (%postgresql-connection-parameters))))
+          (set-current-thread-connection conn)
+
+          (f conn)))))
 
 (define* (make-postgresql-connection-channel name
                                              #:key
