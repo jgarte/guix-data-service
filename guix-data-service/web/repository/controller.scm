@@ -19,6 +19,8 @@
   #:use-module (ice-9 match)
   #:use-module (web uri)
   #:use-module (web request)
+  #:use-module (guix-data-service utils)
+  #:use-module (guix-data-service database)
   #:use-module (guix-data-service web render)
   #:use-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service web util)
@@ -36,14 +38,15 @@
 (define (repository-controller request
                                method-and-path-components
                                mime-types
-                               body
-                               conn)
+                               body)
   (define path
     (uri-path (request-uri request)))
 
   (match method-and-path-components
     (('GET "repositories")
-     (let ((git-repositories (all-git-repositories conn)))
+     (letpar& ((git-repositories
+                (with-thread-postgresql-connection
+                 all-git-repositories)))
        (case (most-appropriate-mime-type
               '(application/json text/html)
               mime-types)
@@ -62,11 +65,17 @@
            #:sxml
            (view-git-repositories git-repositories))))))
     (('GET "repository" id)
-     (match (select-git-repository conn id)
+     (match (parallel-via-thread-pool-channel
+             (with-thread-postgresql-connection
+              (lambda (conn)
+                (select-git-repository conn id))))
        ((label url cgit-url-base)
-        (let ((branches
-               (all-branches-with-most-recent-commit conn
-                                                     (string->number id))))
+        (letpar& ((branches
+                   (with-thread-postgresql-connection
+                    (lambda (conn)
+                      (all-branches-with-most-recent-commit
+                       conn
+                       (string->number id))))))
           (case (most-appropriate-mime-type
                  '(application/json text/html)
                  mime-types)
@@ -110,16 +119,18 @@
              `((after_date     ,parse-datetime)
                (before_date    ,parse-datetime)
                (limit_results  ,parse-result-limit #:default 100)))))
-       (let ((revisions
-              (most-recent-commits-for-branch
-               conn
-               (string->number repository-id)
-               branch-name
-               #:limit (assq-ref parsed-query-parameters 'limit_results)
-               #:after-date (assq-ref parsed-query-parameters
-                                      'after_date)
-               #:before-date (assq-ref parsed-query-parameters
-                                       'before_date))))
+       (letpar& ((revisions
+                  (with-thread-postgresql-connection
+                   (lambda (conn)
+                     (most-recent-commits-for-branch
+                      conn
+                      (string->number repository-id)
+                      branch-name
+                      #:limit (assq-ref parsed-query-parameters 'limit_results)
+                      #:after-date (assq-ref parsed-query-parameters
+                                             'after_date)
+                      #:before-date (assq-ref parsed-query-parameters
+                                              'before_date))))))
          (case (most-appropriate-mime-type
                 '(application/json text/html)
                 mime-types)
@@ -144,11 +155,13 @@
                          parsed-query-parameters
                          revisions))))))))
     (('GET "repository" repository-id "branch" branch-name "package" package-name)
-     (let ((package-versions
-            (package-versions-for-branch conn
-                                         (string->number repository-id)
-                                         branch-name
-                                         package-name)))
+     (letpar& ((package-versions
+                (with-thread-postgresql-connection
+                 (lambda (conn)
+                   (package-versions-for-branch conn
+                                                (string->number repository-id)
+                                                branch-name
+                                                package-name)))))
        (case (most-appropriate-mime-type
               '(application/json text/html)
               mime-types)
@@ -178,7 +191,6 @@
     (('GET "repository" repository-id "branch" branch-name "package" package-name "derivation-history")
      (render-branch-package-derivation-history request
                                                mime-types
-                                               conn
                                                repository-id
                                                branch-name
                                                package-name))
@@ -186,27 +198,32 @@
            "package" package-name "output-history")
      (render-branch-package-output-history request
                                            mime-types
-                                           conn
                                            repository-id
                                            branch-name
                                            package-name))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision")
-     (let ((commit-hash
-            (latest-processed-commit-for-branch conn repository-id branch-name)))
+     (letpar& ((commit-hash
+                (with-thread-postgresql-connection
+                 (lambda (conn)
+                   (latest-processed-commit-for-branch conn
+                                                       repository-id
+                                                       branch-name)))))
        (if commit-hash
            (render-view-revision mime-types
-                                 conn
                                  commit-hash
                                  #:path-base path
                                  #:header-text
                                  `("Latest processed revision for branch "
                                    (samp ,branch-name)))
            (render-unknown-revision mime-types
-                                    conn
                                     commit-hash))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision" "packages")
-     (let ((commit-hash
-            (latest-processed-commit-for-branch conn repository-id branch-name)))
+     (letpar& ((commit-hash
+                (with-thread-postgresql-connection
+                 (lambda (conn)
+                   (latest-processed-commit-for-branch conn
+                                                       repository-id
+                                                       branch-name)))))
        (if commit-hash
            (let ((parsed-query-parameters
                   (guard-against-mutually-exclusive-query-parameters
@@ -227,7 +244,6 @@
                      (limit_results all_results)))))
 
              (render-revision-packages mime-types
-                                       conn
                                        commit-hash
                                        parsed-query-parameters
                                        #:path-base path
@@ -240,11 +256,14 @@
                                         "/branch/" branch-name
                                         "/latest-processed-revision")))
            (render-unknown-revision mime-types
-                                    conn
                                     commit-hash))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision" "package-derivations")
-     (let ((commit-hash
-            (latest-processed-commit-for-branch conn repository-id branch-name)))
+     (letpar& ((commit-hash
+                (with-thread-postgresql-connection
+                 (lambda (conn)
+                   (latest-processed-commit-for-branch conn
+                                                       repository-id
+                                                       branch-name)))))
        (if commit-hash
            (let ((parsed-query-parameters
                   (guard-against-mutually-exclusive-query-parameters
@@ -265,39 +284,45 @@
                    '((limit_results all_results)))))
 
              (render-revision-package-derivations mime-types
-                                                  conn
                                                   commit-hash
                                                   parsed-query-parameters
                                                   #:path-base path))
            (render-unknown-revision mime-types
-                                    conn
                                     commit-hash))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision" "package-reproducibility")
-     (let ((commit-hash
-            (latest-processed-commit-for-branch conn repository-id branch-name)))
+     (letpar& ((commit-hash
+                (with-thread-postgresql-connection
+                 (lambda (conn)
+                   (latest-processed-commit-for-branch conn
+                                                       repository-id
+                                                       branch-name)))))
        (if commit-hash
            (render-revision-package-reproduciblity mime-types
-                                                   conn
                                                    commit-hash
                                                    #:path-base path)
            (render-unknown-revision mime-types
-                                    conn
                                     commit-hash))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision" "package-substitute-availability")
-     (let ((commit-hash
-            (latest-processed-commit-for-branch conn repository-id branch-name)))
+     (letpar& ((commit-hash
+                (with-thread-postgresql-connection
+                 (lambda (conn)
+                   (latest-processed-commit-for-branch conn
+                                                       repository-id
+                                                       branch-name)))))
        (if commit-hash
            (render-revision-package-substitute-availability mime-types
-                                                            conn
                                                             commit-hash
                                                             #:path-base path)
            (render-unknown-revision mime-types
-                                    conn
                                     commit-hash))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision"
            "lint-warnings")
-     (let ((commit-hash
-            (latest-processed-commit-for-branch conn repository-id branch-name)))
+     (letpar& ((commit-hash
+                (with-thread-postgresql-connection
+                 (lambda (conn)
+                   (latest-processed-commit-for-branch conn
+                                                       repository-id
+                                                       branch-name)))))
        (if commit-hash
            (let ((parsed-query-parameters
                   (parse-query-parameters
@@ -312,7 +337,6 @@
                                                 "location"))))))
 
              (render-revision-lint-warnings mime-types
-                                            conn
                                             commit-hash
                                             parsed-query-parameters
                                             #:path-base path
@@ -325,43 +349,46 @@
                                              "/branch/" branch-name
                                              "/latest-processed-revision")))
            (render-unknown-revision mime-types
-                                    conn
                                     commit-hash))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision" "package" name version)
-     (let ((commit-hash
-            (latest-processed-commit-for-branch conn repository-id branch-name))
-           (parsed-query-parameters
-            (parse-query-parameters
-             request
-             `((locale ,identity #:default "en_US.UTF-8")))))
-       (if commit-hash
-           (render-revision-package-version mime-types
-                                            conn
-                                            commit-hash
-                                            name
-                                            version
-                                            parsed-query-parameters
-                                            #:header-text
-                                            `("Latest processed revision for branch "
-                                              (samp ,branch-name))
-                                            #:header-link
-                                            (string-append
-                                             "/repository/" repository-id
-                                             "/branch/" branch-name
-                                             "/latest-processed-revision")
-                                            #:version-history-link
-                                            (string-append
-                                             "/repository/" repository-id
-                                             "/branch/" branch-name
-                                             "/package/" name))
-           (render-unknown-revision mime-types
-                                    conn
-                                    commit-hash))))
-    (_ #f)))
+     (letpar& ((commit-hash
+                (with-thread-postgresql-connection
+                 (lambda (conn)
+                   (latest-processed-commit-for-branch conn
+                                                       repository-id
+                                                       branch-name)))))
+       (let ((parsed-query-parameters
+              (parse-query-parameters
+               request
+               `((locale ,identity #:default "en_US.UTF-8")))))
+         (if commit-hash
+             (render-revision-package-version mime-types
+                                              commit-hash
+                                              name
+                                              version
+                                              parsed-query-parameters
+                                              #:header-text
+                                              `("Latest processed revision for branch "
+                                                (samp ,branch-name))
+                                              #:header-link
+                                              (string-append
+                                               "/repository/" repository-id
+                                               "/branch/" branch-name
+                                               "/latest-processed-revision")
+                                              #:version-history-link
+                                              (string-append
+                                               "/repository/" repository-id
+                                               "/branch/" branch-name
+                                               "/package/" name))
+             (render-unknown-revision mime-types
+                                      commit-hash)))))
+     (_ #f)))
 
-(define (parse-build-system conn)
+(define (parse-build-system)
   (let ((systems
-         (valid-systems conn)))
+         (parallel-via-thread-pool-channel
+          (with-thread-postgresql-connection
+           valid-systems))))
     (lambda (s)
       (if (member s systems)
           s
@@ -370,70 +397,77 @@
 
 (define (render-branch-package-derivation-history request
                                                   mime-types
-                                                  conn
                                                   repository-id
                                                   branch-name
                                                   package-name)
   (let ((parsed-query-parameters
          (parse-query-parameters
           request
-          `((system  ,(parse-build-system conn)
+          `((system  ,(parse-build-system)
                      #:default "x86_64-linux")
             (target  ,parse-target
                      #:default "")))))
-    (let* ((system
-            (assq-ref parsed-query-parameters 'system))
-           (target
-            (assq-ref parsed-query-parameters 'target))
-           (package-derivations
-            (package-derivations-for-branch conn
-                                            (string->number repository-id)
-                                            branch-name
-                                            system
-                                            target
-                                            package-name))
+    (let ((system
+           (assq-ref parsed-query-parameters 'system))
+          (target
+           (assq-ref parsed-query-parameters 'target)))
+      (letpar&
+          ((package-derivations
+            (with-thread-postgresql-connection
+             (lambda (conn)
+               (package-derivations-for-branch conn
+                                               (string->number repository-id)
+                                               branch-name
+                                               system
+                                               target
+                                               package-name))))
            (build-server-urls
-            (select-build-server-urls-by-id conn)))
-      (case (most-appropriate-mime-type
-             '(application/json text/html)
-             mime-types)
-        ((application/json)
-         (render-json
-          `((derivations . ,(list->vector
-                             (map (match-lambda
-                                    ((package-version derivation-file-name
-                                                      first-guix-revision-commit
-                                                      first-datetime
-                                                      last-guix-revision-commit
-                                                      last-datetime
-                                                      builds)
-                                     `((version . ,package-version)
-                                       (derivation . ,derivation-file-name)
-                                       (first_revision
-                                        . ((commit . ,first-guix-revision-commit)
-                                           (datetime . ,first-datetime)))
-                                       (last_revision
-                                        . ((commit . ,last-guix-revision-commit)
-                                           (datetime . ,last-datetime)))
-                                       (builds
-                                        . ,(list->vector builds)))))
-                                  package-derivations))))))
-        (else
-         (render-html
-          #:sxml (view-branch-package-derivations
-                  parsed-query-parameters
-                  repository-id
-                  branch-name
-                  package-name
-                  (valid-systems conn)
-                  (valid-targets->options
-                   (valid-targets conn))
-                  build-server-urls
-                  package-derivations)))))))
+            (with-thread-postgresql-connection
+             select-build-server-urls-by-id)))
+        (case (most-appropriate-mime-type
+               '(application/json text/html)
+               mime-types)
+          ((application/json)
+           (render-json
+            `((derivations . ,(list->vector
+                               (map (match-lambda
+                                      ((package-version derivation-file-name
+                                                        first-guix-revision-commit
+                                                        first-datetime
+                                                        last-guix-revision-commit
+                                                        last-datetime
+                                                        builds)
+                                       `((version . ,package-version)
+                                         (derivation . ,derivation-file-name)
+                                         (first_revision
+                                          . ((commit . ,first-guix-revision-commit)
+                                             (datetime . ,first-datetime)))
+                                         (last_revision
+                                          . ((commit . ,last-guix-revision-commit)
+                                             (datetime . ,last-datetime)))
+                                         (builds
+                                          . ,(list->vector builds)))))
+                                    package-derivations))))))
+          (else
+           (letpar& ((systems
+                      (with-thread-postgresql-connection
+                       valid-systems))
+                     (targets
+                      (with-thread-postgresql-connection
+                       valid-targets)))
+             (render-html
+              #:sxml (view-branch-package-derivations
+                      parsed-query-parameters
+                      repository-id
+                      branch-name
+                      package-name
+                      systems
+                      (valid-targets->options targets)
+                      build-server-urls
+                      package-derivations)))))))))
 
 (define (render-branch-package-output-history request
                                               mime-types
-                                              conn
                                               repository-id
                                               branch-name
                                               package-name)
@@ -442,60 +476,69 @@
           request
           `((output  ,identity
                      #:default "out")
-            (system  ,(parse-build-system conn)
+            (system  ,(parse-build-system)
                      #:default "x86_64-linux")
             (target  ,parse-target
                      #:default "")))))
-    (let* ((system
-            (assq-ref parsed-query-parameters 'system))
-           (target
-            (assq-ref parsed-query-parameters 'target))
-           (output-name
-            (assq-ref parsed-query-parameters 'output))
-           (package-outputs
-            (package-outputs-for-branch conn
-                                        (string->number repository-id)
-                                        branch-name
-                                        system
-                                        target
-                                        package-name
-                                        output-name))
+    (let ((system
+           (assq-ref parsed-query-parameters 'system))
+          (target
+           (assq-ref parsed-query-parameters 'target))
+          (output-name
+           (assq-ref parsed-query-parameters 'output)))
+      (letpar&
+          ((package-outputs
+            (with-thread-postgresql-connection
+             (lambda (conn)
+               (package-outputs-for-branch conn
+                                           (string->number repository-id)
+                                           branch-name
+                                           system
+                                           target
+                                           package-name
+                                           output-name))))
            (build-server-urls
-            (select-build-server-urls-by-id conn)))
-      (case (most-appropriate-mime-type
-             '(application/json text/html)
-             mime-types)
-        ((application/json)
-         (render-json
-          `((derivations . ,(list->vector
-                             (map (match-lambda
-                                    ((package-version derivation-file-name
-                                                      first-guix-revision-commit
-                                                      first-datetime
-                                                      last-guix-revision-commit
-                                                      last-datetime
-                                                      builds)
-                                     `((version . ,package-version)
-                                       (derivation . ,derivation-file-name)
-                                       (first_revision
-                                        . ((commit . ,first-guix-revision-commit)
-                                           (datetime . ,first-datetime)))
-                                       (last_revision
-                                        . ((commit . ,last-guix-revision-commit)
-                                           (datetime . ,last-datetime)))
-                                       (builds
-                                        . ,(list->vector builds)))))
-                                  package-outputs))))))
-        (else
-         (render-html
-          #:sxml (view-branch-package-outputs
-                  parsed-query-parameters
-                  repository-id
-                  branch-name
-                  package-name
-                  output-name
-                  (valid-systems conn)
-                  (valid-targets->options
-                   (valid-targets conn))
-                  build-server-urls
-                  package-outputs)))))))
+            (with-thread-postgresql-connection
+             select-build-server-urls-by-id)))
+        (case (most-appropriate-mime-type
+               '(application/json text/html)
+               mime-types)
+          ((application/json)
+           (render-json
+            `((derivations . ,(list->vector
+                               (map (match-lambda
+                                      ((package-version derivation-file-name
+                                                        first-guix-revision-commit
+                                                        first-datetime
+                                                        last-guix-revision-commit
+                                                        last-datetime
+                                                        builds)
+                                       `((version . ,package-version)
+                                         (derivation . ,derivation-file-name)
+                                         (first_revision
+                                          . ((commit . ,first-guix-revision-commit)
+                                             (datetime . ,first-datetime)))
+                                         (last_revision
+                                          . ((commit . ,last-guix-revision-commit)
+                                             (datetime . ,last-datetime)))
+                                         (builds
+                                          . ,(list->vector builds)))))
+                                    package-outputs))))))
+          (else
+           (letpar& ((systems
+                      (with-thread-postgresql-connection
+                       valid-systems))
+                     (targets
+                      (with-thread-postgresql-connection
+                       valid-targets)))
+             (render-html
+              #:sxml (view-branch-package-outputs
+                      parsed-query-parameters
+                      repository-id
+                      branch-name
+                      package-name
+                      output-name
+                      systems
+                      (valid-targets->options targets)
+                      build-server-urls
+                      package-outputs)))))))))

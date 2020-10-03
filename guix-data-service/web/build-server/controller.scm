@@ -20,6 +20,7 @@
   #:use-module (ice-9 match)
   #:use-module (rnrs bytevectors)
   #:use-module (json)
+  #:use-module (guix-data-service utils)
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service web render)
   #:use-module (guix-data-service web query-parameters)
@@ -36,7 +37,6 @@
   #:export (build-server-controller))
 
 (define (render-build mime-types
-                      conn
                       build-server-id
                       query-parameters)
   (if (any-invalid-query-parameters? query-parameters)
@@ -56,15 +56,18 @@
              (build-server-build-id
               (assq-ref query-parameters 'build_server_build_id))
              (build
-              (if build-server-build-id
-                  (select-build-by-build-server-and-build-server-build-id
-                   conn
-                   build-server-id
-                   build-server-build-id)
-                  (select-build-by-build-server-and-derivation-file-name
-                   conn
-                   build-server-id
-                   derivation-file-name))))
+              (parallel-via-thread-pool-channel
+               (with-thread-postgresql-connection
+                (lambda (conn)
+                  (if build-server-build-id
+                      (select-build-by-build-server-and-build-server-build-id
+                       conn
+                       build-server-id
+                       build-server-build-id)
+                      (select-build-by-build-server-and-derivation-file-name
+                       conn
+                       build-server-id
+                       derivation-file-name)))))))
         (if build
             (render-html
              #:sxml
@@ -80,10 +83,13 @@
                                                  ; guix-build-coordinator
                                                  ; doesn't mark builds as
                                                  ; failed-dependency
-                                (select-required-builds-that-failed
-                                 conn
-                                 build-server-id
-                                 derivation-file-name)
+                                (parallel-via-thread-pool-channel
+                                 (with-thread-postgresql-connection
+                                  (lambda (conn)
+                                    (select-required-builds-that-failed
+                                     conn
+                                     build-server-id
+                                     derivation-file-name))))
                                 #f)))))
             (render-html
              #:sxml (general-not-found
@@ -106,12 +112,11 @@
 (define (handle-build-event-submission parsed-query-parameters
                                        build-server-id-string
                                        body
-                                       conn
                                        secret-key-base)
   (define build-server-id
     (string->number build-server-id-string))
 
-  (define (handle-derivation-events items)
+  (define (handle-derivation-events conn items)
     (unless (null? items)
       (let ((build-ids
              (insert-builds conn
@@ -132,30 +137,38 @@
           items)))))
 
   (define (process-items items)
-    (with-postgresql-transaction
-     conn
-     (lambda (conn)
-       (handle-derivation-events
-        (filter (lambda (item)
-                  (let ((type (assoc-ref item "type")))
-                    (if type
-                        (string=? type "build")
-                        (begin
-                          (simple-format (current-error-port)
-                                         "warning: unknown type for event: ~A\n"
-                                         item)
-                          #f))))
-                items)))))
+    (parallel-via-thread-pool-channel
+     (with-thread-postgresql-connection
+      (lambda (conn)
+        (with-postgresql-transaction
+         conn
+         (lambda (conn)
+           (handle-derivation-events
+            conn
+            (filter (lambda (item)
+                      (let ((type (assoc-ref item "type")))
+                        (if type
+                            (string=? type "build")
+                            (begin
+                              (simple-format
+                               (current-error-port)
+                               "warning: unknown type for event: ~A\n"
+                               item)
+                              #f))))
+                    items))))))))
 
   (if (any-invalid-query-parameters? parsed-query-parameters)
       (render-json
        '((error . "no token provided"))
        #:code 400)
       (let ((provided-token (assq-ref parsed-query-parameters 'token))
-            (permitted-tokens (compute-tokens-for-build-server
-                               conn
-                               secret-key-base
-                               build-server-id)))
+            (permitted-tokens
+             (parallel-via-thread-pool-channel
+              (with-thread-postgresql-connection
+               (lambda (conn)
+                 (compute-tokens-for-build-server conn
+                                                  secret-key-base
+                                                  build-server-id))))))
         (if (member provided-token
                     (map cdr permitted-tokens)
                     string=?)
@@ -201,25 +214,32 @@
              '((error . "error"))
              #:code 403)))))
 
-(define (handle-signing-key-request conn id)
+(define (handle-signing-key-request id)
   (render-html
    #:sxml (view-signing-key
-           (select-signing-key conn id))))
+           (parallel-via-thread-pool-channel
+            (with-thread-postgresql-connection
+             (lambda (conn)
+               (select-signing-key conn id)))))))
 
 (define (build-server-controller request
                                  method-and-path-components
                                  mime-types
                                  body
-                                 conn
                                  secret-key-base)
   (match method-and-path-components
     (('GET "build-servers")
-     (let ((build-servers (select-build-servers conn)))
+     (letpar& ((build-servers
+                (with-thread-postgresql-connection
+                 select-build-servers)))
        (render-build-servers mime-types
                              build-servers)))
     (('GET "build-server" build-server-id)
-     (let ((build-server (select-build-server conn (string->number
-                                                    build-server-id))))
+     (letpar& ((build-server
+                (with-thread-postgresql-connection
+                 (lambda (conn)
+                   (select-build-server conn (string->number
+                                              build-server-id))))))
        (if build-server
            (render-build-server mime-types
                                 build-server)
@@ -231,7 +251,6 @@
              `((derivation_file_name  ,identity)
                (build_server_build_id ,identity)))))
        (render-build mime-types
-                     conn
                      (string->number build-server-id)
                      parsed-query-parameters)))
     (('POST "build-server" build-server-id "build-events")
@@ -242,9 +261,7 @@
        (handle-build-event-submission parsed-query-parameters
                                       build-server-id
                                       body
-                                      conn
                                       secret-key-base)))
     (('GET "build-server" "signing-key" id)
-     (handle-signing-key-request conn
-                                 (string->number id)))
+     (handle-signing-key-request (string->number id)))
     (_ #f)))

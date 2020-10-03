@@ -19,6 +19,7 @@
 (define-module (guix-data-service web controller)
   #:use-module (ice-9 match)
   #:use-module (ice-9 vlist)
+  #:use-module (ice-9 threads)
   #:use-module (ice-9 pretty-print)
   #:use-module (ice-9 textual-ports)
   #:use-module (ice-9 string-fun)
@@ -35,6 +36,7 @@
   #:use-module (squee)
   #:use-module (json)
   #:use-module (prometheus)
+  #:use-module (guix-data-service utils)
   #:use-module (guix-data-service config)
   #:use-module (guix-data-service comparison)
   #:use-module (guix-data-service database)
@@ -129,8 +131,20 @@
                                                    "_"))
                                    #:labels '(name))))
                                pg-stat-fields)))
-    (lambda (conn)
-      (let ((metric-values (fetch-high-level-table-size-metrics conn)))
+    (lambda ()
+      (letpar& ((metric-values
+                 (with-thread-postgresql-connection
+                  fetch-high-level-table-size-metrics))
+                (guix-revisions-count
+                 (with-thread-postgresql-connection
+                  count-guix-revisions))
+                (pg-stat-user-tables-metrics
+                 (with-thread-postgresql-connection
+                  fetch-pg-stat-user-tables-metrics))
+                (load-new-guix-revision-job-metrics
+                 (with-thread-postgresql-connection
+                  select-load-new-guix-revision-job-metrics)))
+
         (for-each (match-lambda
                     ((name row-estimate table-bytes index-bytes toast-bytes)
 
@@ -146,54 +160,66 @@
                      (metric-set table-toast-bytes-metric
                                  toast-bytes
                                  #:label-values `((name . ,name)))))
-                  metric-values))
+                  metric-values)
 
-      (metric-set revisions-count-metric
-                  (count-guix-revisions conn))
+        (metric-set revisions-count-metric
+                    guix-revisions-count)
 
-      (map (lambda (field-values)
-             (let ((name (assq-ref field-values 'name)))
-               (for-each
-                (match-lambda
-                  (('name . _) #f)
-                  ((field . value)
-                   (let ((metric (or (assq-ref pg-stat-metrics field)
-                                     (error field))))
-                     (metric-set metric
-                                 value
-                                 #:label-values `((name . ,name))))))
-                field-values)))
-           (fetch-pg-stat-user-tables-metrics conn))
+        (map (lambda (field-values)
+               (let ((name (assq-ref field-values 'name)))
+                 (for-each
+                  (match-lambda
+                    (('name . _) #f)
+                    ((field . value)
+                     (let ((metric (or (assq-ref pg-stat-metrics field)
+                                       (error field))))
+                       (metric-set metric
+                                   value
+                                   #:label-values `((name . ,name))))))
+                  field-values)))
+             pg-stat-user-tables-metrics)
 
-      (for-each (match-lambda
-                  ((repository-label completed count)
-                   (metric-set
-                    load-new-guix-revision-job-count
-                    count
-                    #:label-values
-                    `((repository_label . ,repository-label)
-                      (completed        . ,(if completed "yes" "no"))))))
-                (select-load-new-guix-revision-job-metrics conn))
+        (for-each (match-lambda
+                    ((repository-label completed count)
+                     (metric-set
+                      load-new-guix-revision-job-count
+                      count
+                      #:label-values
+                      `((repository_label . ,repository-label)
+                        (completed        . ,(if completed "yes" "no"))))))
+                  load-new-guix-revision-job-metrics)
 
-      (list (build-response
-             #:code 200
-             #:headers '((content-type . (text/plain))))
-            (lambda (port)
-              (write-metrics registry port))))))
+        (list (build-response
+               #:code 200
+               #:headers '((content-type . (text/plain))))
+              (lambda (port)
+                (write-metrics registry port)))))))
 
-(define (render-derivation conn derivation-file-name)
-  (let ((derivation (select-derivation-by-file-name conn
-                                                    derivation-file-name)))
+(define (render-derivation derivation-file-name)
+  (letpar& ((derivation
+             (with-thread-postgresql-connection
+              (lambda (conn)
+                (select-derivation-by-file-name conn derivation-file-name)))))
+
     (if derivation
-        (let ((derivation-inputs (select-derivation-inputs-by-derivation-id
-                                  conn
-                                  (first derivation)))
-              (derivation-outputs (select-derivation-outputs-by-derivation-id
-                                   conn
-                                   (first derivation)))
-              (builds (select-builds-with-context-by-derivation-file-name
+        (letpar& ((derivation-inputs
+                   (with-thread-postgresql-connection
+                    (lambda (conn)
+                      (select-derivation-inputs-by-derivation-id
                        conn
-                       (second derivation))))
+                       (first derivation)))))
+                  (derivation-outputs
+                   (with-thread-postgresql-connection
+                    (lambda (conn)
+                      (select-derivation-outputs-by-derivation-id
+                       conn
+                       (first derivation)))))
+                  (builds
+                   (with-thread-postgresql-connection
+                    (lambda (conn)
+                      (select-builds-with-context-by-derivation-file-name
+                       conn
+                       (second derivation))))))
           (render-html
            #:sxml (view-derivation derivation
                                    derivation-inputs
@@ -207,19 +233,32 @@
                  "No derivation found with this file name.")
          #:code 404))))
 
-(define (render-json-derivation conn derivation-file-name)
-   (let ((derivation (select-derivation-by-file-name conn
-                                                    derivation-file-name)))
-     (if derivation
-        (let ((derivation-inputs (select-derivation-inputs-by-derivation-id
-                                  conn
-                                  (first derivation)))
-              (derivation-outputs (select-derivation-outputs-by-derivation-id
-                                   conn
-                                   (first derivation)))
-              (derivation-sources (select-derivation-sources-by-derivation-id
-                                   conn
-                                   (first derivation))))
+(define (render-json-derivation derivation-file-name)
+  (let ((derivation
+         (parallel-via-thread-pool-channel
+          (with-thread-postgresql-connection
+           (lambda (conn)
+             (select-derivation-by-file-name conn
+                                             derivation-file-name))))))
+    (if derivation
+        (letpar& ((derivation-inputs
+                   (with-thread-postgresql-connection
+                    (lambda (conn)
+                      (select-derivation-inputs-by-derivation-id
+                       conn
+                       (first derivation)))))
+                  (derivation-outputs
+                   (with-thread-postgresql-connection
+                    (lambda (conn)
+                      (select-derivation-outputs-by-derivation-id
+                       conn
+                       (first derivation)))))
+                  (derivation-sources
+                   (with-thread-postgresql-connection
+                    (lambda (conn)
+                      (select-derivation-sources-by-derivation-id
+                       conn
+                       (first derivation))))))
           (render-json
            `((inputs . ,(list->vector
                                     (map
@@ -255,19 +294,35 @@
                              env-var))))))))
         (render-json '((error . "invalid path"))))))
 
-(define (render-formatted-derivation conn derivation-file-name)
-  (let ((derivation (select-derivation-by-file-name conn
-                                                    derivation-file-name)))
+(define (render-formatted-derivation derivation-file-name)
+  (let ((derivation
+         (parallel-via-thread-pool-channel
+          (with-thread-postgresql-connection
+           (lambda (conn)
+             (select-derivation-by-file-name conn
+                                             derivation-file-name))))))
     (if derivation
-        (let ((derivation-inputs (select-derivation-inputs-by-derivation-id
-                                  conn
-                                  (first derivation)))
-              (derivation-outputs (select-derivation-outputs-by-derivation-id
-                                   conn
-                                   (first derivation)))
-              (derivation-sources (select-derivation-sources-by-derivation-id
-                                   conn
-                                   (first derivation))))
+        (letpar& ((derivation-inputs
+                   (parallel-via-thread-pool-channel
+                    (with-thread-postgresql-connection
+                     (lambda (conn)
+                       (select-derivation-inputs-by-derivation-id
+                        conn
+                        (first derivation))))))
+                  (derivation-outputs
+                   (parallel-via-thread-pool-channel
+                    (with-thread-postgresql-connection
+                     (lambda (conn)
+                       (select-derivation-outputs-by-derivation-id
+                        conn
+                        (first derivation))))))
+                  (derivation-sources
+                   (parallel-via-thread-pool-channel
+                    (with-thread-postgresql-connection
+                     (lambda (conn)
+                       (select-derivation-sources-by-derivation-id
+                        conn
+                        (first derivation)))))))
           (render-html
            #:sxml (view-formatted-derivation derivation
                                              derivation-inputs
@@ -281,10 +336,14 @@
                  "No derivation found with this file name.")
          #:code 404))))
 
-(define (render-narinfos conn filename)
-  (let ((narinfos (select-nars-for-output
-                   conn
-                   (string-append "/gnu/store/" filename))))
+(define (render-narinfos filename)
+  (let ((narinfos
+         (parallel-via-thread-pool-channel
+          (with-thread-postgresql-connection
+           (lambda (conn)
+             (select-nars-for-output
+              conn
+              (string-append "/gnu/store/" filename)))))))
     (if (null? narinfos)
         (render-html
          #:sxml (general-not-found
@@ -295,11 +354,17 @@
         (render-html
          #:sxml (view-narinfos narinfos)))))
 
-(define (render-store-item conn filename)
-  (let ((derivation (select-derivation-by-output-filename conn filename)))
+(define (render-store-item filename)
+  (letpar& ((derivation
+             (with-thread-postgresql-connection
+              (lambda (conn)
+                (select-derivation-by-output-filename conn filename)))))
     (match derivation
       (()
-       (match (select-derivation-source-file-by-store-path conn filename)
+       (match (parallel-via-thread-pool-channel
+               (with-thread-postgresql-connection
+                (lambda (conn)
+                  (select-derivation-source-file-by-store-path conn filename))))
          (()
           (render-html
            #:sxml (general-not-found
@@ -310,29 +375,52 @@
           (render-html
            #:sxml (view-derivation-source-file
                    filename
-                   (select-derivation-source-file-nar-details-by-file-name conn
-                                                                           filename))
+                   (parallel-via-thread-pool-channel
+                    (with-thread-postgresql-connection
+                     (lambda (conn)
+                       (select-derivation-source-file-nar-details-by-file-name
+                        conn
+                        filename)))))
            #:extra-headers http-headers-for-unchanging-content))))
       (derivations
-       (render-html
-        #:sxml (view-store-item filename
-                                derivations
-                                (map (lambda (derivation)
-                                       (match derivation
-                                         ((file-name output-id rest ...)
-                                          (select-derivations-using-output
-                                           conn output-id))))
-                                     derivations)
-                                (select-nars-for-output conn
-                                                        filename)
-                                (select-builds-with-context-by-derivation-output
-                                 conn filename)))))))
+       (letpar& ((derivations-using-store-item-list
+                  (with-thread-postgresql-connection
+                   (lambda (conn)
+                     (map (lambda (derivation)
+                            (match derivation
+                              ((file-name output-id rest ...)
+                               (select-derivations-using-output
+                                conn output-id))))
+                          derivations))))
+                 (nars
+                  (with-thread-postgresql-connection
+                   (lambda (conn)
+                     (select-nars-for-output conn filename))))
+                 (builds
+                  (with-thread-postgresql-connection
+                   (lambda (conn)
+                     (select-builds-with-context-by-derivation-output
+                      conn
+                      filename)))))
+         (render-html
+          #:sxml (view-store-item filename
+                                  derivations
+                                  derivations-using-store-item-list
+                                  nars
+                                  builds)))))))
 
-(define (render-json-store-item conn filename)
-  (let ((derivation (select-derivation-by-output-filename conn filename)))
+(define (render-json-store-item filename)
+  (let ((derivation
+         (parallel-via-thread-pool-channel
+          (with-thread-postgresql-connection
+           (lambda (conn)
+             (select-derivation-by-output-filename conn filename))))))
     (match derivation
       (()
-       (match (select-derivation-source-file-by-store-path conn filename)
+       (match (parallel-via-thread-pool-channel
+               (with-thread-postgresql-connection
+                (lambda (conn)
+                  (select-derivation-source-file-by-store-path conn filename))))
          (()
           (render-json '((error . "store item not found"))))
          ((id)
@@ -343,43 +431,54 @@
                    (match-lambda
                      ((key . value)
                       `((,key . ,value))))
-                   (select-derivation-source-file-nar-details-by-file-name
-                    conn
-                    filename)))))))))
+                   (parallel-via-thread-pool-channel
+                    (with-thread-postgresql-connection
+                     (lambda (conn)
+                       (select-derivation-source-file-nar-details-by-file-name
+                        conn
+                        filename))))))))))))
       (derivations
-       (render-json
-        `((nars . ,(list->vector
-                    (map
-                     (match-lambda
-                       ((_ hash _ urls signatures)
-                        `((hash . ,hash)
-                          (urls
-                           . ,(list->vector
-                               (map
-                                (lambda (url-data)
-                                  `((size . ,(assoc-ref url-data "size"))
-                                    (compression . ,(assoc-ref url-data "compression"))
-                                    (url . ,(assoc-ref url-data "url"))))
-                                urls)))
-                          (signatures
-                           . ,(list->vector
-                               (map
-                                (lambda (signature)
-                                  `((version . ,(assoc-ref signature "version"))
-                                    (host-name . ,(assoc-ref signature "host_name"))))
-                                signatures))))))
-                     (select-nars-for-output conn filename))))
-          (derivations
-           . ,(list->vector
-               (map
-                (match-lambda
-                  ((filename output-id)
-                   `((filename . ,filename)
-                     (derivations-using-store-item
-                      . ,(list->vector
-                          (map car (select-derivations-using-output
-                                    conn output-id)))))))
-                derivations)))))))))
+       (letpar& ((nars
+                  (with-thread-postgresql-connection
+                   (lambda (conn)
+                     (select-nars-for-output conn filename)))))
+         (render-json
+          `((nars . ,(list->vector
+                      (map
+                       (match-lambda
+                         ((_ hash _ urls signatures)
+                          `((hash . ,hash)
+                            (urls
+                             . ,(list->vector
+                                 (map
+                                  (lambda (url-data)
+                                    `((size . ,(assoc-ref url-data "size"))
+                                      (compression . ,(assoc-ref url-data "compression"))
+                                      (url . ,(assoc-ref url-data "url"))))
+                                  urls)))
+                            (signatures
+                             . ,(list->vector
+                                 (map
+                                  (lambda (signature)
+                                    `((version . ,(assoc-ref signature "version"))
+                                      (host-name . ,(assoc-ref signature "host_name"))))
+                                  signatures))))))
+                       nars)))
+            (derivations
+             . ,(list->vector
+                 (map
+                  (match-lambda
+                    ((filename output-id)
+                     `((filename . ,filename)
+                       (derivations-using-store-item
+                        . ,(list->vector
+                            (map car
+                                 (parallel-via-thread-pool-channel
+                                  (with-thread-postgresql-connection
+                                   (lambda (conn)
+                                     (select-derivations-using-output
+                                      conn output-id))))))))))
+                derivations))))))))))
 
 (define handle-static-assets
   (if assets-dir-in-store?
@@ -393,50 +492,12 @@
                      mime-types body
                      secret-key-base)
   (define (controller-thunk)
-    (match method-and-path-components
-      (('GET "assets" rest ...)
-       (or (handle-static-assets (string-join rest "/")
-                                 (request-headers request))
-           (not-found (request-uri request))))
-      (('GET "healthcheck")
-       (let ((database-status
-              (catch
-                #t
-                (lambda ()
-                  (with-postgresql-connection
-                   "web healthcheck"
-                   (lambda (conn)
-                     (number? (count-guix-revisions conn)))))
-                (lambda (key . args)
-                  #f))))
-         (render-json
-          `((status . ,(if database-status
-                           "ok"
-                           "not ok")))
-          #:code (if (eq? database-status
-                          #t)
-                     200
-                     500))))
-      (('GET "README")
-       (let ((filename (string-append (%config 'doc-dir) "/README.html")))
-         (if (file-exists? filename)
-             (render-html
-              #:sxml (readme (call-with-input-file filename
-                               get-string-all)))
-             (render-html
-              #:sxml (general-not-found
-                      "README not found"
-                      "The README.html file does not exist")
-              #:code 404))))
-      (_
-       (with-thread-postgresql-connection
-        (lambda (conn)
-          (controller-with-database-connection request
-                                               method-and-path-components
-                                               mime-types
-                                               body
-                                               conn
-                                               secret-key-base))))))
+    (actual-controller request
+                       method-and-path-components
+                       mime-types
+                       body
+                       secret-key-base))
+
   (call-with-error-handling
    controller-thunk
    #:on-error 'backtrace
@@ -447,12 +508,11 @@
                                            #f))
                                #:code 500))))
 
-(define (controller-with-database-connection request
-                                             method-and-path-components
-                                             mime-types
-                                             body
-                                             conn
-                                             secret-key-base)
+(define (actual-controller request
+                           method-and-path-components
+                           mime-types
+                           body
+                           secret-key-base)
   (define path
     (uri-path (request-uri request)))
 
@@ -460,8 +520,7 @@
     (or (f request
            method-and-path-components
            mime-types
-           body
-           conn)
+           body)
         (render-html
          #:sxml (general-not-found
                  "Page not found"
@@ -473,7 +532,6 @@
            method-and-path-components
            mime-types
            body
-           conn
            secret-key-base)
         (render-html
          #:sxml (general-not-found
@@ -485,21 +543,63 @@
     (('GET)
      (render-html
       #:sxml (index
-              (map
-               (lambda (git-repository-details)
-                 (cons
-                  git-repository-details
-                  (all-branches-with-most-recent-commit
-                   conn (first git-repository-details))))
-               (all-git-repositories conn)))))
+              (parallel-via-thread-pool-channel
+               (with-thread-postgresql-connection
+                (lambda (conn)
+                  (map
+                   (lambda (git-repository-details)
+                     (cons
+                      git-repository-details
+                      (all-branches-with-most-recent-commit
+                       conn (first git-repository-details))))
+                   (all-git-repositories conn))))))))
+    (('GET "assets" rest ...)
+     (or (handle-static-assets (string-join rest "/")
+                               (request-headers request))
+         (not-found (request-uri request))))
+    (('GET "healthcheck")
+     (let ((database-status
+            (catch
+              #t
+              (lambda ()
+                (with-postgresql-connection
+                 "web healthcheck"
+                 (lambda (conn)
+                   (number? (count-guix-revisions conn)))))
+              (lambda (key . args)
+                #f))))
+       (render-json
+        `((status . ,(if database-status
+                         "ok"
+                         "not ok")))
+        #:code (if (eq? database-status
+                        #t)
+                   200
+                   500))))
+    (('GET "README")
+     (let ((filename (string-append (%config 'doc-dir) "/README.html")))
+       (if (file-exists? filename)
+           (render-html
+            #:sxml (readme (call-with-input-file filename
+                             get-string-all)))
+           (render-html
+            #:sxml (general-not-found
+                    "README not found"
+                    "The README.html file does not exist")
+            #:code 404))))
     (('GET "builds")
      (delegate-to build-controller))
     (('GET "statistics")
-     (render-html
-      #:sxml (view-statistics (count-guix-revisions conn)
-                              (count-derivations conn))))
+     (letpar& ((guix-revisions-count
+                (with-thread-postgresql-connection count-guix-revisions))
+               (count-derivations
+                (with-thread-postgresql-connection count-derivations)))
+
+       (render-html
+        #:sxml (view-statistics guix-revisions-count
+                                count-derivations))))
     (('GET "metrics")
-     (render-metrics conn))
+     (render-metrics))
     (('GET "revision" args ...)
      (delegate-to revision-controller))
     (('GET "repositories")
@@ -511,12 +611,11 @@
      ;; content negotiation, so just use the path from the request
      (let ((path (uri-path (request-uri request))))
        (if (string-suffix? ".drv" path)
-           (render-derivation conn path)
-           (render-store-item conn path))))
+           (render-derivation path)
+           (render-store-item path))))
     (('GET "gnu" "store" filename "formatted")
      (if (string-suffix? ".drv" filename)
-         (render-formatted-derivation conn
-                                      (string-append "/gnu/store/" filename))
+         (render-formatted-derivation (string-append "/gnu/store/" filename))
          (render-html
           #:sxml (general-not-found
                   "Not a derivation"
@@ -525,20 +624,22 @@
     (('GET "gnu" "store" filename "plain")
      (if (string-suffix? ".drv" filename)
          (let ((raw-drv
-                (select-serialized-derivation-by-file-name
-                 conn
-                 (string-append "/gnu/store/" filename))))
+                (parallel-via-thread-pool-channel
+                 (with-thread-postgresql-connection
+                  (lambda (conn)
+                    (select-serialized-derivation-by-file-name
+                     conn
+                     (string-append "/gnu/store/" filename)))))))
            (if raw-drv
                (render-text raw-drv)
                (not-found (request-uri request))))
          (not-found (request-uri request))))
     (('GET "gnu" "store" filename "narinfos")
-     (render-narinfos conn filename))
+     (render-narinfos filename))
     (('GET "gnu" "store" filename "json")
      (if (string-suffix? ".drv" filename)
-         (render-json-derivation conn
-                                 (string-append "/gnu/store/" filename))
-         (render-json-store-item conn (string-append "/gnu/store/" filename))))
+         (render-json-derivation (string-append "/gnu/store/" filename))
+         (render-json-store-item (string-append "/gnu/store/" filename))))
     (('GET "build-servers")
      (delegate-to-with-secret-key-base build-server-controller))
     (('GET "dumps" _ ...)

@@ -31,8 +31,7 @@
 (define (dumps-controller request
                           method-and-path-components
                           mime-types
-                          body
-                          conn)
+                          body)
   (match method-and-path-components
     (('GET "dumps")
      (render-dumps request

@@ -18,6 +18,8 @@
 (define-module (guix-data-service web build controller)
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 match)
+  #:use-module (guix-data-service utils)
+  #:use-module (guix-data-service database)
   #:use-module (guix-data-service web render)
   #:use-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service model build)
@@ -34,9 +36,11 @@
        (string-append "unknown build status: "
                       status))))
 
-(define (parse-build-server conn)
+(define parse-build-server
   (lambda (v)
-    (let ((build-servers (select-build-servers conn)))
+    (letpar& ((build-servers
+               (with-thread-postgresql-connection
+                select-build-servers)))
       (or (any (match-lambda
                  ((id url lookup-all-derivations? lookup-builds?)
                   (if (eq? (string->number v)
@@ -51,21 +55,19 @@
 (define (build-controller request
                           method-and-path-components
                           mime-types
-                          body
-                          conn)
+                          body)
   (match method-and-path-components
     (('GET "builds")
      (render-builds request
-                    mime-types
-                    conn))
+                    mime-types))
     (_ #f)))
 
-(define (render-builds request mime-types conn)
+(define (render-builds request mime-types)
   (let ((parsed-query-parameters
          (parse-query-parameters
           request
           `((build_status ,parse-build-status #:multi-value)
-            (build_server ,(parse-build-server conn) #:multi-value)))))
+            (build_server ,parse-build-server #:multi-value)))))
     (if (any-invalid-query-parameters? parsed-query-parameters)
         (render-html
          #:sxml (view-builds parsed-query-parameters
@@ -73,20 +75,29 @@
                              '()
                              '()
                              '()))
-        (render-html
-         #:sxml (view-builds parsed-query-parameters
-                             build-status-strings
-                             (map (match-lambda
-                                    ((id url lookup-all-derivations lookup-builds)
-                                     (cons url id)))
-                                  (select-build-servers conn))
-                             (select-build-stats
-                              conn
-                              (assq-ref parsed-query-parameters
-                                        'build_server))
-                             (select-builds-with-context
-                              conn
-                              (assq-ref parsed-query-parameters
-                                        'build_status)
-                              (assq-ref parsed-query-parameters
-                                        'build_server)))))))
+        (letpar& ((build-servers
+                   (with-thread-postgresql-connection
+                    select-build-servers))
+                  (build-stats
+                   (with-thread-postgresql-connection
+                    (lambda (conn)
+                      (select-build-stats
+                       conn
+                       (assq-ref parsed-query-parameters
+                                 'build_server)))))
+                  (builds-with-context
+                   (with-thread-postgresql-connection
+                    (lambda (conn)
+                      (select-builds-with-context
+                       conn
+                       (assq-ref parsed-query-parameters
+                                 'build_status)
+                       (assq-ref parsed-query-parameters
+                                 'build_server))))))
+
+          (render-html
+           #:sxml (view-builds parsed-query-parameters
+                               build-status-strings
+                               build-servers
+                               build-stats
+                               builds-with-context))))))

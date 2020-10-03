@@ -31,6 +31,8 @@
   #:use-module (guix base32)
   #:use-module (guix base64)
   #:use-module (guix serialization)
+  #:use-module (guix-data-service utils)
+  #:use-module (guix-data-service database)
   #:use-module (guix-data-service web render)
   #:use-module (guix-data-service web nar html)
   #:use-module (guix-data-service model derivation)
@@ -54,8 +56,7 @@
 (define (nar-controller request
                         method-and-path-components
                         mime-types
-                        body
-                        conn)
+                        body)
   (define (.narinfo-suffix s)
     (string-suffix? ".narinfo" s))
 
@@ -78,7 +79,6 @@
              (uri-decode (last (string-split path #\/)))))
        (render-nar request
                    mime-types
-                   conn
                    (string-append "/gnu/store/" file-name))))
     (('GET "nar" "lzip" _)
      ;; These routes are a little special, as the extensions aren't used for
@@ -88,22 +88,22 @@
              (uri-decode (last (string-split path #\/)))))
        (render-lzip-nar request
                         mime-types
-                        conn
                         (string-append "/gnu/store/" file-name))))
     (('GET (? .narinfo-suffix path))
      (render-narinfo request
-                     conn
                      (string-drop-right path
                                         (string-length ".narinfo"))))
     (_ #f)))
 
 (define (render-nar request
                     mime-types
-                    conn
                     file-name)
   (or
-   (and=> (select-serialized-derivation-by-file-name conn
-                                                     file-name)
+   (and=> (parallel-via-thread-pool-channel
+           (with-thread-postgresql-connection
+            (lambda (conn)
+              (select-serialized-derivation-by-file-name conn
+                                                         file-name))))
           (lambda (derivation-text)
             (let ((derivation-bytevector
                    (string->bytevector derivation-text
@@ -127,10 +127,13 @@
 
 (define (render-lzip-nar request
                          mime-types
-                         conn
                          file-name)
   (or
-   (and=> (select-derivation-source-file-nar-data-by-file-name conn file-name)
+   (and=> (parallel-via-thread-pool-channel
+           (with-thread-postgresql-connection
+            (lambda (conn)
+              (select-derivation-source-file-nar-data-by-file-name conn
+                                                                   file-name))))
           (lambda (data)
             (list (build-response
                    #:code 200
@@ -141,51 +144,60 @@
    (not-found (request-uri request))))
 
 (define (render-narinfo request
-                        conn
                         hash)
   (or
-   (and=> (select-derivation-by-file-name-hash conn
-                                               hash)
+   (and=> (parallel-via-thread-pool-channel
+           (with-thread-postgresql-connection
+            (lambda (conn)
+              (select-derivation-by-file-name-hash conn
+                                                   hash))))
           (lambda (derivation)
             (list (build-response
                    #:code 200
                    #:headers '((content-type . (application/x-narinfo))))
-                  (let* ((derivation-file-name
-                          (second derivation))
-                         (derivation-text
-                          (select-serialized-derivation-by-file-name
-                           conn
-                           derivation-file-name))
-                         (derivation-bytevector
-                          (string->bytevector derivation-text
-                                              "ISO-8859-1"))
+                  (let ((derivation-file-name (second derivation)))
+                    (letpar&
+                        ((derivation-text
+                          (with-thread-postgresql-connection
+                           (lambda (conn)
+                             (select-serialized-derivation-by-file-name
+                              conn
+                              derivation-file-name))))
                          (derivation-references
-                          (select-derivation-references-by-derivation-id
-                           conn
-                           (first derivation)))
-                         (nar-bytevector
-                          (call-with-values
-                              (lambda ()
-                                (open-bytevector-output-port))
-                            (lambda (port get-bytevector)
-                              (write-file-tree
-                               derivation-file-name
-                               port
-                               #:file-type+size
-                               (lambda (file)
-                                 (values 'regular
-                                         (bytevector-length derivation-bytevector)))
-                               #:file-port
-                               (lambda (file)
-                                 (open-bytevector-input-port derivation-bytevector)))
-                              (get-bytevector)))))
-                    (lambda (port)
-                      (display (narinfo-string derivation-file-name
-                                               nar-bytevector
-                                               derivation-references)
-                               port))))))
-   (and=> (select-derivation-source-file-data-by-file-name-hash conn
-                                                                hash)
+                          (with-thread-postgresql-connection
+                           (lambda (conn)
+                             (select-derivation-references-by-derivation-id
+                              conn
+                              (first derivation))))))
+                      (let* ((derivation-bytevector
+                              (string->bytevector derivation-text
+                                                  "ISO-8859-1"))
+                             (nar-bytevector
+                              (call-with-values
+                                  (lambda ()
+                                    (open-bytevector-output-port))
+                                (lambda (port get-bytevector)
+                                  (write-file-tree
+                                   derivation-file-name
+                                   port
+                                   #:file-type+size
+                                   (lambda (file)
+                                     (values 'regular
+                                             (bytevector-length derivation-bytevector)))
+                                   #:file-port
+                                   (lambda (file)
+                                     (open-bytevector-input-port derivation-bytevector)))
+                                  (get-bytevector)))))
+                        (lambda (port)
+                          (display (narinfo-string derivation-file-name
+                                                   nar-bytevector
+                                                   derivation-references)
+                                   port))))))))
+   (and=> (parallel-via-thread-pool-channel
+           (with-thread-postgresql-connection
+            (lambda (conn)
+              (select-derivation-source-file-data-by-file-name-hash conn
+                                                                    hash))))
           (match-lambda
             ((store-path compression compressed-size
                          hash-algorithm hash uncompressed-size)

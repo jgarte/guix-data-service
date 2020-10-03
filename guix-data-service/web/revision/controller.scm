@@ -24,6 +24,8 @@
   #:use-module (texinfo html)
   #:use-module (texinfo plain-text)
   #:use-module (json)
+  #:use-module (guix-data-service utils)
+  #:use-module (guix-data-service database)
   #:use-module (guix-data-service web render)
   #:use-module (guix-data-service web sxml)
   #:use-module (guix-data-service web query-parameters)
@@ -75,52 +77,57 @@
        (string-append "unknown build status: "
                       status))))
 
-(define (parse-build-server conn)
-  (lambda (v)
-    (let ((build-servers (select-build-servers conn)))
-      (or (any (match-lambda
-                 ((id url lookup-all-derivations? lookup-builds?)
-                  (if (eq? (string->number v)
-                           id)
-                      id
-                      #f)))
-               build-servers)
-          (make-invalid-query-parameter
-           v
-           "unknown build server")))))
+(define (parse-build-server v)
+  (letpar& ((build-servers
+             (with-thread-postgresql-connection select-build-servers)))
+    (or (any (match-lambda
+               ((id url lookup-all-derivations? lookup-builds?)
+                (if (eq? (string->number v)
+                         id)
+                    id
+                    #f)))
+             build-servers)
+        (make-invalid-query-parameter
+         v
+         "unknown build server"))))
 
 (define (revision-controller request
                              method-and-path-components
                              mime-types
-                             body
-                             conn)
+                             body)
   (define path
     (uri-path (request-uri request)))
 
   (match method-and-path-components
-    (('GET "revision" commit-hash) (if (guix-commit-exists? conn commit-hash)
-                                       (render-view-revision mime-types
-                                                             conn
-                                                             commit-hash
-                                                             #:path-base path)
-                                       (render-unknown-revision mime-types
-                                                                conn
-                                                                commit-hash)))
+    (('GET "revision" commit-hash)
+     (if (parallel-via-thread-pool-channel
+          (with-thread-postgresql-connection
+           (lambda (conn)
+             (guix-commit-exists? conn commit-hash))))
+         (render-view-revision mime-types
+                               commit-hash
+                               #:path-base path)
+         (render-unknown-revision mime-types
+                                  commit-hash)))
     (('GET "revision" commit-hash "news")
-     (if (guix-commit-exists? conn commit-hash)
+     (if (parallel-via-thread-pool-channel
+          (with-thread-postgresql-connection
+           (lambda (conn)
+             (guix-commit-exists? conn commit-hash))))
          (let ((parsed-query-parameters
                 (parse-query-parameters
                  request
                  `((lang ,identity #:multi-value)))))
            (render-revision-news mime-types
-                                 conn
                                  commit-hash
                                  parsed-query-parameters))
          (render-unknown-revision mime-types
-                                  conn
                                   commit-hash)))
     (('GET "revision" commit-hash "packages")
-     (if (guix-commit-exists? conn commit-hash)
+     (if (parallel-via-thread-pool-channel
+          (with-thread-postgresql-connection
+           (lambda (conn)
+             (guix-commit-exists? conn commit-hash))))
          (let ((parsed-query-parameters
                 (guard-against-mutually-exclusive-query-parameters
                  (parse-query-parameters
@@ -140,48 +147,52 @@
                    (limit_results all_results)))))
 
            (render-revision-packages mime-types
-                                     conn
                                      commit-hash
                                      parsed-query-parameters
                                      #:path-base path))
          (render-unknown-revision mime-types
-                                  conn
                                   commit-hash)))
     (('GET "revision" commit-hash "packages-translation-availability")
-     (if (guix-commit-exists? conn commit-hash)
+     (if (parallel-via-thread-pool-channel
+          (with-thread-postgresql-connection
+           (lambda (conn)
+             (guix-commit-exists? conn commit-hash))))
          (render-revision-packages-translation-availability mime-types
-                                                            conn
                                                             commit-hash
                                                             #:path-base path)
          (render-unknown-revision mime-types
-                                  conn
                                   commit-hash)))
     (('GET "revision" commit-hash "package" name)
-     (if (guix-commit-exists? conn commit-hash)
+     (if (parallel-via-thread-pool-channel
+          (with-thread-postgresql-connection
+           (lambda (conn)
+             (guix-commit-exists? conn commit-hash))))
          (render-revision-package mime-types
-                                  conn
                                   commit-hash
                                   name)
          (render-unknown-revision mime-types
-                                  conn
                                   commit-hash)))
     (('GET "revision" commit-hash "package" name version)
-     (if (guix-commit-exists? conn commit-hash)
+     (if (parallel-via-thread-pool-channel
+          (with-thread-postgresql-connection
+           (lambda (conn)
+             (guix-commit-exists? conn commit-hash))))
          (let ((parsed-query-parameters
                 (parse-query-parameters
                  request
                  `((locale ,identity #:default "en_US.UTF-8")))))
            (render-revision-package-version mime-types
-                                               conn
                                                commit-hash
                                                name
                                                version
                                                parsed-query-parameters))
          (render-unknown-revision mime-types
-                                  conn
                                   commit-hash)))
     (('GET "revision" commit-hash "package-derivations")
-     (if (guix-commit-exists? conn commit-hash)
+     (if (parallel-via-thread-pool-channel
+          (with-thread-postgresql-connection
+           (lambda (conn)
+             (guix-commit-exists? conn commit-hash))))
          (let ((parsed-query-parameters
                 (guard-against-mutually-exclusive-query-parameters
                  (parse-query-parameters
@@ -201,15 +212,16 @@
                  '((limit_results all_results)))))
 
            (render-revision-package-derivations mime-types
-                                                conn
                                                 commit-hash
                                                 parsed-query-parameters
                                                 #:path-base path))
          (render-unknown-revision mime-types
-                                  conn
                                   commit-hash)))
     (('GET "revision" commit-hash "package-derivation-outputs")
-     (if (guix-commit-exists? conn commit-hash)
+     (if (parallel-via-thread-pool-channel
+          (with-thread-postgresql-connection
+           (lambda (conn)
+             (guix-commit-exists? conn commit-hash))))
          (let ((parsed-query-parameters
                 (guard-against-mutually-exclusive-query-parameters
                  (parse-query-parameters
@@ -231,62 +243,67 @@
                  '((limit_results all_results)))))
 
            (render-revision-package-derivation-outputs mime-types
-                                                       conn
                                                        commit-hash
                                                        parsed-query-parameters
                                                        #:path-base path))
          (render-unknown-revision mime-types
-                                  conn
                                   commit-hash)))
     (('GET "revision" commit-hash "system-tests")
-     (if (guix-commit-exists? conn commit-hash)
+     (if (parallel-via-thread-pool-channel
+          (with-thread-postgresql-connection
+           (lambda (conn)
+             (guix-commit-exists? conn commit-hash))))
          (let ((parsed-query-parameters
                 (parse-query-parameters
                  request
                  `((system ,parse-system #:default "x86_64-linux")))))
            (render-revision-system-tests mime-types
-                                         conn
                                          commit-hash
                                          parsed-query-parameters
                                          #:path-base path))
          (render-unknown-revision mime-types
-                                  conn
                                   commit-hash)))
     (('GET "revision" commit-hash "channel-instances")
-     (if (guix-commit-exists? conn commit-hash)
+     (if (parallel-via-thread-pool-channel
+          (with-thread-postgresql-connection
+           (lambda (conn)
+             (guix-commit-exists? conn commit-hash))))
          (render-revision-channel-instances mime-types
-                                            conn
                                             commit-hash
                                             #:path-base path)
          (render-unknown-revision mime-types
-                                  conn
                                   commit-hash)))
     (('GET "revision" commit-hash "package-substitute-availability")
-     (if (guix-commit-exists? conn commit-hash)
+     (if (parallel-via-thread-pool-channel
+          (with-thread-postgresql-connection
+           (lambda (conn)
+             (guix-commit-exists? conn commit-hash))))
          (render-revision-package-substitute-availability mime-types
-                                                          conn
                                                           commit-hash
                                                           #:path-base path)
          (render-unknown-revision mime-types
-                                  conn
                                   commit-hash)))
     (('GET "revision" commit-hash "package-reproducibility")
-     (if (guix-commit-exists? conn commit-hash)
+     (if (parallel-via-thread-pool-channel
+          (with-thread-postgresql-connection
+           (lambda (conn)
+             (guix-commit-exists? conn commit-hash))))
          (render-revision-package-reproduciblity mime-types
-                                                 conn
                                                  commit-hash
                                                  #:path-base path)
          (render-unknown-revision mime-types
-                                  conn
                                   commit-hash)))
     (('GET "revision" commit-hash "builds")
-     (if (guix-commit-exists? conn commit-hash)
+     (if (parallel-via-thread-pool-channel
+          (with-thread-postgresql-connection
+           (lambda (conn)
+             (guix-commit-exists? conn commit-hash))))
          (let ((parsed-query-parameters
                 (guard-against-mutually-exclusive-query-parameters
                  (parse-query-parameters
                   request
                   `((build_status ,parse-build-status #:multi-value)
-                    (build_server ,(parse-build-server conn) #:multi-value)
+                    (build_server ,parse-build-server #:multi-value)
                     (system ,parse-system #:default "x86_64-linux")
                     (target ,parse-target #:default "")
                     (limit_results         ,parse-result-limit
@@ -296,15 +313,16 @@
                  '((limit_results all_results)))))
 
            (render-revision-builds mime-types
-                                   conn
                                    commit-hash
                                    parsed-query-parameters
                                    #:path-base path))
          (render-unknown-revision mime-types
-                                  conn
                                   commit-hash)))
     (('GET "revision" commit-hash "lint-warnings")
-     (if (guix-commit-exists? conn commit-hash)
+     (if (parallel-via-thread-pool-channel
+          (with-thread-postgresql-connection
+           (lambda (conn)
+             (guix-commit-exists? conn commit-hash))))
          (let ((parsed-query-parameters
                 (parse-query-parameters
                  request
@@ -318,12 +336,10 @@
                                               "location"))))))
 
            (render-revision-lint-warnings mime-types
-                                          conn
                                           commit-hash
                                           parsed-query-parameters
                                           #:path-base path))
          (render-unknown-revision mime-types
-                                  conn
                                   commit-hash)))
     (_ #f)))
 
@@ -336,7 +352,7 @@
       (plain . ,(stexi->plain-text stexi))
       (locale . ,locale))))
 
-(define (render-unknown-revision mime-types conn commit-hash)
+(define (render-unknown-revision mime-types commit-hash)
   (case (most-appropriate-mime-type
          '(application/json text/html)
          mime-types)
@@ -345,31 +361,55 @@
       '((unknown_commit . ,commit-hash))
       #:code 404))
     (else
+     (letpar& ((job
+                (with-thread-postgresql-connection
+                 (lambda (conn)
+                   (select-job-for-commit conn commit-hash))))
+               (git-repositories-and-branches
+                (with-thread-postgresql-connection
+                 (lambda (conn)
+                   (git-branches-with-repository-details-for-commit conn
+                                                                    commit-hash))))
+               (jobs-and-events
+                (with-thread-postgresql-connection
+                 (lambda (conn)
+                   (select-jobs-and-events-for-commit conn commit-hash)))))
+
      (render-html
       #:code 404
       #:sxml (unknown-revision
               commit-hash
-              (select-job-for-commit
-               conn commit-hash)
-              (git-branches-with-repository-details-for-commit conn commit-hash)
-              (select-jobs-and-events-for-commit conn commit-hash))))))
+              job
+              git-repositories-and-branches
+              jobs-and-events))))))
 
 (define* (render-view-revision mime-types
-                               conn
                                commit-hash
                                #:key path-base
                                (header-text
                                 `("Revision " (samp ,commit-hash))))
-  (let ((packages-count
-         (count-packages-in-revision conn commit-hash))
-        (git-repositories-and-branches
-         (git-branches-with-repository-details-for-commit conn commit-hash))
-        (derivations-counts
-         (count-packages-derivations-in-revision conn commit-hash))
-        (jobs-and-events
-         (select-jobs-and-events-for-commit conn commit-hash))
-        (lint-warning-counts
-         (lint-warning-count-by-lint-checker-for-revision conn commit-hash)))
+  (letpar& ((packages-count
+             (with-thread-postgresql-connection
+              (lambda (conn)
+                (count-packages-in-revision conn commit-hash))))
+            (git-repositories-and-branches
+             (with-thread-postgresql-connection
+              (lambda (conn)
+                (git-branches-with-repository-details-for-commit conn
+                                                                 commit-hash))))
+            (derivations-counts
+             (with-thread-postgresql-connection
+              (lambda (conn)
+                (count-packages-derivations-in-revision conn commit-hash))))
+            (jobs-and-events
+             (with-thread-postgresql-connection
+              (lambda (conn)
+                (select-jobs-and-events-for-commit conn commit-hash))))
+            (lint-warning-counts
+             (with-thread-postgresql-connection
+              (lambda (conn)
+                (lint-warning-count-by-lint-checker-for-revision conn
+                                                                 commit-hash)))))
     (case (most-appropriate-mime-type
            '(application/json text/html)
            mime-types)
@@ -404,7 +444,6 @@
         #:extra-headers http-headers-for-unchanging-content)))))
 
 (define* (render-revision-system-tests mime-types
-                                       conn
                                        commit-hash
                                        query-parameters
                                        #:key
@@ -413,11 +452,13 @@
                                         `("Revision " (samp ,commit-hash)))
                                        (header-link
                                         (string-append "/revision/" commit-hash)))
-  (let ((system-tests
-         (select-system-tests-for-guix-revision
-          conn
-          (assq-ref query-parameters 'system)
-          commit-hash)))
+  (letpar& ((system-tests
+             (with-thread-postgresql-connection
+              (lambda (conn)
+                (select-system-tests-for-guix-revision
+                 conn
+                 (assq-ref query-parameters 'system)
+                 commit-hash)))))
     (case (most-appropriate-mime-type
            '(application/json text/html)
            mime-types)
@@ -440,20 +481,25 @@
                      (builds . ,(list->vector builds)))))
                 system-tests))))))
       (else
-       (render-html
-        #:sxml (view-revision-system-tests
-                commit-hash
-                system-tests
-                (git-repositories-containing-commit conn
-                                                    commit-hash)
-                (valid-systems conn)
-                query-parameters
-                #:path-base path-base
-                #:header-text header-text
-                #:header-link header-link))))))
+       (letpar& ((git-repositories
+                  (with-thread-postgresql-connection
+                   (lambda (conn)
+                     (git-repositories-containing-commit conn
+                                                         commit-hash))))
+                 (systems
+                  (with-thread-postgresql-connection valid-systems)))
+         (render-html
+          #:sxml (view-revision-system-tests
+                  commit-hash
+                  system-tests
+                  git-repositories
+                  systems
+                  query-parameters
+                  #:path-base path-base
+                  #:header-text header-text
+                  #:header-link header-link)))))))
 
 (define* (render-revision-channel-instances mime-types
-                                            conn
                                             commit-hash
                                             #:key
                                             (path-base "/revision/")
@@ -462,8 +508,10 @@
                                             (header-link
                                              (string-append "/revision/"
                                                             commit-hash)))
-  (let ((channel-instances
-         (select-channel-instances-for-guix-revision conn commit-hash)))
+  (letpar& ((channel-instances
+             (with-thread-postgresql-connection
+              (lambda (conn)
+                (select-channel-instances-for-guix-revision conn commit-hash)))))
     (case (most-appropriate-mime-type
            '(application/json text/html)
            mime-types)
@@ -487,13 +535,16 @@
                 #:header-link header-link))))))
 
 (define* (render-revision-package-substitute-availability mime-types
-                                                          conn
                                                           commit-hash
                                                           #:key path-base)
-  (let ((substitute-availability
-         (select-package-output-availability-for-revision conn commit-hash))
-        (build-server-urls
-         (select-build-server-urls-by-id conn)))
+  (letpar& ((substitute-availability
+             (with-thread-postgresql-connection
+              (lambda (conn)
+                (select-package-output-availability-for-revision conn
+                                                                 commit-hash))))
+            (build-server-urls
+             (with-thread-postgresql-connection
+              select-build-server-urls-by-id)))
     (case (most-appropriate-mime-type
            '(application/json text/html)
            mime-types)
@@ -508,11 +559,12 @@
                 build-server-urls))))))
 
 (define* (render-revision-package-reproduciblity mime-types
-                                                 conn
                                                  commit-hash
                                                  #:key path-base)
-  (let ((output-consistency
-         (select-output-consistency-for-revision conn commit-hash)))
+  (letpar& ((output-consistency
+             (with-thread-postgresql-connection
+              (lambda (conn)
+                (select-output-consistency-for-revision conn commit-hash)))))
     (case (most-appropriate-mime-type
            '(application/json text/html)
            mime-types)
@@ -526,7 +578,6 @@
                 output-consistency))))))
 
 (define (render-revision-news mime-types
-                              conn
                               commit-hash
                               query-parameters)
   (if (any-invalid-query-parameters? query-parameters)
@@ -541,9 +592,12 @@
           #:sxml (view-revision-news commit-hash
                                      query-parameters
                                      '()))))
-      (let ((news-entries
-             (select-channel-news-entries-contained-in-guix-revision conn
-                                                                     commit-hash)))
+      (letpar& ((news-entries
+                 (with-thread-postgresql-connection
+                  (lambda (conn)
+                    (select-channel-news-entries-contained-in-guix-revision
+                     conn
+                     commit-hash)))))
         (case (most-appropriate-mime-type
                '(application/json text/html)
                mime-types)
@@ -558,7 +612,6 @@
             #:extra-headers http-headers-for-unchanging-content))))))
 
 (define* (render-revision-packages mime-types
-                                   conn
                                    commit-hash
                                    query-parameters
                                    #:key
@@ -589,101 +642,109 @@
                                          '()
                                          #f
                                          #f
+                                         #f
                                          #:path-base path-base
                                          #:header-text header-text
                                          #:header-link header-link))))
 
-      (let* ((search-query (assq-ref query-parameters 'search_query))
-             (limit-results (or (assq-ref query-parameters 'limit_results)
-                                99999)) ; TODO There shouldn't be a limit
-             (fields (assq-ref query-parameters 'field))
-             (locale (assq-ref query-parameters 'locale))
-             (packages
-              (if search-query
-                  (search-packages-in-revision
-                   conn
-                   commit-hash
-                   search-query
-                   #:limit-results limit-results
-                   #:locale locale)
-                  (select-packages-in-revision
-                   conn
-                   commit-hash
-                   #:limit-results limit-results
-                   #:after-name (assq-ref query-parameters 'after_name)
-                   #:locale (assq-ref query-parameters 'locale))))
+      (let ((search-query (assq-ref query-parameters 'search_query))
+            (limit-results (or (assq-ref query-parameters 'limit_results)
+                               99999)) ; TODO There shouldn't be a limit
+            (fields (assq-ref query-parameters 'field))
+            (locale (assq-ref query-parameters 'locale)))
+        (letpar&
+            ((packages
+              (with-thread-postgresql-connection
+               (lambda (conn)
+                 (if search-query
+                     (search-packages-in-revision
+                      conn
+                      commit-hash
+                      search-query
+                      #:limit-results limit-results
+                      #:locale locale)
+                     (select-packages-in-revision
+                      conn
+                      commit-hash
+                      #:limit-results limit-results
+                      #:after-name (assq-ref query-parameters 'after_name)
+                      #:locale (assq-ref query-parameters 'locale))))))
              (git-repositories
-              (git-repositories-containing-commit conn
-                                                  commit-hash))
-             (show-next-page?
-              (and (not search-query)
-                   (>= (length packages)
-                       limit-results)))
-             (any-translations? (any-package-synopsis-or-descriptions-translations?
-                                packages locale)))
-        (case (most-appropriate-mime-type
-               '(application/json text/html)
-               mime-types)
-          ((application/json)
-           (render-json
-            `((revision
-               . ((commit . ,commit-hash)))
-              (packages
-               . ,(list->vector
-                   (map (match-lambda
-                          ((name version synopsis synopsis-locale description description-locale home-page
-                                 location-file location-line
-                                 location-column-number licenses)
-                           `((name . ,name)
-                             ,@(if (member "version" fields)
-                                   `((version . ,version))
-                                   '())
-                             ,@(if (member "synopsis" fields)
-                                   `((synopsis
-                                      . ,(texinfo->variants-alist synopsis synopsis-locale)))
-                                   '())
-                             ,@(if (member "description" fields)
-                                   `((description
-                                      . ,(texinfo->variants-alist description description-locale)))
-                                   '())
-                             ,@(if (member "home-page" fields)
-                                   `((home-page . ,home-page))
-                                   '())
-                             ,@(if (member "location" fields)
-                                   `((location
-                                      . ((file   . ,location-file)
-                                         (line   . ,location-line)
-                                         (column . ,location-column-number))))
-                                   '())
-                             ,@(if (member "licenses" fields)
-                                   `((licenses
-                                      . ,(if (string-null? licenses)
-                                             #()
-                                             (json-string->scm licenses))))
-                                   '()))))
-                        packages))))
-            #:extra-headers http-headers-for-unchanging-content))
-          (else
-           (let ((locale-options
-                  (description-and-synopsis-locale-options
-                   (package-description-and-synopsis-locale-options-guix-revision
-                    conn
-                    (commit->revision-id conn commit-hash)))))
-               (render-html
-                #:sxml (view-revision-packages commit-hash
-                                               query-parameters
-                                               packages
-                                               git-repositories
-                                               show-next-page?
-                                               locale-options
-                                               any-translations?
-                                               #:path-base path-base
-                                               #:header-text header-text
-                                               #:header-link header-link)
-                #:extra-headers http-headers-for-unchanging-content)))))))
+              (with-thread-postgresql-connection
+               (lambda (conn)
+                 (git-repositories-containing-commit conn
+                                                     commit-hash)))))
+          (let ((show-next-page?
+                 (and (not search-query)
+                      (>= (length packages)
+                          limit-results)))
+                (any-translations? (any-package-synopsis-or-descriptions-translations?
+                                    packages locale)))
+            (case (most-appropriate-mime-type
+                   '(application/json text/html)
+                   mime-types)
+              ((application/json)
+               (render-json
+                `((revision
+                   . ((commit . ,commit-hash)))
+                  (packages
+                   . ,(list->vector
+                       (map (match-lambda
+                              ((name version synopsis synopsis-locale description description-locale home-page
+                                     location-file location-line
+                                     location-column-number licenses)
+                               `((name . ,name)
+                                 ,@(if (member "version" fields)
+                                       `((version . ,version))
+                                       '())
+                                 ,@(if (member "synopsis" fields)
+                                       `((synopsis
+                                          . ,(texinfo->variants-alist synopsis synopsis-locale)))
+                                       '())
+                                 ,@(if (member "description" fields)
+                                       `((description
+                                          . ,(texinfo->variants-alist description description-locale)))
+                                       '())
+                                 ,@(if (member "home-page" fields)
+                                       `((home-page . ,home-page))
+                                       '())
+                                 ,@(if (member "location" fields)
+                                       `((location
+                                          . ((file   . ,location-file)
+                                             (line   . ,location-line)
+                                             (column . ,location-column-number))))
+                                       '())
+                                 ,@(if (member "licenses" fields)
+                                       `((licenses
+                                          . ,(if (string-null? licenses)
+                                                 #()
+                                                 (json-string->scm licenses))))
+                                       '()))))
+                            packages))))
+                #:extra-headers http-headers-for-unchanging-content))
+              (else
+               (letpar&
+                   ((locale-options
+                     (with-thread-postgresql-connection
+                      (lambda (conn)
+                        (description-and-synopsis-locale-options
+                         (package-description-and-synopsis-locale-options-guix-revision
+                          conn
+                          (commit->revision-id conn commit-hash)))))))
+                 (render-html
+                  #:sxml (view-revision-packages commit-hash
+                                                 query-parameters
+                                                 packages
+                                                 git-repositories
+                                                 show-next-page?
+                                                 locale-options
+                                                 any-translations?
+                                                 #:path-base path-base
+                                                 #:header-text header-text
+                                                 #:header-link header-link)
+                  #:extra-headers http-headers-for-unchanging-content)))))))))
 
 (define* (render-revision-packages-translation-availability mime-types
-                                                            conn
                                                             commit-hash
                                                             #:key
                                                             path-base
@@ -692,14 +753,20 @@
                                                               "/revision/" commit-hash))
                                                             (header-text
                                                              `("Revision " (samp ,commit-hash))))
-  (let ((package-synopsis-counts
-         (synopsis-counts-by-locale conn
-                                    (commit->revision-id conn
-                                                         commit-hash)))
-        (package-description-counts
-         (description-counts-by-locale conn
-                                       (commit->revision-id conn
-                                                            commit-hash))))
+  (letpar& ((package-synopsis-counts
+             (with-thread-postgresql-connection
+              (lambda (conn)
+                (synopsis-counts-by-locale conn
+                                           (commit->revision-id
+                                            conn
+                                            commit-hash)))))
+            (package-description-counts
+             (with-thread-postgresql-connection
+              (lambda (conn)
+                (description-counts-by-locale conn
+                                              (commit->revision-id
+                                               conn
+                                               commit-hash))))))
     (case (most-appropriate-mime-type
            '(application/json text/html)
            mime-types)
@@ -718,7 +785,6 @@
                                                          #:header-text header-text))))))
 
 (define* (render-revision-package mime-types
-                                  conn
                                   commit-hash
                                   name
                                   #:key
@@ -729,13 +795,17 @@
                                   (header-link
                                    (string-append
                                     "/revision/" commit-hash)))
-  (let ((package-versions
-         (select-package-versions-for-revision conn
-                                               commit-hash
-                                               name))
-        (git-repositories-and-branches
-         (git-branches-with-repository-details-for-commit conn
-                                                          commit-hash)))
+  (letpar& ((package-versions
+             (with-thread-postgresql-connection
+              (lambda (conn)
+                (select-package-versions-for-revision conn
+                                                      commit-hash
+                                                      name))))
+            (git-repositories-and-branches
+             (with-thread-postgresql-connection
+              (lambda (conn)
+                (git-branches-with-repository-details-for-commit conn
+                                                                 commit-hash)))))
     (case (most-appropriate-mime-type
            '(application/json text/html)
            mime-types)
@@ -755,7 +825,6 @@
         #:extra-headers http-headers-for-unchanging-content)))))
 
 (define* (render-revision-package-version mime-types
-                                          conn
                                           commit-hash
                                           name
                                           version
@@ -774,36 +843,48 @@
      (match-lambda
        ((locale)
         locale))
-     (delete-duplicates
-      (append
-       (package-description-and-synopsis-locale-options-guix-revision
-           conn (commit->revision-id conn commit-hash))
-       (lint-warning-message-locales-for-revision conn commit-hash)))))
+     (parallel-via-thread-pool-channel
+      (with-thread-postgresql-connection
+       (lambda (conn)
+         (delete-duplicates
+          (append
+           (package-description-and-synopsis-locale-options-guix-revision
+            conn (commit->revision-id conn commit-hash))
+           (lint-warning-message-locales-for-revision conn commit-hash))))))))
 
-  (let* ((locale (assq-ref query-parameters 'locale))
-         (metadata
-         (select-package-metadata-by-revision-name-and-version
-          conn
-          commit-hash
-          name
-          version
-          locale))
-        (derivations
-         (select-derivations-by-revision-name-and-version
-          conn
-          commit-hash
-          name
-          version))
-        (git-repositories
-         (git-repositories-containing-commit conn
-                                             commit-hash))
-        (lint-warnings
-         (select-lint-warnings-by-revision-package-name-and-version
-          conn
-          commit-hash
-          name
-          version
-          #:locale locale)))
+  (define locale (assq-ref query-parameters 'locale))
+
+  (letpar& ((metadata
+             (with-thread-postgresql-connection
+              (lambda (conn)
+                (select-package-metadata-by-revision-name-and-version
+                 conn
+                 commit-hash
+                 name
+                 version
+                 locale))))
+            (derivations
+             (with-thread-postgresql-connection
+              (lambda (conn)
+                (select-derivations-by-revision-name-and-version
+                 conn
+                 commit-hash
+                 name
+                 version))))
+            (git-repositories
+             (with-thread-postgresql-connection
+              (lambda (conn)
+                (git-repositories-containing-commit conn
+                                                    commit-hash))))
+            (lint-warnings
+             (with-thread-postgresql-connection
+              (lambda (conn)
+                (select-lint-warnings-by-revision-package-name-and-version
+                 conn
+                 commit-hash
+                 name
+                 version
+                 #:locale locale)))))
     (case (most-appropriate-mime-type
            '(application/json text/html)
            mime-types)
@@ -843,7 +924,6 @@
         #:extra-headers http-headers-for-unchanging-content)))))
 
 (define* (render-revision-package-derivations mime-types
-                                              conn
                                               commit-hash
                                               query-parameters
                                               #:key
@@ -861,100 +941,110 @@
          (render-json
           `((error . "invalid query"))))
         (else
-         (render-html
-          #:sxml (view-revision-package-derivations commit-hash
-                                                    query-parameters
-                                                    (valid-systems conn)
-                                                    (valid-targets->options
-                                                     (valid-targets conn))
-                                                    '()
-                                                    '()
-                                                    #f
-                                                    #:path-base path-base
-                                                    #:header-text header-text
-                                                    #:header-link header-link))))
-      (let* ((limit-results
-              (assq-ref query-parameters 'limit_results))
-             (all-results
-              (assq-ref query-parameters 'all_results))
-             (search-query
-              (assq-ref query-parameters 'search_query))
-             (fields
-              (assq-ref query-parameters 'field))
-             (derivations
-              (if search-query
-                  (search-package-derivations-in-revision
-                   conn
-                   commit-hash
-                   search-query
-                   #:systems (assq-ref query-parameters 'system)
-                   #:targets (assq-ref query-parameters 'target)
-                   #:maximum-builds (assq-ref query-parameters 'maximum_builds)
-                   #:minimum-builds (assq-ref query-parameters 'minimum_builds)
-                   #:limit-results limit-results
-                   #:after-name (assq-ref query-parameters 'after_name)
-                   #:include-builds? (member "builds" fields))
-                  (select-package-derivations-in-revision
-                   conn
-                   commit-hash
-                   #:systems (assq-ref query-parameters 'system)
-                   #:targets (assq-ref query-parameters 'target)
-                   #:maximum-builds (assq-ref query-parameters 'maximum_builds)
-                   #:minimum-builds (assq-ref query-parameters 'minimum_builds)
-                   #:limit-results limit-results
-                   #:after-name (assq-ref query-parameters 'after_name)
-                   #:include-builds? (member "builds" fields))))
-             (build-server-urls
-              (select-build-server-urls-by-id conn))
-             (show-next-page?
-              (if all-results
-                  #f
-                  (and (not (null? derivations))
-                       (>= (length derivations)
-                           limit-results)))))
-        (case (most-appropriate-mime-type
-               '(application/json text/html)
-               mime-types)
-          ((application/json)
-           (render-json
-            `((derivations . ,(list->vector
-                               (map (match-lambda
-                                      ((derivation system target)
-                                       `((derivation . ,derivation)
-                                         ,@(if (member "system" fields)
-                                               `((system . ,system))
-                                               '())
-                                         ,@(if (member "target" fields)
-                                               `((target . ,target))
-                                               '())))
-                                      ((derivation system target builds)
-                                       `((derivation . ,derivation)
-                                         ,@(if (member "system" fields)
-                                               `((system . ,system))
-                                               '())
-                                         ,@(if (member "target" fields)
-                                               `((target . ,target))
-                                               '())
-                                         (builds . ,builds))))
-                                    derivations))))))
-          (else
+         (letpar& ((systems
+                    (with-thread-postgresql-connection valid-systems))
+                   (targets
+                    (with-thread-postgresql-connection valid-targets)))
            (render-html
-            #:sxml (view-revision-package-derivations
-                    commit-hash
-                    query-parameters
-                    (valid-systems conn)
-                    (valid-targets->options
-                     (valid-targets conn))
-                    derivations
-                    build-server-urls
-                    show-next-page?
-                    #:path-base path-base
-                    #:header-text header-text
-                    #:header-link header-link)))))))
+            #:sxml (view-revision-package-derivations commit-hash
+                                                      query-parameters
+                                                      systems
+                                                      (valid-targets->options
+                                                       targets)
+                                                      '()
+                                                      '()
+                                                      #f
+                                                      #:path-base path-base
+                                                      #:header-text header-text
+                                                      #:header-link header-link)))))
+      (let ((limit-results
+             (assq-ref query-parameters 'limit_results))
+            (all-results
+             (assq-ref query-parameters 'all_results))
+            (search-query
+             (assq-ref query-parameters 'search_query))
+            (fields
+             (assq-ref query-parameters 'field)))
+        (letpar&
+            ((derivations
+              (with-thread-postgresql-connection
+               (lambda (conn)
+                 (if search-query
+                     (search-package-derivations-in-revision
+                      conn
+                      commit-hash
+                      search-query
+                      #:systems (assq-ref query-parameters 'system)
+                      #:targets (assq-ref query-parameters 'target)
+                      #:maximum-builds (assq-ref query-parameters 'maximum_builds)
+                      #:minimum-builds (assq-ref query-parameters 'minimum_builds)
+                      #:limit-results limit-results
+                      #:after-name (assq-ref query-parameters 'after_name)
+                      #:include-builds? (member "builds" fields))
+                     (select-package-derivations-in-revision
+                      conn
+                      commit-hash
+                      #:systems (assq-ref query-parameters 'system)
+                      #:targets (assq-ref query-parameters 'target)
+                      #:maximum-builds (assq-ref query-parameters 'maximum_builds)
+                      #:minimum-builds (assq-ref query-parameters 'minimum_builds)
+                      #:limit-results limit-results
+                      #:after-name (assq-ref query-parameters 'after_name)
+                      #:include-builds? (member "builds" fields))))))
+             (build-server-urls
+              (with-thread-postgresql-connection
+               select-build-server-urls-by-id)))
+          (let ((show-next-page?
+                 (if all-results
+                     #f
+                     (and (not (null? derivations))
+                          (>= (length derivations)
+                              limit-results)))))
+            (case (most-appropriate-mime-type
+                   '(application/json text/html)
+                   mime-types)
+              ((application/json)
+               (render-json
+                `((derivations . ,(list->vector
+                                   (map (match-lambda
+                                          ((derivation system target)
+                                           `((derivation . ,derivation)
+                                             ,@(if (member "system" fields)
+                                                   `((system . ,system))
+                                                   '())
+                                             ,@(if (member "target" fields)
+                                                   `((target . ,target))
+                                                   '())))
+                                          ((derivation system target builds)
+                                           `((derivation . ,derivation)
+                                             ,@(if (member "system" fields)
+                                                   `((system . ,system))
+                                                   '())
+                                             ,@(if (member "target" fields)
+                                                   `((target . ,target))
+                                                   '())
+                                             (builds . ,builds))))
+                                        derivations))))))
+              (else
+               (letpar& ((systems
+                          (with-thread-postgresql-connection valid-systems))
+                         (targets
+                          (with-thread-postgresql-connection valid-targets)))
+                 (render-html
+                  #:sxml (view-revision-package-derivations
+                          commit-hash
+                          query-parameters
+                          systems
+                          (valid-targets->options targets)
+                          derivations
+                          build-server-urls
+                          show-next-page?
+                          #:path-base path-base
+                          #:header-text header-text
+                          #:header-link header-link))))))))))
 
 (define* (render-revision-package-derivation-outputs
           mime-types
-          conn
           commit-hash
           query-parameters
           #:key
@@ -964,7 +1054,8 @@
           (header-link
            (string-append "/revision/" commit-hash)))
   (define build-server-urls
-    (select-build-server-urls-by-id conn))
+    (parallel-via-thread-pool-channel
+     (with-thread-postgresql-connection select-build-server-urls-by-id)))
 
   (if (any-invalid-query-parameters? query-parameters)
       (case (most-appropriate-mime-type
@@ -974,66 +1065,74 @@
          (render-json
           `((error . "invalid query"))))
         (else
-         (render-html
-          #:sxml (view-revision-package-derivation-outputs
-                  commit-hash
-                  query-parameters
-                  '()
-                  build-server-urls
-                  (valid-systems conn)
-                  (valid-targets->options
-                   (valid-targets conn))
-                  #f
-                  #:path-base path-base
-                  #:header-text header-text
-                  #:header-link header-link))))
-      (let* ((limit-results
-              (assq-ref query-parameters 'limit_results))
-             (all-results
-              (assq-ref query-parameters 'all_results))
-             (derivation-outputs
-              (select-derivation-outputs-in-revision
-               conn
-               commit-hash
-               #:search-query (assq-ref query-parameters 'search_query)
-               #:nars-from-build-servers
-               (assq-ref query-parameters 'substitutes_available_from)
-               #:no-nars-from-build-servers
-               (assq-ref query-parameters 'substitutes_not_available_from)
-               #:output-consistency
-               (assq-ref query-parameters 'output_consistency)
-               #:system (assq-ref query-parameters 'system)
-               #:target (assq-ref query-parameters 'target)
-               #:limit-results limit-results
-               #:after-path (assq-ref query-parameters 'after_path)))
-             (show-next-page?
-              (if all-results
-                  #f
-                  (>= (length derivation-outputs)
-                      limit-results))))
-        (case (most-appropriate-mime-type
-               '(application/json text/html)
-               mime-types)
-          ((application/json)
-           (render-json
-            `()))
-          (else
+         (letpar& ((systems
+                    (with-thread-postgresql-connection valid-systems))
+                   (targets
+                    (with-thread-postgresql-connection valid-targets)))
            (render-html
             #:sxml (view-revision-package-derivation-outputs
                     commit-hash
                     query-parameters
-                    derivation-outputs
+                    '()
                     build-server-urls
-                    (valid-systems conn)
-                    (valid-targets->options
-                     (valid-targets conn))
-                    show-next-page?
+                    systems
+                    (valid-targets->options targets)
+                    #f
                     #:path-base path-base
                     #:header-text header-text
-                    #:header-link header-link)))))))
+                    #:header-link header-link)))))
+      (let ((limit-results
+             (assq-ref query-parameters 'limit_results))
+            (all-results
+             (assq-ref query-parameters 'all_results)))
+        (letpar&
+            ((derivation-outputs
+              (with-thread-postgresql-connection
+               (lambda (conn)
+                 (select-derivation-outputs-in-revision
+                  conn
+                  commit-hash
+                  #:search-query (assq-ref query-parameters 'search_query)
+                  #:nars-from-build-servers
+                  (assq-ref query-parameters 'substitutes_available_from)
+                  #:no-nars-from-build-servers
+                  (assq-ref query-parameters 'substitutes_not_available_from)
+                  #:output-consistency
+                  (assq-ref query-parameters 'output_consistency)
+                  #:system (assq-ref query-parameters 'system)
+                  #:target (assq-ref query-parameters 'target)
+                  #:limit-results limit-results
+                  #:after-path (assq-ref query-parameters 'after_path))))))
+          (let ((show-next-page?
+                 (if all-results
+                     #f
+                     (>= (length derivation-outputs)
+                         limit-results))))
+            (case (most-appropriate-mime-type
+                   '(application/json text/html)
+                   mime-types)
+              ((application/json)
+               (render-json
+                `()))
+              (else
+               (letpar& ((systems
+                          (with-thread-postgresql-connection valid-systems))
+                         (targets
+                          (with-thread-postgresql-connection valid-targets)))
+                 (render-html
+                  #:sxml (view-revision-package-derivation-outputs
+                          commit-hash
+                          query-parameters
+                          derivation-outputs
+                          build-server-urls
+                          systems
+                          (valid-targets->options targets)
+                          show-next-page?
+                          #:path-base path-base
+                          #:header-text header-text
+                          #:header-link header-link))))))))))
 
 (define* (render-revision-builds mime-types
-                                 conn
                                  commit-hash
                                  query-parameters
                                  #:key
@@ -1043,51 +1142,69 @@
                                  (header-link
                                   (string-append "/revision/" commit-hash)))
   (if (any-invalid-query-parameters? query-parameters)
-      (render-html
-       #:sxml (view-revision-builds query-parameters
-                                    commit-hash
-                                    build-status-strings
-                                    (valid-systems conn)
-                                    (valid-targets->options
-                                     (valid-targets conn))
-                                    '()
-                                    '()
-                                    '()))
+      (letpar& ((systems
+                 (with-thread-postgresql-connection valid-systems))
+                (targets
+                 (with-thread-postgresql-connection valid-targets)))
+        (render-html
+         #:sxml
+         (view-revision-builds query-parameters
+                               commit-hash
+                               build-status-strings
+                               systems
+                               (valid-targets->options targets)
+                               '()
+                               '()
+                               '())))
       (let ((system (assq-ref query-parameters 'system))
             (target (assq-ref query-parameters 'target)))
-        (render-html
-         #:sxml (view-revision-builds query-parameters
-                                      commit-hash
-                                      build-status-strings
-                                      (valid-systems conn)
-                                      (valid-targets->options
-                                       (valid-targets conn))
-                                      (map (match-lambda
-                                             ((id url lookup-all-derivations
-                                                  lookup-builds)
-                                              (cons url id)))
-                                           (select-build-servers conn))
-                                      (select-build-stats
-                                       conn
-                                       (assq-ref query-parameters
-                                                 'build_server)
-                                       #:revision-commit commit-hash
-                                       #:system system
-                                       #:target target)
-                                      (select-builds-with-context
-                                       conn
-                                       (assq-ref query-parameters
-                                                 'build_status)
-                                       (assq-ref query-parameters
-                                                 'build_server)
-                                       #:revision-commit commit-hash
-                                       #:system system
-                                       #:target target
-                                       #:limit (assq-ref query-parameters
-                                                         'limit_results)))))))
+        (letpar& ((systems
+                   (with-thread-postgresql-connection valid-systems))
+                  (targets
+                   (with-thread-postgresql-connection valid-targets))
+                  (build-server-options
+                   (with-thread-postgresql-connection
+                    (lambda (conn)
+                      (map (match-lambda
+                             ((id url lookup-all-derivations
+                                  lookup-builds)
+                              (cons url id)))
+                           (select-build-servers conn)))))
+                  (stats
+                   (with-thread-postgresql-connection
+                    (lambda (conn)
+                      (select-build-stats
+                       conn
+                       (assq-ref query-parameters
+                                 'build_server)
+                       #:revision-commit commit-hash
+                       #:system system
+                       #:target target))))
+                  (builds
+                   (with-thread-postgresql-connection
+                    (lambda (conn)
+                      (select-builds-with-context
+                       conn
+                       (assq-ref query-parameters
+                                 'build_status)
+                       (assq-ref query-parameters
+                                 'build_server)
+                       #:revision-commit commit-hash
+                       #:system system
+                       #:target target
+                       #:limit (assq-ref query-parameters
+                                         'limit_results))))))
+          (render-html
+           #:sxml (view-revision-builds query-parameters
+                                        commit-hash
+                                        build-status-strings
+                                        systems
+                                        (valid-targets->options targets)
+                                        build-server-options
+                                        stats
+                                        builds))))))
 
 (define* (render-revision-lint-warnings mime-types
-                                        conn
                                         commit-hash
                                         query-parameters
                                         #:key
@@ -1097,18 +1214,24 @@
                                         (header-link
                                          (string-append "/revision/" commit-hash)))
   (define lint-checker-options
-    (map (match-lambda
-           ((name description network-dependent)
-            (cons (string-append name ": " description )
-                  name)))
-         (lint-checkers-for-revision conn commit-hash)))
+    (parallel-via-thread-pool-channel
+     (with-thread-postgresql-connection
+      (lambda (conn)
+        (map (match-lambda
+               ((name description network-dependent)
+                (cons (string-append name ": " description )
+                      name)))
+             (lint-checkers-for-revision conn commit-hash))))))
 
   (define lint-warnings-locale-options
-    (map
-     (match-lambda
-       ((locale)
-        locale))
-     (lint-warning-message-locales-for-revision conn commit-hash)))
+    (parallel-via-thread-pool-channel
+     (with-thread-postgresql-connection
+      (lambda (conn)
+        (map
+         (match-lambda
+           ((locale)
+            locale))
+         (lint-warning-message-locales-for-revision conn commit-hash))))))
 
   (if (any-invalid-query-parameters? query-parameters)
       (case (most-appropriate-mime-type
@@ -1125,69 +1248,75 @@
                                               '()
                                               lint-checker-options
                                               lint-warnings-locale-options
+                                              #t ; any-translated-lint-warnings?
                                               #:path-base path-base
                                               #:header-text header-text
                                               #:header-link header-link))))
 
-      (let* ((locale (assq-ref query-parameters 'locale))
-             (package-query (assq-ref query-parameters 'package_query))
-             (linters (assq-ref query-parameters 'linter))
-             (message-query (assq-ref query-parameters 'message_query))
-             (fields (assq-ref query-parameters 'field))
-             (git-repositories
-              (git-repositories-containing-commit conn
-                                                  commit-hash))
+      (let ((locale (assq-ref query-parameters 'locale))
+            (package-query (assq-ref query-parameters 'package_query))
+            (linters (assq-ref query-parameters 'linter))
+            (message-query (assq-ref query-parameters 'message_query))
+            (fields (assq-ref query-parameters 'field)))
+        (letpar&
+            ((git-repositories
+              (with-thread-postgresql-connection
+               (lambda (conn)
+                 (git-repositories-containing-commit conn
+                                                     commit-hash))))
              (lint-warnings
-              (lint-warnings-for-guix-revision conn commit-hash
-                                               #:locale locale
-                                               #:package-query package-query
-                                               #:linters linters
-                                               #:message-query message-query))
-             (any-translated-lint-warnings?
-              (any-translated-lint-warnings? lint-warnings locale)))
-        (case (most-appropriate-mime-type
-               '(application/json text/html)
-               mime-types)
-          ((application/json)
-           (render-json
-            `((revision
-               . ((commit . ,commit-hash)))
-              (lint_warnings
-               . ,(list->vector
-                   (map (match-lambda
-                          ((id lint-checker-name lint-checker-description
-                               lint-checker-description-locale
-                               lint-checker-network-dependent
-                               package-name package-version
-                               file line-number column-number
-                               message message-locale)
-                           `((package . ((name    . ,package-name)
-                                         (version . ,package-version)))
-                             ,@(if (member "message" fields)
-                                   `((message . ,message)
-                                     (message-locale . ,message-locale))
-                                   '())
-                             ,@(if (member "linter" fields)
-                                   `((lint-checker-description . ,lint-checker-description)
-                                     (lint-checker-description-locale . ,lint-checker-description-locale))
-                                   '())
-                             ,@(if (member "location" fields)
-                                   `((location . ((file          . ,file)
-                                                  (line-number   . ,line-number)
-                                                  (column-number . ,column-number))))
-                                   '()))))
-                        lint-warnings))))
-            #:extra-headers http-headers-for-unchanging-content))
-          (else
-           (render-html
-            #:sxml (view-revision-lint-warnings commit-hash
-                                                query-parameters
-                                                lint-warnings
-                                                git-repositories
-                                                lint-checker-options
-                                                lint-warnings-locale-options
-                                                any-translated-lint-warnings?
-                                                #:path-base path-base
-                                                #:header-text header-text
-                                                #:header-link header-link)
-            #:extra-headers http-headers-for-unchanging-content))))))
+              (with-thread-postgresql-connection
+               (lambda (conn)
+                 (lint-warnings-for-guix-revision conn commit-hash
+                                                  #:locale locale
+                                                  #:package-query package-query
+                                                  #:linters linters
+                                                  #:message-query message-query)))))
+          (let ((any-translated-lint-warnings?
+                 (any-translated-lint-warnings? lint-warnings locale)))
+            (case (most-appropriate-mime-type
+                   '(application/json text/html)
+                   mime-types)
+              ((application/json)
+               (render-json
+                `((revision
+                   . ((commit . ,commit-hash)))
+                  (lint_warnings
+                   . ,(list->vector
+                       (map (match-lambda
+                              ((id lint-checker-name lint-checker-description
+                                   lint-checker-description-locale
+                                   lint-checker-network-dependent
+                                   package-name package-version
+                                   file line-number column-number
+                                   message message-locale)
+                               `((package . ((name    . ,package-name)
+                                             (version . ,package-version)))
+                                 ,@(if (member "message" fields)
+                                       `((message . ,message)
+                                         (message-locale . ,message-locale))
+                                       '())
+                                 ,@(if (member "linter" fields)
+                                       `((lint-checker-description . ,lint-checker-description)
+                                         (lint-checker-description-locale . ,lint-checker-description-locale))
+                                       '())
+                                 ,@(if (member "location" fields)
+                                       `((location . ((file          . ,file)
+                                                      (line-number   . ,line-number)
+                                                      (column-number . ,column-number))))
+                                       '()))))
+                            lint-warnings))))
+                #:extra-headers http-headers-for-unchanging-content))
+              (else
+               (render-html
+                #:sxml (view-revision-lint-warnings commit-hash
+                                                    query-parameters
+                                                    lint-warnings
+                                                    git-repositories
+                                                    lint-checker-options
+                                                    lint-warnings-locale-options
+                                                    any-translated-lint-warnings?
+                                                    #:path-base path-base
+                                                    #:header-text header-text
+                                                    #:header-link header-link)
+                #:extra-headers http-headers-for-unchanging-content))))))))
