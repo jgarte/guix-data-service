@@ -448,17 +448,16 @@ WHERE NOT EXISTS (
                  (lambda (count result)
                    (+ result count))
                  0
-                 (par-map (lambda (derivation-id)
-                            (with-postgresql-transaction/through-channel
-                             conn-channel
-                             (lambda (conn)
-                               (exec-query
-                                conn
-                                "
+                 (par-map& (lambda (derivation-id)
+                             (with-thread-postgresql-connection
+                              (lambda (conn)
+                                (exec-query
+                                 conn
+                                 "
 SET CONSTRAINTS derivations_by_output_details_set_derivation_id_fkey DEFERRED")
 
-                               (maybe-delete-derivation conn derivation-id))))
-                          derivations))))
+                                (maybe-delete-derivation conn derivation-id))))
+                           derivations))))
            (simple-format (current-error-port)
                           "Deleted ~A derivations\n"
                           deleted-count)
