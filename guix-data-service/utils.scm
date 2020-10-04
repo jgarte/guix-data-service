@@ -133,9 +133,11 @@
     (let loop ((lists lists))
       (match lists
         (((heads tails ...) ...)
-         (let ((tail (defer-to-thread-pool-channel (loop tails)))
-               (head (apply proc heads)))
-           (cons head (fetch-result-of-defered-thunk tail))))
+         (let ((tail (loop tails))
+               (head (defer-to-thread-pool-channel
+                       (lambda ()
+                         (apply proc heads)))))
+           (cons (fetch-result-of-defered-thunk head) tail)))
         (_
          '())))))
 
