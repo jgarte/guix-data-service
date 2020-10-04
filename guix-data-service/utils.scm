@@ -99,7 +99,9 @@
 (define (defer-to-thread-pool-channel thunk)
   (make-thread-pool-channel!)
   (let ((reply (make-channel)))
-    (put-message %thread-pool-channel (cons reply thunk))
+    (spawn-fiber
+     (lambda ()
+       (put-message %thread-pool-channel (cons reply thunk))))
     reply))
 
 (define (fetch-result-of-defered-thunk reply-channel)
