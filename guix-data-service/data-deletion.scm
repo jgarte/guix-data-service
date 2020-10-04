@@ -24,11 +24,78 @@
   #:use-module (guix-data-service utils)
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service model package-derivation-by-guix-revision-range)
-  #:export (delete-data-for-branch
+  #:export (delete-guix-revisions
+            delete-data-for-branch
             delete-revisions-from-branch-except-most-recent-n
             delete-revisions-for-all-branches-except-most-recent-n
             delete-data-for-all-deleted-branches
             delete-unreferenced-derivations))
+
+(define (delete-guix-revisions conn git-repository-id commits)
+  (let ((guix-revision-ids
+         (map
+          car
+          (exec-query
+           conn
+           (string-append
+            "
+SELECT guix_revisions.id
+FROM (VALUES "
+            (string-join
+             (map (lambda (commit)
+                    (string-append "('" commit "')"))
+                  commits)
+             ", ")
+            ") AS commits
+INNER JOIN guix_revisions
+  ON guix_revisions.commit = commits.column1
+WHERE guix_revisions.git_repository_id = "
+            (number->string git-repository-id) " AND
+  commits.column1 NOT IN (
+    SELECT commit
+    FROM git_branches
+)")))))
+
+    (unless (null? guix-revision-ids)
+      (for-each
+       (lambda (table)
+         (exec-query
+          conn
+          (simple-format
+           #f
+           "
+DELETE FROM ~A WHERE ~A IN (VALUES ~A)"
+           table
+           (if (string=? table
+                         "guix_revision_package_derivations")
+               "revision_id"
+               "guix_revision_id")
+           (string-join
+            (map (lambda (guix-revision-id)
+                   (string-append "(" guix-revision-id ")"))
+                 guix-revision-ids)
+            ", "))))
+       '("channel_instances"
+         "guix_revision_channel_news_entries"
+         "guix_revision_lint_checkers"
+         "guix_revision_lint_warnings"
+         "guix_revision_package_derivations"
+         "guix_revision_system_test_derivations"))
+
+      (exec-query
+       conn
+       (string-append
+        "
+DELETE FROM guix_revisions
+WHERE id IN ("
+        (string-join guix-revision-ids ", ")
+        ")
+AND id NOT IN (
+  SELECT id FROM guix_revisions
+  INNER JOIN git_branches ON
+    git_branches.commit = guix_revisions.commit AND
+    git_branches.git_repository_id = guix_revisions.git_repository_id
+)")))))
 
 (define (delete-revisions-from-branch conn git-repository-id branch-name commits)
   (define (delete-jobs conn)
@@ -92,79 +159,16 @@ WHERE git_repository_id = ~A AND
      (delete-from-git-branches conn)
      (delete-jobs conn)
 
-     (let ((guix-revision-ids
-            (map
-             car
-             (exec-query
-              conn
-              (string-append
-               "
-SELECT guix_revisions.id
-FROM (VALUES "
-               (string-join
-                (map (lambda (commit)
-                       (string-append "('" commit "')"))
-                     commits)
-                ", ")
-               ") AS commits
-INNER JOIN guix_revisions
-  ON guix_revisions.commit = commits.column1
-WHERE guix_revisions.git_repository_id = "
-               (number->string git-repository-id) " AND
-  commits.column1 NOT IN (
-    SELECT commit
-    FROM git_branches
-)")))))
-
-       (exec-query
-        conn
-        "
+     (exec-query
+      conn
+      "
 DELETE FROM package_derivations_by_guix_revision_range
 WHERE git_repository_id = $1 AND
       branch_name = $2"
-        (list (number->string git-repository-id)
-              branch-name))
+      (list (number->string git-repository-id)
+            branch-name))
 
-       (unless (null? guix-revision-ids)
-         (for-each
-          (lambda (table)
-            (exec-query
-             conn
-             (simple-format
-              #f
-              "
-DELETE FROM ~A WHERE ~A IN (VALUES ~A)"
-              table
-              (if (string=? table
-                            "guix_revision_package_derivations")
-                  "revision_id"
-                  "guix_revision_id")
-              (string-join
-               (map (lambda (guix-revision-id)
-                      (string-append "(" guix-revision-id ")"))
-                    guix-revision-ids)
-               ", "))))
-          '("channel_instances"
-            "guix_revision_channel_news_entries"
-            "guix_revision_lint_checkers"
-            "guix_revision_lint_warnings"
-            "guix_revision_package_derivations"
-            "guix_revision_system_test_derivations"))
-
-         (exec-query
-          conn
-          (string-append
-           "
-DELETE FROM guix_revisions
-WHERE id IN ("
-           (string-join guix-revision-ids ", ")
-           ")
-AND id NOT IN (
-  SELECT id FROM guix_revisions
-  INNER JOIN git_branches ON
-    git_branches.commit = guix_revisions.commit AND
-    git_branches.git_repository_id = guix_revisions.git_repository_id
-)")))))))
+     (delete-guix-revisions conn git-repository-id commits))))
 
 (define (delete-data-for-branch conn git-repository-id branch-name)
   (define commits
