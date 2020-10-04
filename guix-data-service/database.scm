@@ -26,11 +26,6 @@
             with-postgresql-connection-per-thread
             with-thread-postgresql-connection
 
-            make-postgresql-connection-channel
-            close-postgresql-connection-channel
-            exec-query/through-channel
-            with-postgresql-transaction/through-channel
-
             with-postgresql-transaction
 
             check-test-database!
