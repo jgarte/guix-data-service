@@ -27,7 +27,8 @@
             view-branch
             view-branch-package
             view-branch-package-derivations
-            view-branch-package-outputs))
+            view-branch-package-outputs
+            view-no-latest-revision))
 
 (define* (view-git-repositories git-repositories)
   (layout
@@ -781,3 +782,14 @@
                                 (rationalize width 1)))))))))))
                versions-list
                outputs-by-revision-range))))))))))
+
+(define (view-no-latest-revision branch-name)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (h1 "No latest revision")
+      (p "No latest revision for "
+         (strong (samp ,branch-name))
+         " branch")))))

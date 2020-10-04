@@ -215,8 +215,9 @@
                                  #:header-text
                                  `("Latest processed revision for branch "
                                    (samp ,branch-name)))
-           (render-unknown-revision mime-types
-                                    commit-hash))))
+           (render-no-latest-revision mime-types
+                                      repository-id
+                                      branch-name))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision" "packages")
      (letpar& ((commit-hash
                 (with-thread-postgresql-connection
@@ -255,8 +256,9 @@
                                         "/repository/" repository-id
                                         "/branch/" branch-name
                                         "/latest-processed-revision")))
-           (render-unknown-revision mime-types
-                                    commit-hash))))
+           (render-no-latest-revision mime-types
+                                      repository-id
+                                      branch-name))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision" "package-derivations")
      (letpar& ((commit-hash
                 (with-thread-postgresql-connection
@@ -287,8 +289,9 @@
                                                   commit-hash
                                                   parsed-query-parameters
                                                   #:path-base path))
-           (render-unknown-revision mime-types
-                                    commit-hash))))
+           (render-no-latest-revision mime-types
+                                      repository-id
+                                      branch-name))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision" "package-reproducibility")
      (letpar& ((commit-hash
                 (with-thread-postgresql-connection
@@ -300,8 +303,9 @@
            (render-revision-package-reproduciblity mime-types
                                                    commit-hash
                                                    #:path-base path)
-           (render-unknown-revision mime-types
-                                    commit-hash))))
+           (render-no-latest-revision mime-types
+                                      repository-id
+                                      branch-name))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision" "package-substitute-availability")
      (letpar& ((commit-hash
                 (with-thread-postgresql-connection
@@ -313,8 +317,9 @@
            (render-revision-package-substitute-availability mime-types
                                                             commit-hash
                                                             #:path-base path)
-           (render-unknown-revision mime-types
-                                    commit-hash))))
+           (render-no-latest-revision mime-types
+                                      repository-id
+                                      branch-name))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision"
            "lint-warnings")
      (letpar& ((commit-hash
@@ -348,8 +353,9 @@
                                              "/repository/" repository-id
                                              "/branch/" branch-name
                                              "/latest-processed-revision")))
-           (render-unknown-revision mime-types
-                                    commit-hash))))
+           (render-no-latest-revision mime-types
+                                      repository-id
+                                      branch-name))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision" "package" name version)
      (letpar& ((commit-hash
                 (with-thread-postgresql-connection
@@ -380,8 +386,9 @@
                                                "/repository/" repository-id
                                                "/branch/" branch-name
                                                "/package/" name))
-             (render-unknown-revision mime-types
-                                      commit-hash)))))
+             (render-no-latest-revision mime-types
+                                        repository-id
+                                        branch-name)))))
      (_ #f)))
 
 (define (parse-build-system)
@@ -394,6 +401,19 @@
           s
           (make-invalid-query-parameter
            s "unknown system")))))
+
+(define (render-no-latest-revision mime-types git-repository-id branch-name)
+  (case (most-appropriate-mime-type
+         '(application/json text/html)
+         mime-types)
+    ((application/json)
+     (render-json
+      '((error . "no latest revision"))
+      #:code 404))
+    (else
+     (render-html
+      #:code 404
+      #:sxml (view-no-latest-revision branch-name)))))
 
 (define (render-branch-package-derivation-history request
                                                   mime-types
