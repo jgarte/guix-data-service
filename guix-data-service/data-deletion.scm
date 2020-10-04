@@ -33,6 +33,42 @@
             delete-unreferenced-derivations))
 
 (define (delete-guix-revisions conn git-repository-id commits)
+  (define (delete-unreferenced-package-derivations)
+    (exec-query
+     conn
+     "
+DELETE FROM package_derivations
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM guix_revision_package_derivations
+  WHERE guix_revision_package_derivations.package_derivation_id =
+        package_derivations.id
+)"))
+
+  (define (delete-unreferenced-lint-warnings)
+    (exec-query
+     conn
+     "
+DELETE FROM lint_warnings
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM guix_revision_lint_warnings
+  WHERE guix_revision_lint_warnings.lint_warning_id =
+        lint_warnings.id
+)"))
+
+  (define (delete-unreferenced-lint-checkers)
+    (exec-query
+     conn
+     "
+DELETE FROM lint_checkers
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM guix_revision_lint_checkers
+  WHERE guix_revision_lint_checkers.lint_checker_id =
+        lint_checkers.id
+)"))
+
   (let ((guix-revision-ids
          (map
           car
@@ -96,7 +132,11 @@ AND id NOT IN (
   INNER JOIN git_branches ON
     git_branches.commit = guix_revisions.commit AND
     git_branches.git_repository_id = guix_revisions.git_repository_id
-)")))))
+)"))
+
+      (delete-unreferenced-package-derivations)
+      (delete-unreferenced-lint-warnings)
+      (delete-unreferenced-lint-checkers))))
 
 (define (delete-revisions-from-branch conn git-repository-id branch-name commits)
   (define (delete-jobs conn)
