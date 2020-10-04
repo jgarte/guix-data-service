@@ -21,6 +21,7 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 threads)
   #:use-module (squee)
+  #:use-module (fibers)
   #:use-module (guix-data-service utils)
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service model package-derivation-by-guix-revision-range)
@@ -411,10 +412,6 @@ DELETE FROM derivations WHERE id = $1"
 
        1)))
 
-  (define conn-channel
-    (make-postgresql-connection-channel
-     "data-deletion-thread"))
-
   (with-postgresql-connection
    "data-deletion"
    (lambda (conn)
@@ -452,32 +449,41 @@ WHERE NOT EXISTS (
                  (lambda (count result)
                    (+ result count))
                  0
-                 (par-map& (lambda (derivation-id)
-                             (with-thread-postgresql-connection
-                              (lambda (conn)
-                                (exec-query
-                                 conn
-                                 "
+                 (par-map&
+                  (lambda (derivation-id)
+                    (with-thread-postgresql-connection
+                     (lambda (conn)
+                       (with-postgresql-transaction
+                        conn
+                        (lambda (conn)
+                          (exec-query
+                           conn
+                           "
 SET CONSTRAINTS derivations_by_output_details_set_derivation_id_fkey DEFERRED")
 
-                                (maybe-delete-derivation conn derivation-id))))
-                           derivations))))
+                          (maybe-delete-derivation conn
+                                                   derivation-id))))))
+                  derivations))))
            (simple-format (current-error-port)
                           "Deleted ~A derivations\n"
                           deleted-count)
            deleted-count)))
 
-     (let loop ((total-deleted 0))
-       (let ((batch-deleted-count (delete-batch conn)))
-         (if (eq? 0 batch-deleted-count)
-             (begin
-               (close-postgresql-connection-channel conn-channel)
-               (simple-format
-                (current-output-port)
-                "Deleting unused derivation_source_files entries")
-               (delete-unreferenced-derivations-source-files conn)
-               (simple-format
-                (current-output-port)
-                "Finished deleting derivations, deleted ~A in total\n"
-                total-deleted))
-             (loop (+ total-deleted batch-deleted-count))))))))
+     (with-postgresql-connection-per-thread
+      "data-deletion-thread"
+      (lambda ()
+        (run-fibers
+         (lambda ()
+           (let loop ((total-deleted 0))
+             (let ((batch-deleted-count (delete-batch conn)))
+               (if (eq? 0 batch-deleted-count)
+                   (begin
+                     (simple-format
+                      (current-output-port)
+                      "Deleting unused derivation_source_files entries")
+                     (delete-unreferenced-derivations-source-files conn)
+                     (simple-format
+                      (current-output-port)
+                      "Finished deleting derivations, deleted ~A in total\n"
+                      total-deleted))
+                   (loop (+ total-deleted batch-deleted-count))))))))))))
