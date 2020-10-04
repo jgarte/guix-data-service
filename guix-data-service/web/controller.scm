@@ -303,26 +303,23 @@
                                              derivation-file-name))))))
     (if derivation
         (letpar& ((derivation-inputs
-                   (parallel-via-thread-pool-channel
-                    (with-thread-postgresql-connection
-                     (lambda (conn)
-                       (select-derivation-inputs-by-derivation-id
-                        conn
-                        (first derivation))))))
+                   (with-thread-postgresql-connection
+                    (lambda (conn)
+                      (select-derivation-inputs-by-derivation-id
+                       conn
+                       (first derivation)))))
                   (derivation-outputs
-                   (parallel-via-thread-pool-channel
-                    (with-thread-postgresql-connection
-                     (lambda (conn)
-                       (select-derivation-outputs-by-derivation-id
-                        conn
-                        (first derivation))))))
+                   (with-thread-postgresql-connection
+                    (lambda (conn)
+                      (select-derivation-outputs-by-derivation-id
+                       conn
+                       (first derivation)))))
                   (derivation-sources
-                   (parallel-via-thread-pool-channel
-                    (with-thread-postgresql-connection
-                     (lambda (conn)
-                       (select-derivation-sources-by-derivation-id
-                        conn
-                        (first derivation)))))))
+                   (with-thread-postgresql-connection
+                    (lambda (conn)
+                      (select-derivation-sources-by-derivation-id
+                       conn
+                       (first derivation))))))
           (render-html
            #:sxml (view-formatted-derivation derivation
                                              derivation-inputs
