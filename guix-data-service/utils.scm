@@ -111,6 +111,16 @@
     (result
      (apply values result))))
 
+(define (fetch-result-of-defered-thunks . reply-channels)
+  (let ((responses (map get-message reply-channels)))
+    (map
+     (match-lambda
+       (('worker-thread-error . exn)
+        (raise-exception exn))
+       (result
+        (apply values result)))
+     responses)))
+
 (define-syntax parallel-via-thread-pool-channel
   (lambda (x)
     (syntax-case x ()
@@ -120,7 +130,7 @@
                          (lambda ()
                            e0)))
                  ...)
-             (values (fetch-result-of-defered-thunk tmp0) ...)))))))
+             (apply values (fetch-result-of-defered-thunks tmp0 ...))))))))
 
 (define-syntax-rule (letpar& ((v e) ...) b0 b1 ...)
   (call-with-values
