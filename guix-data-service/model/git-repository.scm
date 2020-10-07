@@ -47,12 +47,15 @@
 (define (select-git-repository conn id)
   (match (exec-query
           conn
-          "SELECT label, url, cgit_url_base FROM git_repositories WHERE id = $1"
+          "SELECT label, url, cgit_url_base, fetch_with_authentication FROM git_repositories WHERE id = $1"
           (list id))
     (()
      #f)
-    ((result)
-     result)))
+    (((label url cgit_url_base fetch_with_authentication))
+     (list label
+           url
+           cgit_url_base
+           (string=? fetch_with_authentication "t")))))
 
 (define (git-repository-id->url conn id)
   (match

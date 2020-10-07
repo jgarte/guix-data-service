@@ -69,7 +69,7 @@
              (with-thread-postgresql-connection
               (lambda (conn)
                 (select-git-repository conn id))))
-       ((label url cgit-url-base)
+       ((label url cgit-url-base fetch-with-authentication?)
         (letpar& ((branches
                    (with-thread-postgresql-connection
                     (lambda (conn)
