@@ -857,7 +857,8 @@ WHERE job_id = $1"
       (build-derivations store (list derivation)))
     (derivation->output-path derivation)))
 
-(define (channel->derivation-file-names-by-system conn store channel)
+(define (channel->derivation-file-names-by-system conn store channel
+                                                  fetch-with-authentication?)
   (define use-container? (defined?
                            'open-inferior/container
                            (resolve-module '(guix inferior))))
@@ -967,7 +968,9 @@ WHERE job_id = $1"
                 (lambda ()
                   (first
                    (latest-channel-instances store
-                                             (list channel)))))))
+                                             (list channel)
+                                             #:authenticate?
+                                             fetch-with-authentication?))))))
           (inferior-eval '(use-modules (srfi srfi-1)
                                        (guix channels)
                                        (guix grafts)
@@ -1007,10 +1010,14 @@ WHERE job_id = $1"
           (close-inferior inferior)
           #f))))
 
-(define (channel->derivations-by-system conn store channel)
-  (let* ((derivation-file-names-by-system
-          (with-time-logging "computing the channel derivation"
-            (channel->derivation-file-names-by-system conn store channel))))
+(define (channel->derivations-by-system conn store channel
+                                        fetch-with-authentication?)
+  (let ((derivation-file-names-by-system
+         (with-time-logging "computing the channel derivation"
+           (channel->derivation-file-names-by-system conn
+                                                     store
+                                                     channel
+                                                     fetch-with-authentication?))))
     (for-each
      (match-lambda
        ((system . derivation-file-name)
@@ -1255,16 +1262,21 @@ WHERE job_id = $1"
 (prevent-inlining-for-tests extract-information-from)
 
 (define (load-new-guix-revision conn store git-repository-id commit)
-  (let* ((channel-for-commit
+  (let* ((git-repository-fields
+          (select-git-repository conn git-repository-id))
+         (git-repository-url
+          (second git-repository-fields))
+         (fetch-with-authentication?
+          (fourth git-repository-fields))
+         (channel-for-commit
           (channel (name 'guix)
-                   (url (git-repository-id->url
-                         conn
-                         git-repository-id))
+                   (url git-repository-url)
                    (commit commit)))
          (channel-derivations-by-system
           (channel->derivations-by-system conn
                                           store
-                                          channel-for-commit))
+                                          channel-for-commit
+                                          fetch-with-authentication?))
          (store-item
           (channel-derivations-by-system->guix-store-item
            store

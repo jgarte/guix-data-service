@@ -38,7 +38,7 @@
       (mock
        ((guix-data-service jobs load-new-guix-revision)
         channel->derivations-by-system
-        (lambda (conn store channel)
+        (lambda (conn store channel fetch-with-authentication?)
           '((x86_64-linux
              .
              ((manifest-entry-item . /gnu/store/foo.drv)
@@ -96,7 +96,7 @@
       (mock
        ((guix-data-service jobs load-new-guix-revision)
         channel->derivations-by-system
-        (lambda (conn store channel)
+        (lambda (conn store channel fetch-with-authentication?)
           '(x86_64-linux
             .
             ((manifest-entry-item . /gnu/store/foo.drv)
