@@ -491,7 +491,7 @@ WHERE NOT EXISTS (
                  (lambda (count result)
                    (+ result count))
                  0
-                 (par-map&
+                 (map
                   (lambda (derivation-id)
                     (with-thread-postgresql-connection
                      (lambda (conn)
