@@ -315,7 +315,8 @@ FROM (
 ) AS git_branches_latest_revision
 WHERE commit = ''")))))
 
-(define (delete-unreferenced-derivations)
+(define* (delete-unreferenced-derivations #:key
+                                          (batch-size 1000000))
   (define (delete-builds-for-derivation-output-details-set
            conn
            derivation-output-details-set-id)
@@ -479,7 +480,8 @@ WHERE NOT EXISTS (
 ) AND NOT EXISTS (
   SELECT 1 FROM guix_revision_system_test_derivations
   WHERE derivation_id = derivation_outputs.derivation_id
-) LIMIT 1000000")))
+) LIMIT $1"
+                     (list (number->string batch-size)))))
               (derivations-count (length derivations)))
          (simple-format (current-error-port)
                         "Looking at ~A derivations\n"
