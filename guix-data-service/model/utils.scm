@@ -115,19 +115,26 @@
         lst))
 
 (define (table-schema conn table-name)
-  (map
-   (match-lambda
-     ((column_name data_type is_nullable)
-      (list column_name
-            data_type
-            (string=? is_nullable "YES"))))
-   (exec-query
-    conn
-    "
+  (let ((results
+         (exec-query
+          conn
+          "
 SELECT column_name, data_type, is_nullable
 FROM information_schema.columns
 WHERE table_name = $1"
-    (list table-name))))
+          (list table-name))))
+    (if (null? results)
+        (error
+         (simple-format #f "missing schema for ~A: ~A"
+                        table-name
+                        results))
+        (map
+         (match-lambda
+           ((column_name data_type is_nullable)
+            (list column_name
+                  data_type
+                  (string=? is_nullable "YES"))))
+         results))))
 
 (define* (insert-missing-data-and-return-all-ids
           conn
