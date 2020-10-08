@@ -479,7 +479,7 @@ WHERE NOT EXISTS (
 ) AND NOT EXISTS (
   SELECT 1 FROM guix_revision_system_test_derivations
   WHERE derivation_id = derivation_outputs.derivation_id
-) LIMIT 10000000")))
+) LIMIT 1000000")))
               (derivations-count (length derivations)))
          (simple-format (current-error-port)
                         "Looking at ~A derivations\n"
