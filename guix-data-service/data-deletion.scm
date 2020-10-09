@@ -493,6 +493,11 @@ WHERE NOT EXISTS (
                  0
                  (map
                   (lambda (derivation-id)
+                    (unless (string->number derivation-id)
+                      (error
+                       (simple-format #f "derivation-id: ~A is not a number"
+                                      derivation-id)))
+
                     (with-thread-postgresql-connection
                      (lambda (conn)
                        (with-postgresql-transaction
