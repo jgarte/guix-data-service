@@ -525,6 +525,9 @@
                   query-parameters
                   (parallel-via-thread-pool-channel
                    (with-thread-postgresql-connection valid-systems))
+                  (valid-targets->options
+                   (parallel-via-thread-pool-channel
+                    (with-thread-postgresql-connection valid-targets)))
                   build-status-strings
                   '()))))
 
@@ -564,6 +567,9 @@
                             query-parameters
                             (parallel-via-thread-pool-channel
                              (with-thread-postgresql-connection valid-systems))
+                            (valid-targets->options
+                             (parallel-via-thread-pool-channel
+                              (with-thread-postgresql-connection valid-targets)))
                             build-status-strings
                             derivation-changes)
                     #:extra-headers http-headers-for-unchanging-content))))))))))

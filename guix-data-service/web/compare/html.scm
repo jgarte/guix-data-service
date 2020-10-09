@@ -600,6 +600,7 @@
 
 (define (compare/derivations query-parameters
                              valid-systems
+                             valid-targets
                              valid-build-statuses
                              derivation-changes)
   (layout
@@ -646,7 +647,7 @@
             #:font-family "monospace")
           ,(form-horizontal-control
             "Target" query-parameters
-            #:options valid-systems
+            #:options valid-targets
             #:help-text "Only include derivations that are build for this system."
             #:font-family "monospace")
           (div (@ (class "form-group form-group-lg"))
