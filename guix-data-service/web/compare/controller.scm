@@ -101,7 +101,7 @@
                 (target_derivation ,parse-derivation #:required)))))
        (render-compare/derivation mime-types
                                   parsed-query-parameters)))
-    (('GET "compare" "derivations")
+    (('GET "compare" "package-derivations")
      (let* ((parsed-query-parameters
              (parse-query-parameters
               request
@@ -110,8 +110,8 @@
                 (system        ,parse-system #:multi-value)
                 (target        ,parse-target #:multi-value)
                 (build_status  ,parse-build-status #:multi-value)))))
-       (render-compare/derivations mime-types
-                                   parsed-query-parameters)))
+       (render-compare/package-derivations mime-types
+                                           parsed-query-parameters)))
     (('GET "compare-by-datetime" "derivations")
      (let* ((parsed-query-parameters
              (guard-against-mutually-exclusive-query-parameters
@@ -499,7 +499,7 @@
                       data)
               #:extra-headers http-headers-for-unchanging-content)))))))
 
-(define (render-compare/derivations mime-types
+(define (render-compare/package-derivations mime-types
                                     query-parameters)
   (define (derivations->alist derivations)
     (map (match-lambda

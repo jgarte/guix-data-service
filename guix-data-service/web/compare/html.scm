@@ -84,8 +84,8 @@
                (href ,(string-append "/compare/packages" query-params)))
             "Compare packages")
          (a (@ (class "btn btn-default")
-               (href ,(string-append "/compare/derivations" query-params)))
-            "Compare derivations"))))
+               (href ,(string-append "/compare/package-derivations" query-params)))
+            "Compare package derivations"))))
 
       (div
          (@ (class "row"))
