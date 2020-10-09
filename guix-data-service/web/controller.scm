@@ -130,7 +130,24 @@
                                                    "-"
                                                    "_"))
                                    #:labels '(name))))
-                               pg-stat-fields)))
+                               pg-stat-fields))
+
+         (pg-stat-indexes-fields '(idx-scan idx-tup-read
+                                   idx-tup-fetch bytes))
+
+         (pg-stat-indexes-metrics (map (lambda (field)
+                                         (cons
+                                          field
+                                          (make-gauge-metric
+                                           registry
+                                           (string-append
+                                            "pg_stat_indexes_"
+                                            (string-replace-substring
+                                             (symbol->string field)
+                                             "-"
+                                             "_"))
+                                           #:labels '(name))))
+                                       pg-stat-indexes-fields)))
     (lambda ()
       (letpar& ((metric-values
                  (with-thread-postgresql-connection
@@ -141,23 +158,22 @@
                 (pg-stat-user-tables-metrics
                  (with-thread-postgresql-connection
                   fetch-pg-stat-user-tables-metrics))
+                (pg-stat-user-indexes-metrics
+                 (with-thread-postgresql-connection
+                  fetch-pg-stat-user-indexes-metrics))
                 (load-new-guix-revision-job-metrics
                  (with-thread-postgresql-connection
                   select-load-new-guix-revision-job-metrics)))
 
         (for-each (match-lambda
                     ((name tablespace row-estimate
-                           table-bytes index-bytes toast-bytes)
+                           table-bytes toast-bytes)
 
                      (metric-set table-row-estimate-metric
                                  row-estimate
                                  #:label-values `((name . ,name)))
                      (metric-set table-bytes-metric
                                  table-bytes
-                                 #:label-values `((name       . ,name)
-                                                  (tablespace . ,tablespace)))
-                     (metric-set table-index-bytes-metric
-                                 index-bytes
                                  #:label-values `((name       . ,name)
                                                   (tablespace . ,tablespace)))
                      (metric-set table-toast-bytes-metric
@@ -182,6 +198,29 @@
                                    #:label-values `((name . ,name))))))
                   field-values)))
              pg-stat-user-tables-metrics)
+
+        (map (lambda (field-values)
+               (let ((name (assq-ref field-values 'name))
+                     (table-name (assq-ref field-values 'table-name))
+                     (tablespace (assq-ref field-values 'tablespace)))
+                 (for-each
+                  (match-lambda
+                    (('name . _) #f)
+                    (('table-name . _) #f)
+                    (('tablespace . _) #f)
+                    ((field . value)
+                     (let ((metric (or (assq-ref pg-stat-indexes-metrics field)
+                                       (error field))))
+                       (metric-set metric
+                                   value
+                                   #:label-values
+                                   `((name       . ,name)
+                                     (table      . ,table-name)
+                                     ,@(if (eq? field 'bytes)
+                                           `((tablespace . ,tablespace))
+                                           '()))))))
+                  field-values)))
+             pg-stat-user-indexes-metrics)
 
         (for-each (match-lambda
                     ((repository-label completed count)

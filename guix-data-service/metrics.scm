@@ -19,7 +19,8 @@
   #:use-module (ice-9 match)
   #:use-module (squee)
   #:export (fetch-high-level-table-size-metrics
-            fetch-pg-stat-user-tables-metrics))
+            fetch-pg-stat-user-tables-metrics
+            fetch-pg-stat-user-indexes-metrics))
 
 (define (fetch-high-level-table-size-metrics conn)
   ;; Adapted from https://wiki.postgresql.org/wiki/Disk_Usage
@@ -41,7 +42,6 @@ SELECT table_name,
        COALESCE(pg_tablespace.spcname,'default') AS tablespace,
        row_estimate,
        table_bytes,
-       index_bytes,
        toast_bytes
 FROM (
   SELECT *, total_bytes-index_bytes-COALESCE(toast_bytes,0) AS table_bytes
@@ -75,12 +75,11 @@ FROM (
 LEFT JOIN pg_tablespace ON tablespace_id = pg_tablespace.oid")
 
   (map (match-lambda
-         ((name tablespace row-estimate table-bytes index-bytes toast-bytes)
+         ((name tablespace row-estimate table-bytes toast-bytes)
           (list name
                 tablespace
                 (or (string->number row-estimate) 0)
                 (or (string->number table-bytes) 0)
-                (or (string->number index-bytes) 0)
                 (or (string->number toast-bytes) 0))))
        (exec-query conn query)))
 
@@ -126,3 +125,33 @@ SELECT relname, seq_scan, seq_tup_read,
             (analyze-count       . ,analyze-count)
             (autoanalyze-count   . ,autoanalyze-count))))
        (exec-query conn query)))
+
+(define (fetch-pg-stat-user-indexes-metrics conn)
+  (define query
+    "
+SELECT pg_indexes.indexname,
+       pg_indexes.tablename,
+       COALESCE(pg_indexes.tablespace,'default') AS tablespace,
+       pg_stat_user_indexes.idx_scan,
+       pg_stat_user_indexes.idx_tup_read,
+       pg_stat_user_indexes.idx_tup_fetch,
+       pg_relation_size(indexrelid) AS size_in_bytes
+FROM pg_stat_user_indexes
+LEFT JOIN pg_indexes
+  ON pg_stat_user_indexes.indexrelname = pg_indexes.indexname
+ AND pg_stat_user_indexes.schemaname = pg_indexes.schemaname
+WHERE pg_stat_user_indexes.schemaname = 'guix_data_service'")
+
+  (map
+   (match-lambda
+     ((indexname tablename tablespace
+                 idx_scan idx_tup_read idx_tup_fetch
+                 size_in_bytes)
+      `((name          . ,indexname)
+        (table-name    . ,tablename)
+        (tablespace    . ,tablespace)
+        (idx-scan      . ,idx_scan)
+        (idx-tup-read  . ,idx_tup_read)
+        (idx-tup-fetch . ,idx_tup_fetch)
+        (bytes         . ,size_in_bytes))))
+   (exec-query conn query)))
