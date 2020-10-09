@@ -228,7 +228,9 @@
                      mime-types)
                 ((application/json)
                  (render-json
-                  `((channel-news . ,(list->vector
+                  `((base-commit    . ,(assq-ref query-parameters 'base_commit))
+                    (target-commit  . ,(assq-ref query-parameters 'target_commit))
+                    (channel-news . ,(list->vector
                                       (map
                                        (match-lambda
                                          ((commit tag title_text body_text change)
