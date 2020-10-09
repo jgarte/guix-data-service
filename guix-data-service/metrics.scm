@@ -38,6 +38,7 @@ WITH RECURSIVE pg_inherit(inhrelid, inhparent) AS (
   WHERE inhparent NOT IN (SELECT inhrelid FROM pg_inherit)
 )
 SELECT table_name,
+       COALESCE(pg_tablespace.spcname,'default') AS tablespace,
        row_estimate,
        table_bytes,
        index_bytes,
@@ -48,6 +49,7 @@ FROM (
     SELECT c.oid,
            nspname AS table_schema,
            relname AS table_name,
+           reltablespace AS tablespace_id,
            SUM(c.reltuples) OVER (partition BY parent) AS row_estimate,
            SUM(pg_total_relation_size(c.oid)) OVER (partition BY parent) AS total_bytes,
            SUM(pg_indexes_size(c.oid)) OVER (partition BY parent) AS index_bytes,
@@ -58,6 +60,7 @@ FROM (
              reltuples,
              relname,
              relnamespace,
+             reltablespace,
              pg_class.reltoastrelid,
              COALESCE(inhparent, pg_class.oid) parent
       FROM pg_class
@@ -68,11 +71,13 @@ FROM (
   ) a
   WHERE oid = parent
     AND table_schema = 'guix_data_service'
-) a;")
+) a
+LEFT JOIN pg_tablespace ON tablespace_id = pg_tablespace.oid")
 
   (map (match-lambda
-         ((name row-estimate table-bytes index-bytes toast-bytes)
+         ((name tablespace row-estimate table-bytes index-bytes toast-bytes)
           (list name
+                tablespace
                 (or (string->number row-estimate) 0)
                 (or (string->number table-bytes) 0)
                 (or (string->number index-bytes) 0)

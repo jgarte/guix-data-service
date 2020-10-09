@@ -146,20 +146,24 @@
                   select-load-new-guix-revision-job-metrics)))
 
         (for-each (match-lambda
-                    ((name row-estimate table-bytes index-bytes toast-bytes)
+                    ((name tablespace row-estimate
+                           table-bytes index-bytes toast-bytes)
 
                      (metric-set table-row-estimate-metric
                                  row-estimate
                                  #:label-values `((name . ,name)))
                      (metric-set table-bytes-metric
                                  table-bytes
-                                 #:label-values `((name . ,name)))
+                                 #:label-values `((name       . ,name)
+                                                  (tablespace . ,tablespace)))
                      (metric-set table-index-bytes-metric
                                  index-bytes
-                                 #:label-values `((name . ,name)))
+                                 #:label-values `((name       . ,name)
+                                                  (tablespace . ,tablespace)))
                      (metric-set table-toast-bytes-metric
                                  toast-bytes
-                                 #:label-values `((name . ,name)))))
+                                 #:label-values `((name       . ,name)
+                                                  (tablespace . ,tablespace)))))
                   metric-values)
 
         (metric-set revisions-count-metric
