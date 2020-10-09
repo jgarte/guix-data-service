@@ -62,9 +62,11 @@
        (div
         (@ (class "col-sm-8"))
         (h1 "Comparing "
-            (samp ,(string-take base-commit 8) "…")
+            (a (@ (href ,(string-append "/revision/" base-commit)))
+               (samp ,(string-take base-commit 8) "…"))
             " and "
-            (samp ,(string-take target-commit 8) "…"))
+            (a (@ (href ,(string-append "/revision/" target-commit)))
+               (samp ,(string-take target-commit 8) "…")))
         ,@(if (apply string=? cgit-url-bases)
               `((a (@ (href ,(string-append
                               (first cgit-url-bases)
@@ -362,9 +364,11 @@
                    (target-commit (assq-ref query-parameters 'target_commit)))
                (if (every string? (list base-commit target-commit))
                    `("Comparing "
-                     (samp ,(string-take base-commit 8) "…")
+                     (a (@ (href ,(string-append "/revision/" base-commit)))
+                        (samp ,(string-take base-commit 8) "…"))
                      " and "
-                     (samp ,(string-take target-commit 8) "…"))
+                     (a (@ (href ,(string-append "/revision/" target-commit)))
+                        (samp ,(string-take target-commit 8) "…")))
                    '("Comparing derivations")))))
       (div
        (@ (class "row"))
@@ -609,9 +613,11 @@
                    (target-commit (assq-ref query-parameters 'target_commit)))
                (if (every string? (list base-commit target-commit))
                    `("Comparing "
-                     (samp ,(string-take base-commit 8) "…")
+                     (a (@ (href ,(string-append "/revision/" base-commit)))
+                        (samp ,(string-take base-commit 8) "…"))
                      " and "
-                     (samp ,(string-take target-commit 8) "…"))
+                     (a (@ (href ,(string-append "/revision/" target-commit)))
+                        (samp ,(string-take target-commit 8) "…")))
                    '("Comparing derivations")))))
       (div
        (@ (class "row"))
@@ -770,9 +776,11 @@
                    (target-commit (assq-ref query-parameters 'target_commit)))
                (if (every string? (list base-commit target-commit))
                    `("Comparing "
-                     (samp ,(string-take base-commit 8) "…")
+                     (a (@ (href ,(string-append "/revision/" base-commit)))
+                        (samp ,(string-take base-commit 8) "…"))
                      " and "
-                     (samp ,(string-take target-commit 8) "…"))
+                     (a (@ (href ,(string-append "/revision/" target-commit)))
+                        (samp ,(string-take target-commit 8) "…")))
                    '("Comparing derivations")))))
       (div
        (@ (class "row"))
@@ -938,9 +946,11 @@
        (div
         (@ (class "col-sm-12"))
         (h1 "Comparing "
-            (samp ,(string-take base-commit 8) "…")
+            (a (@ (href ,(string-append "/revision/" base-commit)))
+               (samp ,(string-take base-commit 8) "…"))
             " and "
-            (samp ,(string-take target-commit 8) "…"))
+            (a (@ (href ,(string-append "/revision/" target-commit)))
+               (samp ,(string-take target-commit 8) "…")))
         (a (@ (class "btn btn-default btn-lg")
               (href ,(string-append
                       "/compare/packages.json" query-params)))
