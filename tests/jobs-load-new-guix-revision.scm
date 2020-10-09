@@ -21,7 +21,7 @@
    (exec-query conn "TRUNCATE guix_revisions CASCADE")
 
    (test-equal "select-job-for-commit works"
-     '()
+     #f
      (select-job-for-commit conn "does not exist"))
 
    (exec-query conn "TRUNCATE guix_revisions CASCADE")

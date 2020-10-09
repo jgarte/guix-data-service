@@ -1388,7 +1388,9 @@ GROUP BY 1, 2")
            "SELECT id, commit, source, git_repository_id "
            "FROM load_new_guix_revision_jobs WHERE commit = $1")
           (list commit))))
-    result))
+    (match result
+      (() #f)
+      ((job) job))))
 
 (define* (select-recent-job-events conn
                                    #:key (limit 8))
