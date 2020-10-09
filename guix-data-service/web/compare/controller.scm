@@ -520,16 +520,19 @@
          (render-json
           '((error . "invalid query"))))
         (else
+         (letpar& ((systems
+                    (with-thread-postgresql-connection
+                     valid-systems))
+                   (targets
+                    (with-thread-postgresql-connection
+                     valid-targets)))
          (render-html
           #:sxml (compare/derivations
                   query-parameters
-                  (parallel-via-thread-pool-channel
-                   (with-thread-postgresql-connection valid-systems))
-                  (valid-targets->options
-                   (parallel-via-thread-pool-channel
-                    (with-thread-postgresql-connection valid-targets)))
+                  systems
+                  (valid-targets->options targets)
                   build-status-strings
-                  '()))))
+                  '())))))
 
       (let ((base-commit    (assq-ref query-parameters 'base_commit))
             (target-commit  (assq-ref query-parameters 'target_commit))
@@ -562,17 +565,20 @@
                     derivation-changes
                     #:extra-headers http-headers-for-unchanging-content))
                   (else
-                   (render-html
-                    #:sxml (compare/derivations
-                            query-parameters
-                            (parallel-via-thread-pool-channel
-                             (with-thread-postgresql-connection valid-systems))
-                            (valid-targets->options
-                             (parallel-via-thread-pool-channel
-                              (with-thread-postgresql-connection valid-targets)))
-                            build-status-strings
-                            derivation-changes)
-                    #:extra-headers http-headers-for-unchanging-content))))))))))
+                   (letpar& ((systems
+                              (with-thread-postgresql-connection
+                               valid-systems))
+                             (targets
+                              (with-thread-postgresql-connection
+                               valid-targets)))
+                     (render-html
+                      #:sxml (compare/derivations
+                              query-parameters
+                              systems
+                              (valid-targets->options targets)
+                              build-status-strings
+                              derivation-changes)
+                      #:extra-headers http-headers-for-unchanging-content)))))))))))
 
 (define (render-compare-by-datetime/derivations mime-types
                                                 query-parameters)
