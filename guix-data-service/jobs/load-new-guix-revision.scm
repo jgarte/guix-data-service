@@ -173,9 +173,32 @@ VALUES (nextval('" (log-part-sequence-name job_id) "'), $1, $2)")
            (let loop ((line (get-line port-to-read-from)))
              (let ((line-with-newline
                     (string-append line "\n")))
-               (insert logging-conn job-id line-with-newline)
-               (display line-with-newline real-output-port))
-             (loop (get-line port-to-read-from)))))))3
+               (catch #t
+                 (lambda ()
+                   (insert logging-conn job-id line-with-newline)
+                   (display line-with-newline real-output-port))
+                 (lambda (key . args)
+                   (display
+                    (simple-format
+                     #f
+                     "
+error: ~A: ~A
+error: could not insert log part: '~A'\n\n"
+                     key args line)
+                    real-output-port)
+                   (catch #t
+                     (lambda ()
+                       (insert
+                        logging-conn
+                        job-id
+                        (simple-format
+                         #f
+                         "
+guix-data-service: error: missing log line: ~A
+\n" key)))
+                     (lambda ()
+                       #t)))))
+             (loop (get-line port-to-read-from)))))))
 
      port-to-write-to)))
 
