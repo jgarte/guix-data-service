@@ -1365,7 +1365,22 @@ RETURNING id;")
   (define query
     "
 SELECT COALESCE(git_repositories.label, git_repositories.url) AS repository_label,
-       succeeded_at IS NOT NULL AS completed,
+       CASE WHEN succeeded_at IS NOT NULL
+            THEN 'succeeded'
+            WHEN (
+                   SELECT COUNT(*)
+                   FROM load_new_guix_revision_job_events
+                   WHERE job_id = load_new_guix_revision_jobs.id
+                     AND event = 'retry'
+                 ) >= (
+                   SELECT COUNT(*)
+                   FROM load_new_guix_revision_job_events
+                   WHERE job_id = load_new_guix_revision_jobs.id
+                     AND event = 'failure'
+                 )
+            THEN 'queued'
+            ELSE 'failed'
+       END AS state,
        COUNT(*)
 FROM load_new_guix_revision_jobs
 INNER JOIN git_repositories
@@ -1374,9 +1389,9 @@ INNER JOIN git_repositories
 GROUP BY 1, 2")
 
   (map (match-lambda
-         ((label completed count)
+         ((label state count)
           (list label
-                (string=? "t" completed)
+                state
                 (string->number count))))
        (exec-query conn query)))
 

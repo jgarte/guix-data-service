@@ -223,13 +223,13 @@
              pg-stat-user-indexes-metrics)
 
         (for-each (match-lambda
-                    ((repository-label completed count)
+                    ((repository-label state count)
                      (metric-set
                       load-new-guix-revision-job-count
                       count
                       #:label-values
                       `((repository_label . ,repository-label)
-                        (completed        . ,(if completed "yes" "no"))))))
+                        (state            . ,state)))))
                   load-new-guix-revision-job-metrics)
 
         (list (build-response
