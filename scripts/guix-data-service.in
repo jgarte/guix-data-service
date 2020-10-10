@@ -28,6 +28,7 @@
              (ice-9 match)
              (ice-9 textual-ports)
              (system repl server)
+             (system repl repl)
              (gcrypt pk-crypto)
              (guix pki)
              (guix-data-service config)
@@ -51,6 +52,9 @@
                         (alist-cons 'listen-repl port
                                     (alist-delete 'listen-repl result))
                         (error "invalid REPL server port" arg)))))
+        (option '("repl") #f #t
+                (lambda (opt name arg result)
+                  (alist-cons 'repl #t (alist-delete 'repl result))))
         (option '("pid-file") #t #f
                 (lambda (opt name arg result)
                   (alist-cons 'pid-file
@@ -120,6 +124,14 @@
 (setvbuf (current-error-port) 'line)
 
 (let ((opts (parse-options (cdr (program-arguments)))))
+  (when (assq-ref opts 'repl)
+    ((@@ (ice-9 top-repl) call-with-sigint)
+     (lambda ()
+       (with-postgresql-connection-per-thread
+        "repl"
+        start-repl)))
+    (exit 0))
+
   (let ((repl-port (assoc-ref opts 'listen-repl)))
     (when repl-port
       (spawn-server (make-tcp-server-socket #:port repl-port))))
