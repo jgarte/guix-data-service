@@ -381,6 +381,11 @@ RETURNING derivation_outputs.derivation_output_details_id"
 
        (for-each
         (lambda (derivation-output-details-id)
+          (unless (string->number derivation-output-details-id)
+            (error
+             (simple-format #f "derivation-output-details-id: ~A is not a number"
+                            derivation-output-details-id)))
+
           (match (exec-query
                   conn
                   "
