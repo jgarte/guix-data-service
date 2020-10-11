@@ -292,6 +292,50 @@
            (render-no-latest-revision mime-types
                                       repository-id
                                       branch-name))))
+    (('GET "repository" repository-id "branch" branch-name "latest-processed-revision" "package-derivation-outputs")
+     (letpar& ((commit-hash
+                (with-thread-postgresql-connection
+                 (lambda (conn)
+                   (latest-processed-commit-for-branch conn
+                                                       repository-id
+                                                       branch-name)))))
+       (if commit-hash
+           (let ((parsed-query-parameters
+                  (guard-against-mutually-exclusive-query-parameters
+                   (parse-query-parameters
+                    request
+                    `((search_query ,identity)
+                      (after_path ,identity)
+                      (substitutes_available_from ,parse-number
+                                                  #:multi-value)
+                      (substitutes_not_available_from ,parse-number
+                                                      #:multi-value)
+                      (output_consistency ,identity
+                                          #:default "any")
+                      (system ,parse-system #:default "x86_64-linux")
+                      (target ,parse-target)
+                      (limit_results  ,parse-result-limit
+                                      #:no-default-when (all_results)
+                                      #:default 10)
+                      (all_results    ,parse-checkbox-value)))
+                   '((limit_results all_results)))))
+
+             (render-revision-package-derivation-outputs
+              mime-types
+              commit-hash
+              parsed-query-parameters
+              #:path-base path
+              #:header-text
+              `("Latest processed revision for branch "
+                (samp ,branch-name))
+              #:header-link
+              (string-append
+               "/repository/" repository-id
+               "/branch/" branch-name
+               "/latest-processed-revision")))
+           (render-no-latest-revision mime-types
+                                      repository-id
+                                      branch-name))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision" "package-reproducibility")
      (letpar& ((commit-hash
                 (with-thread-postgresql-connection
@@ -300,9 +344,18 @@
                                                        repository-id
                                                        branch-name)))))
        (if commit-hash
-           (render-revision-package-reproduciblity mime-types
-                                                   commit-hash
-                                                   #:path-base path)
+           (render-revision-package-reproduciblity
+            mime-types
+            commit-hash
+            #:path-base path
+            #:header-text
+            `("Latest processed revision for branch "
+              (samp ,branch-name))
+            #:header-link
+            (string-append
+             "/repository/" repository-id
+             "/branch/" branch-name
+             "/latest-processed-revision"))
            (render-no-latest-revision mime-types
                                       repository-id
                                       branch-name))))

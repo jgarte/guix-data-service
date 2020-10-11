@@ -58,6 +58,7 @@
             render-revision-package-reproduciblity
             render-revision-package-substitute-availability
             render-revision-package-derivations
+            render-revision-package-derivation-outputs
             render-unknown-revision
             render-view-revision))
 
@@ -560,7 +561,14 @@
 
 (define* (render-revision-package-reproduciblity mime-types
                                                  commit-hash
-                                                 #:key path-base)
+                                                 #:key
+                                                 (path-base "/revision/")
+                                                 (header-text
+                                                  `("Revision "
+                                                    (samp ,commit-hash)))
+                                                 (header-link
+                                                  (string-append "/revision/"
+                                                                 commit-hash)))
   (letpar& ((output-consistency
              (with-thread-postgresql-connection
               (lambda (conn)
@@ -575,7 +583,10 @@
        (render-html
         #:sxml (view-revision-package-reproducibility
                 commit-hash
-                output-consistency))))))
+                output-consistency
+                #:path-base path-base
+                #:header-text header-text
+                #:header-link header-link))))))
 
 (define (render-revision-news mime-types
                               commit-hash

@@ -1248,7 +1248,10 @@ figure {
          substitute-availability)))))
 
 (define* (view-revision-package-reproducibility revision-commit-hash
-                                                output-consistency)
+                                                output-consistency
+                                                #:key (path-base "/revision/")
+                                                header-text
+                                                header-link)
   (layout
    #:body
    `(,(header)
@@ -1320,8 +1323,8 @@ figure {
        (div
         (@ (class "col-sm-12"))
         (h3 (a (@ (style "white-space: nowrap;")
-                  (href ,(string-append "/revision/" revision-commit-hash)))
-               "Revision " (samp ,revision-commit-hash)))
+                  (href ,header-link))
+               ,@header-text))
         (h1 "Package reproducibility")))
       (div
        (@ (class "row"))
@@ -1470,7 +1473,9 @@ figure {
                                                            colour ";"))))
                               (a (@ (href
                                      ,(string-append
-                                       "/revision/" revision-commit-hash
+                                       (string-join
+                                        (drop-right (string-split path-base #\/) 1)
+                                        "/")
                                        "/package-derivation-outputs?"
                                        "output_consistency=" key
                                        "&system=" system)))
