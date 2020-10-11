@@ -671,12 +671,10 @@ time."
                                              (second derivation))))
                         ,(build-status-span status)))
                     (a (@ (style "display: inline-block; margin-top: 0.4em;")
-                          (href ,(simple-format
-                                  #f "~Abuild/~A"
+                          (href ,(build-server-link-url
                                   build-server-url
-                                  (string-drop
-                                   (second derivation)
-                                   (string-length "/gnu/store/")))))
+                                  build-server-build-id
+                                  (second derivation))))
                        "View build on " ,build-server-url))))
                builds)))
        (div

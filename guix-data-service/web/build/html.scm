@@ -116,11 +116,9 @@
                   (td (a (@ (href ,derivation-file-name))
                          ,(display-store-item-short derivation-file-name)))
                   (td ,timestamp)
-                  (td (a (@ (href ,(simple-format
-                                    #f "~Abuild/~A"
+                  (td (a (@ (href ,(build-server-link-url
                                     build-server-url
-                                    (string-drop
-                                     derivation-file-name
-                                     (string-length "/gnu/store/")))))
+                                    build-server-build-id
+                                    derivation-file-name)))
                          "View build on " ,build-server-url)))))
              builds)))))))))

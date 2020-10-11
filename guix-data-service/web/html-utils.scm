@@ -26,6 +26,7 @@
             build-status-value->display-string
             build-status-span
             build-url
+            build-server-link-url
             build-status-alist->build-icon))
 
 (define (sexp-div sexp)
@@ -78,6 +79,23 @@
        #f "/build-server/~A/build?derivation_file_name=~A"
        build-server-id
        derivation-file-name)))
+
+(define (build-server-link-url url-base
+                               build-server-build-id
+                               derivation-file-name)
+  (string-append
+   url-base
+   (if (string-suffix? "/" url-base)
+       ""
+       "/")
+   "build/"
+   (if (and (string? build-server-build-id)
+            (eq? (string-length build-server-build-id)
+                 36))                   ; crude UUID check
+       build-server-build-id
+       (string-drop
+        derivation-file-name
+        (string-length "/gnu/store/")))))
 
 (define (build-status-span status)
   `(span (@ (class ,(string-append
