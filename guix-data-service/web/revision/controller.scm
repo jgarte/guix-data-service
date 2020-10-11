@@ -1113,7 +1113,50 @@
                    mime-types)
               ((application/json)
                (render-json
-                `()))
+                `((store_paths
+                   . ,(list->vector
+                       (map (match-lambda
+                              ((path hash-algorithm hash recursive
+                                     nars)
+                               `((path . ,path)
+                                 (data
+                                  . ,(if (null? hash-algorithm)
+                                         (list->vector
+                                          (map
+                                           (match-lambda
+                                             ((hash . nars)
+                                              `((hash . ,hash)
+                                                (nars . ,(list->vector nars)))))
+                                           (group-to-alist
+                                            (lambda (nar)
+                                              (cons (assoc-ref nar "hash")
+                                                    nar))
+                                            (vector->list nars))))
+                                         hash))
+                                 (output_consistency
+                                  . ,(let* ((hashes
+                                             (delete-duplicates
+                                              (map (lambda (nar)
+                                                     (assoc-ref nar "hash"))
+                                                   (vector->list nars))))
+                                            (build-servers
+                                             (delete-duplicates
+                                              (map (lambda (nar)
+                                                     (assoc-ref nar "build_server_id"))
+                                                   (vector->list nars))))
+                                            (hash-count
+                                             (length hashes))
+                                            (build-server-count
+                                             (length build-servers)))
+                                       (cond
+                                        ((or (eq? hash-count 0)
+                                             (eq? build-server-count 1))
+                                         "unknown")
+                                        ((eq? hash-count 1)
+                                         "matching")
+                                        ((> hash-count 1)
+                                         "not-matching")))))))
+                            derivation-outputs))))))
               (else
                (letpar& ((systems
                           (with-thread-postgresql-connection valid-systems))
