@@ -378,9 +378,7 @@ ORDER BY COUNT(*) DESC")
     (string-append
      "
 SELECT DISTINCT derivation_output_details.path, derivation_output_details.id
-FROM derivations
-INNER JOIN derivation_outputs
-  ON derivations.id = derivation_outputs.derivation_id
+FROM derivation_outputs
 INNER JOIN derivation_output_details
   ON derivation_outputs.derivation_output_details_id = derivation_output_details.id
 WHERE derivation_output_details.path NOT IN (
@@ -400,7 +398,7 @@ WHERE derivation_output_details.path NOT IN (
          ""
          (string-append
           "
-  AND derivations.id IN (
+  AND derivation_outputs.derivation_id IN (
     -- Select outputs that are in the relevant revisions
     SELECT derivation_id
     FROM package_derivations
