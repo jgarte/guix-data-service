@@ -1124,7 +1124,8 @@
                    mime-types)
               ((application/json)
                (render-json
-                `((store_paths
+                `((revision . ,commit-hash)
+                  (store_paths
                    . ,(list->vector
                        (map (match-lambda
                               ((package-name package-version
