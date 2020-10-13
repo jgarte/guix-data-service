@@ -157,11 +157,7 @@ LEFT OUTER JOIN builds
       builds.derivation_output_details_set_id
 LEFT OUTER JOIN build_servers
   ON builds.build_server_id = build_servers.id
-LEFT OUTER JOIN (
-  SELECT DISTINCT ON (build_id) *
-  FROM build_status
-  ORDER BY build_id, id DESC
-) AS latest_build_status
+LEFT OUTER JOIN latest_build_status
   ON builds.id = latest_build_status.build_id
 WHERE guix_revisions.commit = $1
   AND packages.name = $2
@@ -261,11 +257,7 @@ SELECT derivations.file_name,
                   ORDER BY latest_build_status.timestamp
                 )
          FROM builds
-         INNER JOIN (
-           SELECT DISTINCT ON (build_id) *
-           FROM build_status
-           ORDER BY build_id, id DESC
-         ) AS latest_build_status
+         INNER JOIN latest_build_status
            ON builds.id = latest_build_status.build_id
          WHERE builds.derivation_output_details_set_id =
                derivations_by_output_details_set.derivation_output_details_set_id
@@ -390,11 +382,7 @@ SELECT derivations.file_name,
                   ORDER BY latest_build_status.timestamp
                 )
          FROM builds
-         INNER JOIN (
-           SELECT DISTINCT ON (build_id) *
-           FROM build_status
-           ORDER BY build_id, id DESC
-         ) AS latest_build_status
+         INNER JOIN latest_build_status
            ON builds.id = latest_build_status.build_id
          WHERE builds.derivation_output_details_set_id =
                derivations_by_output_details_set.derivation_output_details_set_id
@@ -1445,11 +1433,7 @@ INNER JOIN derivations_by_output_details_set
 LEFT OUTER JOIN builds
   ON derivations.derivation_output_details_set_id =
      builds.derivation_output_details_set_id
-LEFT OUTER JOIN (
-  SELECT DISTINCT ON (build_id) *
-  FROM build_status
-  ORDER BY build_id, id DESC
-) AS latest_build_status
+LEFT OUTER JOIN latest_build_status
   ON builds.id = latest_build_status.build_id
 WHERE " criteria ";"))
 

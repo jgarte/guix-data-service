@@ -79,13 +79,8 @@ LEFT JOIN builds
    ON builds.derivation_output_details_set_id =
         derivation_output_details_sets.id AND
       builds.build_server_id = build_servers.id
-LEFT JOIN
-(
-  SELECT DISTINCT ON (build_id) *
-  FROM build_status
-  ORDER BY build_id, id DESC
-) AS latest_build_status
-ON builds.id = latest_build_status.build_id
+LEFT JOIN latest_build_status
+  ON builds.id = latest_build_status.build_id
 "
      (if (null? criteria)
          ""
@@ -168,13 +163,8 @@ INNER JOIN guix_revisions
   ON guix_revision_package_derivations.revision_id = guix_revisions.id"
          "")
      "
-INNER JOIN
-(
-  SELECT DISTINCT ON (build_id) *
-  FROM build_status
-  ORDER BY build_id, id DESC
-) AS latest_build_status
-ON latest_build_status.build_id = builds.id
+INNER JOIN latest_build_status
+  ON latest_build_status.build_id = builds.id
 "
                    (if (null? where-conditions)
                        ""
@@ -237,12 +227,7 @@ SELECT build_servers.id,
        latest_build_status.status
 FROM builds
 INNER JOIN build_servers ON build_servers.id = builds.build_server_id
-INNER JOIN
-(
-  SELECT DISTINCT ON (build_id) *
-  FROM build_status
-  ORDER BY build_id, id DESC
-) AS latest_build_status
+INNER JOIN latest_build_status
   ON latest_build_status.build_id = builds.id
 INNER JOIN derivation_output_details_sets
   ON builds.derivation_output_details_set_id =
@@ -362,11 +347,7 @@ LEFT OUTER JOIN builds
   ON derivations_by_output_details_set.derivation_output_details_set_id =
      builds.derivation_output_details_set_id
  AND builds.build_server_id = $2
-LEFT OUTER JOIN (
-  SELECT DISTINCT ON (build_id) *
-  FROM build_status
-  ORDER BY build_id, id DESC
-) AS latest_build_status
+LEFT OUTER JOIN latest_build_status
   ON builds.id = latest_build_status.build_id
 WHERE latest_build_status.status = 'failed'
   AND NOT EXISTS (

@@ -76,11 +76,7 @@ INNER JOIN derivations_by_output_details_set
 LEFT OUTER JOIN builds
   ON derivations_by_output_details_set.derivation_output_details_set_id =
      builds.derivation_output_details_set_id
-LEFT OUTER JOIN (
-  SELECT DISTINCT ON (build_id) *
-  FROM build_status
-  ORDER BY build_id, id DESC
-) AS latest_build_status
+LEFT OUTER JOIN latest_build_status
   ON builds.id = latest_build_status.build_id
 INNER JOIN guix_revisions
   ON guix_revisions.id = channel_instances.guix_revision_id

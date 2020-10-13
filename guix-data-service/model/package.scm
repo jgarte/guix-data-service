@@ -361,11 +361,7 @@ INNER JOIN derivations_by_output_details_set
 LEFT OUTER JOIN builds
   ON derivations_by_output_details_set.derivation_output_details_set_id =
      builds.derivation_output_details_set_id
-LEFT OUTER JOIN (
-  SELECT DISTINCT ON (build_id) *
-  FROM build_status
-  ORDER BY build_id, id DESC
-) AS latest_build_status
+LEFT OUTER JOIN latest_build_status
   ON builds.id = latest_build_status.build_id
 INNER JOIN guix_revisions AS first_guix_revisions
   ON first_guix_revision_id = first_guix_revisions.id
@@ -493,11 +489,7 @@ FROM (
 LEFT OUTER JOIN builds
   ON data2.derivation_output_details_set_id =
      builds.derivation_output_details_set_id
-LEFT OUTER JOIN (
-  SELECT DISTINCT ON (build_id) *
-  FROM build_status
-  ORDER BY build_id, id DESC
-) AS latest_build_status
+LEFT OUTER JOIN latest_build_status
   ON builds.id = latest_build_status.build_id
 GROUP BY 1, 2, 3, 4, 5, 6
 ORDER BY first_datetime DESC, package_version DESC")

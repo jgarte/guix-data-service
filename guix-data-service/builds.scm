@@ -462,12 +462,8 @@ SELECT builds.id, derivations.file_name
 FROM derivations
 INNER JOIN builds
   ON derivations.file_name = builds.derivation_file_name
-LEFT JOIN (
-  SELECT DISTINCT ON (build_id) *
-  FROM build_status
-  ORDER BY build_id, id DESC
-) AS latest_build_status
-ON builds.id = latest_build_status.build_id
+LEFT JOIN latest_build_status
+  ON latest_build_status.build_id = builds.id
 WHERE builds.build_server_id = $1 AND
       latest_build_status.status IN (
         'scheduled', 'started'
