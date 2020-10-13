@@ -18,6 +18,7 @@
 (define-module (guix-data-service model build-status)
   #:use-module (ice-9 match)
   #:use-module (squee)
+  #:use-module (guix-data-service database)
   #:use-module (guix-data-service model utils)
   #:export (build-statuses
             build-status-strings
@@ -89,4 +90,50 @@ VALUES "
      "
 ON CONFLICT DO NOTHING"))
 
-  (exec-query conn query '()))
+  (define (delete-old-latest-status-entries conn)
+    (define query
+      (string-append
+       "
+DELETE FROM latest_build_status
+WHERE build_id IN ("
+       (string-join
+        (map number->string build-ids)
+        ",")
+       ")"))
+
+    (exec-query conn query))
+
+  (define (insert-new-latest-status-entries conn)
+    (define query
+      (string-append
+       "
+INSERT INTO latest_build_status
+SELECT DISTINCT build_id,
+                first_value(timestamp) OVER rows_for_build AS timestamp,
+                first_value(status) OVER rows_for_build AS status
+FROM build_status
+WHERE build_id IN ("
+       (string-join
+        (map number->string build-ids)
+        ",")
+       ")
+WINDOW rows_for_build AS (
+  PARTITION BY build_id
+  ORDER BY
+    timestamp DESC,
+    CASE WHEN status = 'scheduled' THEN -2
+         WHEN status = 'started' THEN -1
+         ELSE 0
+    END DESC
+    RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+)"))
+
+    (exec-query conn query))
+
+  (with-postgresql-transaction
+   conn
+   (lambda (conn)
+     (exec-query conn query '())
+
+     (delete-old-latest-status-entries conn)
+     (insert-new-latest-status-entries conn))))
