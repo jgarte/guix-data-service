@@ -343,6 +343,14 @@ DELETE FROM build_status WHERE build_id IN ("
          conn
          (string-append
           "
+DELETE FROM latest_build_status WHERE build_id IN ("
+          (string-join build-ids ",")
+          ")"))
+
+        (exec-query
+         conn
+         (string-append
+          "
 DELETE FROM builds WHERE id IN ("
           (string-join build-ids ",")
           ")")))))
