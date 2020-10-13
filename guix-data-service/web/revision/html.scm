@@ -1790,7 +1790,8 @@ figure {
          (tbody
           ,@(map
              (match-lambda
-               ((path hash-algorithm hash recursive nars)
+               ((package-name package-version
+                              path hash-algorithm hash recursive nars)
                 `(tr
                   (td (a (@ (href ,path))
                          ,(display-store-item-short path)))

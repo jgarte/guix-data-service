@@ -463,7 +463,9 @@ ORDER BY derivations.file_name
   (define query
     (string-append
      "
-SELECT derivation_output_details.path,
+SELECT packages.name,
+       packages.version,
+       derivation_output_details.path,
        derivation_output_details.hash_algorithm,
        derivation_output_details.hash,
        derivation_output_details.recursive,
@@ -599,8 +601,11 @@ ORDER BY derivation_output_details.path
          "")))
 
   (map (match-lambda
-         ((path hash_algorithm hash recursive nars_json)
-          (list path
+         ((package_name package_version
+                        path hash_algorithm hash recursive nars_json)
+          (list package_name
+                package_version
+                path
                 hash
                 hash_algorithm
                 (string=? recursive "t")

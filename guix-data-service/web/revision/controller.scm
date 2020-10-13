@@ -1127,9 +1127,12 @@
                 `((store_paths
                    . ,(list->vector
                        (map (match-lambda
-                              ((path hash-algorithm hash recursive
-                                     nars)
-                               `((path . ,path)
+                              ((package-name package-version
+                                             path hash-algorithm hash recursive
+                                             nars)
+                               `((package . ((name    . ,package-name)
+                                             (version . ,package-version)))
+                                 (path . ,path)
                                  (data
                                   . ,(if (null? hash-algorithm)
                                          (list->vector
