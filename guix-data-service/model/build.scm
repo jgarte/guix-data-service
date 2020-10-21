@@ -253,7 +253,11 @@ SELECT build_servers.url,
                     'timestamp', build_status.timestamp,
                     'status', build_status.status
                   )
-                  ORDER BY build_status.timestamp
+                  ORDER BY CASE WHEN status = 'scheduled' THEN -2
+                                WHEN status = 'started' THEN -1
+                                ELSE 0
+                           END ASC,
+                           timestamp ASC
                 )
          FROM build_status
          WHERE build_status.build_id = builds.id
@@ -295,7 +299,11 @@ SELECT build_servers.url,
                     'timestamp', build_status.timestamp,
                     'status', build_status.status
                   )
-                  ORDER BY build_status.timestamp
+                  ORDER BY CASE WHEN status = 'scheduled' THEN -2
+                                WHEN status = 'started' THEN -1
+                                ELSE 0
+                           END ASC,
+                           timestamp ASC
                 )
          FROM build_status
          WHERE build_status.build_id = builds.id
