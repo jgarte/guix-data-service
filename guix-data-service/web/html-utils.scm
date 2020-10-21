@@ -70,7 +70,8 @@
    value))
 
 (define (build-url build-server-id build-server-build-id derivation-file-name)
-  (if (string? build-server-build-id)
+  (if (and (string? build-server-build-id)
+           (not (string-null? build-server-build-id)))
       (simple-format
        #f "/build-server/~A/build?build_server_build_id=~A"
        build-server-id
