@@ -93,7 +93,8 @@
                        (assq-ref parsed-query-parameters
                                  'build_status)
                        (assq-ref parsed-query-parameters
-                                 'build_server))))))
+                                 'build_server)
+                       #:limit 50)))))
 
           (render-html
            #:sxml (view-builds parsed-query-parameters
