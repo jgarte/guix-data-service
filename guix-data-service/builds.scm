@@ -493,7 +493,8 @@ WHERE builds.build_server_id = $1 AND
       latest_build_status.status IN (
         'scheduled', 'started'
       )
-ORDER BY latest_build_status.status DESC -- 'started' first
+ORDER BY latest_build_status.status DESC, -- 'started' first
+         latest_build_status.timestamp ASC
 LIMIT 10000")
 
   (map
