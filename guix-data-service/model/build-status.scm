@@ -120,11 +120,11 @@ WHERE build_id IN ("
 WINDOW rows_for_build AS (
   PARTITION BY build_id
   ORDER BY
-    timestamp DESC,
     CASE WHEN status = 'scheduled' THEN -2
          WHEN status = 'started' THEN -1
          ELSE 0
-    END DESC
+    END DESC,
+    timestamp DESC
     RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
 )"))
 
