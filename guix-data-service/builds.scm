@@ -123,12 +123,28 @@ initial connection on which HTTP requests are sent."
                (_
                 (loop tail (+ 1 processed) result)))))))))) ;keep going
 
+(define (cleanup-bad-build-data conn)
+  (exec-query
+   conn
+   "
+DELETE FROM build_status
+WHERE status IN ('started', 'scheduled')
+  AND timestamp = '1970-01-01T00:00:00'
+  AND EXISTS (
+    SELECT 1
+    FROM build_status AS other
+    WHERE other.status = build_status.status
+      AND build_status.build_id = other.build_id
+      AND other.timestamp > '1970-01-01T00:00:01'
+  )"))
+
 (define verbose-output?
   (make-parameter #f))
 
 (define* (query-build-servers conn build-server-ids revision-commits
                               outputs
                               #:key verbose?)
+  (cleanup-bad-build-data conn)
   (parameterize
       ((verbose-output? verbose?))
     (while #t
