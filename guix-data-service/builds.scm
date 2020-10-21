@@ -494,7 +494,7 @@ WHERE builds.build_server_id = $1 AND
         'scheduled', 'started'
       )
 ORDER BY latest_build_status.status DESC -- 'started' first
-LIMIT 1000")
+LIMIT 10000")
 
   (map
    (match-lambda
