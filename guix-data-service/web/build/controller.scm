@@ -75,9 +75,14 @@
                              '()
                              '()
                              '()))
-        (letpar& ((build-servers
+        (letpar& ((build-server-options
                    (with-thread-postgresql-connection
-                    select-build-servers))
+                    (lambda (conn)
+                      (map (match-lambda
+                             ((id url lookup-all-derivations
+                                  lookup-builds)
+                              (cons url id)))
+                           (select-build-servers conn)))))
                   (build-stats
                    (with-thread-postgresql-connection
                     (lambda (conn)
@@ -99,6 +104,6 @@
           (render-html
            #:sxml (view-builds parsed-query-parameters
                                build-status-strings
-                               build-servers
+                               build-server-options
                                build-stats
                                builds-with-context))))))
