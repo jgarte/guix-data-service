@@ -74,7 +74,8 @@
              (view-build query-parameters
                          build
                          (match build
-                           ((url derivation-file-name statuses)
+                           ((build-server-url build-server-build-id
+                                              derivation-file-name statuses)
                             (if (member
                                  (assoc-ref (last (vector->list statuses))
                                             "status")

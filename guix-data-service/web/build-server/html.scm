@@ -40,7 +40,8 @@
       (div
        (@ (class "row"))
        ,@(match build
-           ((url derivation-file-name statuses)
+           ((build-server-url build-server-build-id
+                              derivation-file-name statuses)
             `((div
                (@ (class "col-sm-6"))
                (dl
@@ -48,8 +49,14 @@
                 (dt "Derivation")
                 (dd ,(display-possible-store-item derivation-file-name))
                 (dt "Build server URL")
-                (dd (a (@ (href ,url))
-                       ,url))))
+                (dd (a (@ (href ,build-server-url))
+                       ,build-server-url)))
+               (a (@ (style "display: inline-block; margin-top: 0.4em;")
+                     (href ,(build-server-link-url
+                             build-server-url
+                             build-server-build-id
+                             derivation-file-name)))
+                  "View build on " ,build-server-url))
               (div
                (@ (class "col-sm-6"))
                (h3 "Timeline")

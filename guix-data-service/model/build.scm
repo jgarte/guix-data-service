@@ -245,6 +245,7 @@ ORDER BY latest_build_status.timestamp DESC")
   (define query
     "
 SELECT build_servers.url,
+       builds.build_server_build_id,
        builds.derivation_file_name,
        (
          SELECT JSON_AGG(
@@ -273,8 +274,9 @@ GROUP BY builds.id, build_servers.url, builds.derivation_file_name")
                      query
                      (list (number->string build-server-id)
                            build-server-build-id))
-    (((build-server-url derivation-file-name statuses-json))
+    (((build-server-url build-server-build-id derivation-file-name statuses-json))
      (list build-server-url
+           build-server-build-id
            derivation-file-name
            (json-string->scm statuses-json)))
     (()
@@ -285,6 +287,7 @@ GROUP BY builds.id, build_servers.url, builds.derivation_file_name")
   (define query
     "
 SELECT build_servers.url,
+       builds.build_server_build_id,
        builds.derivation_file_name,
        (
          SELECT JSON_AGG(
@@ -313,10 +316,11 @@ GROUP BY builds.id, build_servers.url, builds.derivation_file_name")
                      query
                      (list (number->string build-server-id)
                            derivation-file-name))
-    (((build-server-url derivation-file-name statuses-json))
+    (((build-server-url build-server-build-id derivation-file-name statuses-json))
      ;; Returning the derivation-file-name is for consistency with
      ;; select-build-by-build-server-and-build-server-build-id
      (list build-server-url
+           build-server-build-id
            derivation-file-name
            (json-string->scm statuses-json)))
     (()
