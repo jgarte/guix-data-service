@@ -659,7 +659,7 @@
                 (href ,(let ((query-parameter-string
                               (query-parameters->string query-parameters)))
                          (string-append
-                          "/compare/derivations.json"
+                          "/compare/package-derivations.json"
                           (if (string-null? query-parameter-string)
                               ""
                               (string-append "?" query-parameter-string))))))
