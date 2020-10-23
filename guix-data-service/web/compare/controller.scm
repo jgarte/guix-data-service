@@ -149,33 +149,35 @@
 (define (render-compare mime-types
                         query-parameters)
   (if (any-invalid-query-parameters? query-parameters)
-      (case (most-appropriate-mime-type
-             '(application/json text/html)
-             mime-types)
-        ((application/json)
-         (render-json
-          '((error . "invalid query"))))
-        (else
-         (letpar& ((base-job
-                    (match (assq-ref query-parameters 'base_commit)
-                      (($ <invalid-query-parameter> value)
-                       (with-thread-postgresql-connection
-                        (lambda (conn)
-                          (select-job-for-commit conn value))))
-                      (_ #f)))
-                   (target-job
-                    (match (assq-ref query-parameters 'target_commit)
-                      (($ <invalid-query-parameter> value)
-                       (with-thread-postgresql-connection
-                        (lambda (conn)
-                          (select-job-for-commit conn value))))
-                      (_ #f))))
+      (letpar& ((base-job
+                 (match (assq-ref query-parameters 'base_commit)
+                   (($ <invalid-query-parameter> value)
+                    (with-thread-postgresql-connection
+                     (lambda (conn)
+                       (select-job-for-commit conn value))))
+                   (_ #f)))
+                (target-job
+                 (match (assq-ref query-parameters 'target_commit)
+                   (($ <invalid-query-parameter> value)
+                    (with-thread-postgresql-connection
+                     (lambda (conn)
+                       (select-job-for-commit conn value))))
+                   (_ #f))))
+        (case (most-appropriate-mime-type
+               '(application/json text/html)
+               mime-types)
+          ((application/json)
+           (peek target-job)
+           (render-json
+            `((error      . "invalid query")
+              (base_job   . ,base-job)
+              (target_job . ,target-job))))
+          (else
            (render-html
             #:sxml (compare-invalid-parameters
                     query-parameters
                     base-job
                     target-job)))))
-
       (letpar& ((base-revision-id
                  (with-thread-postgresql-connection
                   (lambda (conn)

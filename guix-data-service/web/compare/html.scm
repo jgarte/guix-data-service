@@ -1028,32 +1028,43 @@
   (define target-commit
     (assq-ref query-parameters 'target_commit))
 
+  (define (description-for-state state)
+    (cond
+     ((string=? state "queued")
+      " is queued for processing.")
+     ((string=? state "failed")
+      " has failed.")
+     ((string=? state "succeeded")
+      " has succeeded.")))
+
   (layout
    #:body
    `(,(header)
      (div (@ (class "container"))
           (h1 "Unknown commit")
-          ,(if (invalid-query-parameter? base-commit)
-               (if base-job
-                   `(p "Revision "
-                     (a (@ (href
-                            ,(string-append "/revision/"
-                                            (invalid-query-parameter-value base-commit))))
-                        (strong (samp ,(invalid-query-parameter-value base-commit))))
-                     " is queued for processing.")
-                   `(p "No known revision with commit "
-                       (strong (samp ,(invalid-query-parameter-value base-commit)))
-                       "."))
-               '())
-          ,(if (invalid-query-parameter? target-commit)
-               (if target-job
-                   `(p "Revision "
-                       (a (@ (href
-                              ,(string-append "/revision/"
-                                              (invalid-query-parameter-value target-commit))))
-                          (strong (samp ,(invalid-query-parameter-value target-commit))))
-                       " is queued for processing.")
-                   `(p "No known revision with commit "
-                       (strong (samp ,(invalid-query-parameter-value target-commit)))
-                       "."))
-               '())))))
+          ,(if (peek "BASE" base-job)
+               `(p "Revision "
+                   (a (@ (href
+                          ,(string-append
+                            "/revision/"
+                            (invalid-query-parameter-value base-commit))))
+                      (strong (samp ,(invalid-query-parameter-value
+                                      base-commit))))
+                   ,(description-for-state
+                     (assq-ref base-job 'state)))
+               `(p "No known revision with commit "
+                   (strong (samp ,base-commit))
+                   "."))
+          ,(if target-job
+               `(p "Revision "
+                   (a (@ (href
+                          ,(string-append
+                            "/revision/"
+                            (invalid-query-parameter-value target-commit))))
+                      (strong (samp ,(invalid-query-parameter-value
+                                      target-commit))))
+                   ,(description-for-state
+                     (assq-ref target-job 'state)))
+               `(p "No known revision with commit "
+                   (strong (samp ,target-commit))
+                   "."))))))

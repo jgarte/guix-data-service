@@ -1399,13 +1399,37 @@ GROUP BY 1, 2")
   (let ((result
          (exec-query
           conn
-          (string-append
-           "SELECT id, commit, source, git_repository_id "
-           "FROM load_new_guix_revision_jobs WHERE commit = $1")
+          "
+SELECT id,
+       commit,
+       source,
+       git_repository_id,
+       CASE WHEN succeeded_at IS NOT NULL
+            THEN 'succeeded'
+            WHEN (
+                   SELECT COUNT(*)
+                   FROM load_new_guix_revision_job_events
+                   WHERE job_id = load_new_guix_revision_jobs.id
+                     AND event = 'retry'
+                 ) >= (
+                   SELECT COUNT(*)
+                   FROM load_new_guix_revision_job_events
+                   WHERE job_id = load_new_guix_revision_jobs.id
+                     AND event = 'failure'
+                 )
+            THEN 'queued'
+            ELSE 'failed'
+       END AS state
+FROM load_new_guix_revision_jobs WHERE commit = $1"
           (list commit))))
     (match result
       (() #f)
-      ((job) job))))
+      (((id commit source git_repository_id state))
+       `((id                . ,(string->number id))
+         (commit            . ,commit)
+         (source            . ,source)
+         (git_repository_id . ,(string->number git_repository_id))
+         (state             . ,state))))))
 
 (define* (select-recent-job-events conn
                                    #:key (limit 8))
