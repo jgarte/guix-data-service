@@ -1042,7 +1042,7 @@
    `(,(header)
      (div (@ (class "container"))
           (h1 "Unknown commit")
-          ,(if (peek "BASE" base-job)
+          ,(if base-job
                `(p "Revision "
                    (a (@ (href
                           ,(string-append

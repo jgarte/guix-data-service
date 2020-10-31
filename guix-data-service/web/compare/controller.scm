@@ -167,7 +167,6 @@
                '(application/json text/html)
                mime-types)
           ((application/json)
-           (peek target-job)
            (render-json
             `((error      . "invalid query")
               (base_job   . ,base-job)
