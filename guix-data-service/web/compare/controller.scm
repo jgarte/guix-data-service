@@ -34,6 +34,7 @@
   #:use-module (guix-data-service jobs load-new-guix-revision)
   #:use-module (guix-data-service model guix-revision)
   #:use-module (guix-data-service model derivation)
+  #:use-module (guix-data-service model build-server)
   #:use-module (guix-data-service model build-status)
   #:use-module (guix-data-service model lint-warning-message)
   #:use-module (guix-data-service web compare html)
@@ -528,13 +529,17 @@
                      valid-systems))
                    (targets
                     (with-thread-postgresql-connection
-                     valid-targets)))
+                     valid-targets))
+                   (build-server-urls
+                    (with-thread-postgresql-connection
+                     select-build-server-urls-by-id)))
          (render-html
           #:sxml (compare/package-derivations
                   query-parameters
                   systems
                   (valid-targets->options targets)
                   build-status-strings
+                  build-server-urls
                   '())))))
 
       (let ((base-commit    (assq-ref query-parameters 'base_commit))
@@ -550,7 +555,10 @@
                        (commit->revision-id conn base-commit)
                        (commit->revision-id conn target-commit)
                        #:systems systems
-                       #:targets targets)))))
+                       #:targets targets))))
+                  (build-server-urls
+                   (with-thread-postgresql-connection
+                    select-build-server-urls-by-id)))
           (let ((names-and-versions
                  (package-derivation-data->names-and-versions data)))
             (let-values
@@ -580,6 +588,7 @@
                               systems
                               (valid-targets->options targets)
                               build-status-strings
+                              build-server-urls
                               derivation-changes)
                       #:extra-headers http-headers-for-unchanging-content)))))))))))
 

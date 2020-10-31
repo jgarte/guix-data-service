@@ -249,7 +249,8 @@ GROUP BY derivation_source_files.store_path"))
                                               target_guix_revision_id
                                               #:key
                                               (systems #f)
-                                              (targets #f))
+                                              (targets #f)
+                                              (include-builds? #t))
   (define extra-constraints
     (string-append
      (if systems
@@ -277,37 +278,85 @@ GROUP BY derivation_source_files.store_path"))
     (string-append "
 WITH base_packages AS (
   SELECT packages.*, derivations.file_name,
-    package_derivations.system, package_derivations.target
+    package_derivations.system, package_derivations.target,
+    derivations_by_output_details_set.derivation_output_details_set_id
   FROM packages
   INNER JOIN package_derivations
     ON packages.id = package_derivations.package_id
   INNER JOIN derivations
     ON package_derivations.derivation_id = derivations.id
+  INNER JOIN derivations_by_output_details_set
+    ON derivations.id = derivations_by_output_details_set.derivation_id
   WHERE package_derivations.id IN (
     SELECT guix_revision_package_derivations.package_derivation_id
     FROM guix_revision_package_derivations
     WHERE revision_id = $1
-  )" extra-constraints
-"), target_packages AS (
+  )" extra-constraints "
+), target_packages AS (
   SELECT packages.*, derivations.file_name,
-    package_derivations.system, package_derivations.target
+    package_derivations.system, package_derivations.target,
+    derivations_by_output_details_set.derivation_output_details_set_id
   FROM packages
   INNER JOIN package_derivations
     ON packages.id = package_derivations.package_id
   INNER JOIN derivations
     ON package_derivations.derivation_id = derivations.id
+  INNER JOIN derivations_by_output_details_set
+    ON derivations.id = derivations_by_output_details_set.derivation_id
   WHERE package_derivations.id IN (
     SELECT guix_revision_package_derivations.package_derivation_id
     FROM guix_revision_package_derivations
     WHERE revision_id = $2
-  )" extra-constraints
-")
+  )" extra-constraints "
+)
 SELECT base_packages.name, base_packages.version,
   base_packages.package_metadata_id, base_packages.file_name,
-  base_packages.system, base_packages.target,
+  base_packages.system, base_packages.target,"
+   (if include-builds?
+       "
+  (
+    SELECT JSON_AGG(
+             json_build_object(
+               'build_server_id', builds.build_server_id,
+               'status',  latest_build_status.status,
+               'timestamp',  latest_build_status.timestamp,
+               'build_for_equivalent_derivation',
+               builds.derivation_file_name != base_packages.file_name
+             )
+             ORDER BY latest_build_status.timestamp
+           )
+    FROM builds
+    INNER JOIN latest_build_status
+      ON builds.id = latest_build_status.build_id
+    WHERE builds.derivation_output_details_set_id =
+          base_packages.derivation_output_details_set_id
+  ) AS base_builds,"
+       "")
+   "
   target_packages.name, target_packages.version,
   target_packages.package_metadata_id, target_packages.file_name,
-  target_packages.system, target_packages.target
+  target_packages.system, target_packages.target"
+   (if include-builds?
+       ",
+  (
+    SELECT JSON_AGG(
+             json_build_object(
+               'build_server_id', builds.build_server_id,
+               'status',  latest_build_status.status,
+               'timestamp',  latest_build_status.timestamp,
+               'build_for_equivalent_derivation',
+               builds.derivation_file_name != target_packages.file_name
+             )
+             ORDER BY latest_build_status.timestamp
+           )
+    FROM builds
+    INNER JOIN latest_build_status
+      ON builds.id = latest_build_status.build_id
+    WHERE builds.derivation_output_details_set_id =
+          target_packages.derivation_output_details_set_id
+  ) AS target_builds"
+       "")
+   "
 FROM base_packages
 FULL OUTER JOIN target_packages
   ON base_packages.name = target_packages.name
@@ -397,7 +446,7 @@ ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.v
 
   (apply values
          (fold (lambda (row result)
-                 (let-values (((base-row-part target-row-part) (split-at row 6)))
+                 (let-values (((base-row-part target-row-part) (split-at row 7)))
                    (match result
                      ((base-package-data target-package-data)
                       (list (add-data-to-vhash base-row-part base-package-data)
@@ -421,7 +470,7 @@ ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.v
                    result)))))
     '()
     (map (match-lambda
-           ((base-name base-version _ _ _ _ target-name target-version _ _ _ _)
+           ((base-name base-version _ _ _ _ _ target-name target-version _ _ _ _ _)
             (if (string-null? base-name)
                 (cons target-name target-version)
                 (cons base-name base-version))))
@@ -551,10 +600,13 @@ ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.v
     (if (null? lst)
         '()
         `(,(match (first lst)
-             ((derivation-file-name system target)
+             ((derivation-file-name system target builds)
               `((system . ,system)
                 (target . ,target)
-                (derivation-file-name . ,derivation-file-name))))
+                (derivation-file-name . ,derivation-file-name)
+                (builds               . ,(if (string-null? builds)
+                                             #()
+                                             (json-string->scm builds))))))
           ,@(derivation-system-and-target-list->alist (cdr lst)))))
 
   (list->vector

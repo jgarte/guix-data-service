@@ -22,6 +22,7 @@
   #:use-module (texinfo)
   #:use-module (texinfo html)
   #:use-module (guix-data-service web query-parameters)
+  #:use-module (guix-data-service web html-utils)
   #:use-module (guix-data-service web view html)
   #:export (compare
             compare/derivation
@@ -602,6 +603,7 @@
                                      valid-systems
                                      valid-targets
                                      valid-build-statuses
+                                     build-server-urls
                                      derivation-changes)
   (layout
    #:body
@@ -681,7 +683,7 @@
               (th "Version")
               (th "System")
               (th "Target")
-              (th (@ (class "col-xs-5")) "Derivations")
+              (th (@ (class "col-xs-5")) "Derivations (with build statuses)")
               (th "")))
             (tbody
              ,@(append-map
@@ -704,18 +706,24 @@
                            (map
                             (match-lambda
                               ((system . target)
-                               (let ((base-derivation-file-name
-                                      (assq-ref (find (lambda (details)
-                                                        (and (string=? (assq-ref details 'system) system)
-                                                             (string=? (assq-ref details 'target) target)))
-                                                      (vector->list base-derivations))
-                                                'derivation-file-name))
-                                     (target-derivation-file-name
-                                      (assq-ref (find (lambda (details)
-                                                        (and (string=? (assq-ref details 'system) system)
-                                                             (string=? (assq-ref details 'target) target)))
-                                                      (vector->list target-derivations))
-                                                'derivation-file-name)))
+                               (let* ((base-entry
+                                       (find (lambda (details)
+                                               (and (string=? (assq-ref details 'system) system)
+                                                    (string=? (assq-ref details 'target) target)))
+                                             (vector->list base-derivations)))
+                                      (base-derivation-file-name
+                                       (assq-ref base-entry 'derivation-file-name))
+                                      (base-builds
+                                       (assq-ref base-entry 'builds))
+                                      (target-entry
+                                       (find (lambda (details)
+                                               (and (string=? (assq-ref details 'system) system)
+                                                    (string=? (assq-ref details 'target) target)))
+                                             (vector->list target-derivations)))
+                                      (target-derivation-file-name
+                                       (assq-ref target-entry 'derivation-file-name))
+                                      (target-builds
+                                       (assq-ref target-entry 'builds)))
                                  `((td (samp (@ (style "white-space: nowrap;"))
                                              ,system))
                                    (td (samp (@ (style "white-space: nowrap;"))
@@ -725,6 +733,8 @@
                                                      (href ,base-derivation-file-name))
                                                   (span (@ (class "text-danger glyphicon glyphicon-minus pull-left")
                                                            (style "font-size: 1.5em; padding-right: 0.4em;")))
+                                                  ,@(build-statuses->build-status-labels
+                                                     (vector->list base-builds))
                                                   ,(display-store-item-short base-derivation-file-name)))
                                              '())
                                        ,@(if target-derivation-file-name
@@ -732,7 +742,9 @@
                                                      (href ,target-derivation-file-name))
                                                   (span (@ (class "text-success glyphicon glyphicon-plus pull-left")
                                                            (style "font-size: 1.5em; padding-right: 0.4em;")))
-                                                  ,(and=> target-derivation-file-name display-store-item-short)))
+                                                  ,@(build-statuses->build-status-labels
+                                                     (vector->list target-builds))
+                                                  ,(display-store-item-short target-derivation-file-name)))
                                              '()))
                                    (td (@ (style "vertical-align: middle;"))
                                        ,@(if (and base-derivation-file-name
