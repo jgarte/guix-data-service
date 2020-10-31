@@ -313,7 +313,7 @@
                       (output_consistency ,identity
                                           #:default "any")
                       (system ,parse-system #:default "x86_64-linux")
-                      (target ,parse-target)
+                      (target ,parse-target #:default "")
                       (limit_results  ,parse-result-limit
                                       #:no-default-when (all_results)
                                       #:default 10)
