@@ -25,8 +25,8 @@
   #:use-module (guix-data-service web view html)
   #:export (compare
             compare/derivation
-            compare/derivations
-            compare-by-datetime/derivations
+            compare/package-derivations
+            compare-by-datetime/package-derivations
             compare/packages
             compare-invalid-parameters))
 
@@ -598,11 +598,11 @@
                                                     target-value))))))))))))
                  environment-variables))))))))))
 
-(define (compare/derivations query-parameters
-                             valid-systems
-                             valid-targets
-                             valid-build-statuses
-                             derivation-changes)
+(define (compare/package-derivations query-parameters
+                                     valid-systems
+                                     valid-targets
+                                     valid-build-statuses
+                                     derivation-changes)
   (layout
    #:body
    `(,(header)
@@ -760,12 +760,12 @@
                               (cdr data-columns))))))
                 (vector->list derivation-changes)))))))))))
 
-(define (compare-by-datetime/derivations query-parameters
-                                         valid-systems
-                                         valid-build-statuses
-                                         base-revision-details
-                                         target-revision-details
-                                         derivation-changes)
+(define (compare-by-datetime/package-derivations query-parameters
+                                                 valid-systems
+                                                 valid-build-statuses
+                                                 base-revision-details
+                                                 target-revision-details
+                                                 derivation-changes)
   (layout
    #:body
    `(,(header)
@@ -832,7 +832,7 @@
                 (href ,(let ((query-parameter-string
                               (query-parameters->string query-parameters)))
                          (string-append
-                          "/compare/derivations.json"
+                          "/compare/package-derivations.json"
                           (if (string-null? query-parameter-string)
                               ""
                               (string-append "?" query-parameter-string))))))

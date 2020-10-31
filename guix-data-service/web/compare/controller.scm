@@ -126,8 +126,8 @@
                  (build_status    ,parse-build-status #:multi-value)))
               '((base_commit base_datetime)
                 (target_commit target_datetime)))))
-       (render-compare-by-datetime/derivations mime-types
-                                               parsed-query-parameters)))
+       (render-compare-by-datetime/package-derivations mime-types
+                                                       parsed-query-parameters)))
     (('GET "compare" "packages")
      (let* ((parsed-query-parameters
              (parse-query-parameters
@@ -531,7 +531,7 @@
                     (with-thread-postgresql-connection
                      valid-targets)))
          (render-html
-          #:sxml (compare/derivations
+          #:sxml (compare/package-derivations
                   query-parameters
                   systems
                   (valid-targets->options targets)
@@ -576,7 +576,7 @@
                               (with-thread-postgresql-connection
                                valid-targets)))
                      (render-html
-                      #:sxml (compare/derivations
+                      #:sxml (compare/package-derivations
                               query-parameters
                               systems
                               (valid-targets->options targets)
@@ -584,8 +584,8 @@
                               derivation-changes)
                       #:extra-headers http-headers-for-unchanging-content)))))))))))
 
-(define (render-compare-by-datetime/derivations mime-types
-                                                query-parameters)
+(define (render-compare-by-datetime/package-derivations mime-types
+                                                        query-parameters)
   (define (derivations->alist derivations)
     (map (match-lambda
            ((file-name system target buildstatus)
@@ -606,7 +606,7 @@
           '((error . "invalid query"))))
         (else
          (render-html
-          #:sxml (compare-by-datetime/derivations
+          #:sxml (compare-by-datetime/package-derivations
                   query-parameters
                   (parallel-via-thread-pool-channel
                    (with-thread-postgresql-connection valid-systems))
@@ -663,7 +663,7 @@
                       #:extra-headers http-headers-for-unchanging-content))
                     (else
                      (render-html
-                      #:sxml (compare-by-datetime/derivations
+                      #:sxml (compare-by-datetime/package-derivations
                               query-parameters
                               (parallel-via-thread-pool-channel
                                (with-thread-postgresql-connection valid-systems))
