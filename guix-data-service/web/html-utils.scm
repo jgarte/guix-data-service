@@ -27,7 +27,8 @@
             build-status-span
             build-url
             build-server-link-url
-            build-status-alist->build-icon))
+            build-status-alist->build-icon
+            build-statuses->build-status-labels))
 
 (define (sexp-div sexp)
   (match sexp
@@ -116,3 +117,38 @@
 
 (define (build-status-alist->build-icon status)
   (build-status-span (assoc-ref status "status")))
+
+(define (build-status-label status count)
+  `(span (@ (class ,(string-append
+                     "pull-right label label-"
+                     (assoc-ref
+                      '(("scheduled" . "info")
+                        ("started" . "primary")
+                        ("succeeded" . "success")
+                        ("failed" . "danger")
+                        ("failed-dependency" . "warning")
+                        ("failed-other" . "danger")
+                        ("canceled" . "default")
+                        ("" . "default"))
+                      status))))
+         ,count))
+
+(define (build-statuses->build-status-labels builds)
+  (define statuses-and-counts
+    (fold (lambda (status counts)
+            `((,status . ,(+ 1
+                             (or (assoc-ref counts status)
+                                 0)))
+              ,@(alist-delete status counts)))
+          '()
+          (sort
+           (map (lambda (build)
+                  (assoc-ref build "status"))
+                builds)
+           string<?)))
+
+  (map
+   (match-lambda
+     ((status . count)
+      (build-status-label status count)))
+   statuses-and-counts))
