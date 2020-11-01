@@ -32,14 +32,13 @@
 
 (define (call-with-time-logging action thunk)
   (simple-format #t "debug: Starting ~A\n" action)
-  (let-values
-      ((result
-         (thunk)))
-      (let* ((start-time (current-time))
-             (time-taken (- (current-time) start-time)))
+  (let ((start-time (current-time)))
+    (let-values
+        ((result (thunk)))
+      (let ((time-taken (- (current-time) start-time)))
         (simple-format #t "debug: Finished ~A, took ~A seconds\n"
-                       action time-taken)
-        (apply values result))))
+                       action time-taken))
+      (apply values result))))
 
 (define-syntax-rule (with-time-logging action exp ...)
   "Log under NAME the time taken to evaluate EXP."
