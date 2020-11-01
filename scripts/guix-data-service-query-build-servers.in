@@ -36,6 +36,14 @@
                          (or (assoc-ref result 'build-server-ids)
                              '()))
                    (alist-delete 'build-server-ids result))))
+        (option '("system") #t #f
+                (lambda (opt name arg result)
+                  (alist-cons
+                   'systems
+                   (cons arg
+                         (or (assoc-ref result 'systems)
+                             '()))
+                   (alist-delete 'systems result))))
         (option '("verbose") #f #f
                 (lambda (opt name _ result)
                   (alist-cons 'verbose #t result)))))
@@ -67,6 +75,7 @@
    (lambda (conn)
      (query-build-servers conn
                           (assq-ref opts 'build-server-ids)
+                          (assq-ref opts 'systems)
                           (assq-ref opts 'revision-commits)
                           (assq-ref opts 'outputs)
                           #:verbose? (assq-ref opts 'verbose)))))

@@ -141,7 +141,8 @@ WHERE status IN ('started', 'scheduled')
 (define verbose-output?
   (make-parameter #f))
 
-(define* (query-build-servers conn build-server-ids revision-commits
+(define* (query-build-servers conn build-server-ids systems
+                              revision-commits
                               outputs
                               #:key verbose?)
   (cleanup-bad-build-data conn)
@@ -167,6 +168,7 @@ WHERE status IN ('started', 'scheduled')
                         (query-build-server conn
                                             id
                                             url
+                                            systems
                                             revision-commits
                                             outputs))))
                   (lambda (key . args)
@@ -176,7 +178,7 @@ WHERE status IN ('started', 'scheduled')
                      key args)))))))
          build-servers)))))
 
-(define (query-build-server conn id url revision-commits outputs)
+(define (query-build-server conn id url systems revision-commits outputs)
   (define (fetch-derivation-output-details-set-id output)
     (match (exec-query
             conn
@@ -196,7 +198,7 @@ WHERE derivation_output_details.path = $1"
       (() #f)))
 
   (simple-format #t "\nFetching pending builds\n")
-  (process-pending-builds conn id revision-commits url)
+  (process-pending-builds conn id systems revision-commits url)
   (simple-format #t "\nFetching unseen derivations\n")
   (process-derivation-outputs
    conn id url
@@ -209,6 +211,7 @@ WHERE derivation_output_details.path = $1"
              outputs)
        (select-derivation-outputs-with-no-known-build conn
                                                       id
+                                                      systems
                                                       revision-commits))))
 
 (define* (insert-build-statuses-from-data conn build-server-id build-id data
@@ -267,9 +270,10 @@ WHERE derivation_output_details.path = $1"
                        stoptime)
                    status-string)))))))
 
-(define (process-pending-builds conn build-server-id revision-commits url)
+(define (process-pending-builds conn build-server-id
+                                systems revision-commits url)
   (define pending-builds
-    (select-pending-builds conn build-server-id revision-commits))
+    (select-pending-builds conn build-server-id systems revision-commits))
 
   (simple-format #t "fetching the status of ~A pending builds\n"
                  (length pending-builds))
@@ -494,7 +498,7 @@ WHERE derivation_output_details.path = $1"
         derivation-outputs)
    #:batch-size 100))
 
-(define (select-pending-builds conn build-server-id revision-commits)
+(define (select-pending-builds conn build-server-id systems revision-commits)
   (define query
     (string-append
      "
@@ -525,6 +529,15 @@ WHERE builds.build_server_id = $1 AND
          (string-join (map quote-string revision-commits) ",")
          ")
       )"))
+    (if systems
+        (string-append
+         "
+      AND derivations.system IN ("
+        (string-join
+         (map quote-string systems)
+         ",")
+        ")")
+        "")
     "
 ORDER BY latest_build_status.status DESC, -- 'started' first
          latest_build_status.timestamp ASC
@@ -586,6 +599,7 @@ LIMIT 30000"))
 
 (define (select-derivation-outputs-with-no-known-build conn
                                                        build-server-id
+                                                       systems
                                                        revision-commits)
   (define query
     ;; Only select derivations that are in the package_derivations table, as
@@ -626,6 +640,15 @@ WHERE NOT EXISTS (
   WHERE guix_revisions.commit IN ("
           (string-join (map quote-string revision-commits) ",")
           ")"))
+     (if systems
+         (string-append
+          "
+      AND package_derivations.system IN ("
+          (string-join
+           (map quote-string systems)
+           ",")
+          ")")
+         "")
      "
   UNION ALL
   SELECT derivations_by_output_details_set.derivation_output_details_set_id
@@ -643,6 +666,15 @@ WHERE NOT EXISTS (
   WHERE guix_revisions.commit IN ("
          (string-join (map quote-string revision-commits) ",")
          ")"))
+     (if systems
+         (string-append
+          "
+      AND guix_revision_system_test_derivations.system IN ("
+          (string-join
+           (map quote-string systems)
+           ",")
+          ")")
+         "")
      "
   UNION ALL
   SELECT derivations_by_output_details_set.derivation_output_details_set_id
@@ -660,6 +692,15 @@ WHERE NOT EXISTS (
   WHERE guix_revisions.commit IN ("
          (string-join (map quote-string revision-commits) ",")
          ")"))
+     (if systems
+         (string-append
+          "
+      AND channel_instances.system IN ("
+          (string-join
+           (map quote-string systems)
+           ",")
+          ")")
+         "")
      "
 )
 ORDER BY derivation_output_details_sets.id DESC, derivation_output_details.id
