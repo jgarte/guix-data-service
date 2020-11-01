@@ -501,7 +501,8 @@ LEFT JOIN latest_build_status
 WHERE builds.build_server_id = $1 AND
       latest_build_status.status IN (
         'scheduled', 'started'
-      )
+      ) AND
+      latest_build_status.timestamp > (current_date - interval '28' day)
 ORDER BY latest_build_status.status DESC, -- 'started' first
          latest_build_status.timestamp ASC
 LIMIT 10000")
