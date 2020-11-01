@@ -211,7 +211,8 @@ WHERE derivation_output_details.path = $1"
                                                       id
                                                       revision-commits))))
 
-(define (insert-build-statuses-from-data conn build-server-id build-id data)
+(define* (insert-build-statuses-from-data conn build-server-id build-id data
+                                          #:key verbose?)
   (define stop-statuses
     (lset-difference string=?
                      build-status-strings
@@ -235,8 +236,17 @@ WHERE derivation_output_details.path = $1"
          (assoc-ref data "starttime"))
         (stoptime
          (assoc-ref data "stoptime")))
+
+    (when verbose?
+      (simple-format #t "debug: existing statuses: ~A, new status: ~A\n"
+                     existing-status-entries
+                     status-string))
     (map (match-lambda
            ((timestamp status)
+            (when verbose?
+              (simple-format
+               #t
+               "debug: inserting status: ~A\n" status))
             (insert-build-status conn build-id timestamp status)))
          (filter
           list?
@@ -263,25 +273,24 @@ WHERE derivation_output_details.path = $1"
      ((build-id derivation-file-name)
       (match (fetch-build url derivation-file-name)
         (#f
-         (display ".")
+         (if (verbose-output?)
+             (display "debug: no build found\n")
+             (display "."))
          #f)
         (()
-         (display ".")
+         (if (verbose-output?)
+             (display "debug: no build found\n")
+             (display "."))
          #f)
         (data
          (insert-build-statuses-from-data
           conn
           build-server-id
           build-id
-          data)
-         (if (verbose-output?)
-             (simple-format (current-error-port)
-                            "debug: status: ~A\n"
-                            (assq-ref build-statuses
-                                      (or (assoc-ref data "buildstatus")
-                                          ;; status is for the /output/ requests
-                                          (assoc-ref data "status"))))
-             (display "-"))))
+          data
+          #:verbose? (verbose-output?))
+         (unless (verbose-output?)
+           (display "-"))))
       ;; Try not to make to many requests at once
       (usleep 200)))
    (select-pending-builds conn build-server-id)))
