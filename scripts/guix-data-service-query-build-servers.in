@@ -44,6 +44,9 @@
                          (or (assoc-ref result 'systems)
                              '()))
                    (alist-delete 'systems result))))
+        (option '("dont-query-pending-builds") #f #f
+                (lambda (opt name _ result)
+                  (alist-cons 'dont-query-pending-builds #t result)))
         (option '("verbose") #f #f
                 (lambda (opt name _ result)
                   (alist-cons 'verbose #t result)))))
@@ -78,4 +81,6 @@
                           (assq-ref opts 'systems)
                           (assq-ref opts 'revision-commits)
                           (assq-ref opts 'outputs)
-                          #:verbose? (assq-ref opts 'verbose)))))
+                          #:verbose? (assq-ref opts 'verbose)
+                          #:query-pending-builds?
+                          (not (assq-ref opts 'dont-query-pending-builds))))))

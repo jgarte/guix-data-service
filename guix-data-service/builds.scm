@@ -144,7 +144,8 @@ WHERE status IN ('started', 'scheduled')
 (define* (query-build-servers conn build-server-ids systems
                               revision-commits
                               outputs
-                              #:key verbose?)
+                              #:key verbose?
+                              (query-pending-builds? #t))
   (cleanup-bad-build-data conn)
   (parameterize
       ((verbose-output? verbose?))
@@ -170,7 +171,8 @@ WHERE status IN ('started', 'scheduled')
                                             url
                                             systems
                                             revision-commits
-                                            outputs))))
+                                            outputs
+                                            query-pending-builds?))))
                   (lambda (key . args)
                     (simple-format
                      (current-error-port)
@@ -178,7 +180,8 @@ WHERE status IN ('started', 'scheduled')
                      key args)))))))
          build-servers)))))
 
-(define (query-build-server conn id url systems revision-commits outputs)
+(define (query-build-server conn id url systems revision-commits outputs
+                            query-pending-builds?)
   (define (fetch-derivation-output-details-set-id output)
     (match (exec-query
             conn
@@ -197,8 +200,9 @@ WHERE derivation_output_details.path = $1"
        (string->number id))
       (() #f)))
 
-  (simple-format #t "\nFetching pending builds\n")
-  (process-pending-builds conn id systems revision-commits url)
+  (when query-pending-builds?
+    (simple-format #t "\nFetching pending builds\n")
+    (process-pending-builds conn id systems revision-commits url))
   (simple-format #t "\nFetching unseen derivations\n")
   (process-derivation-outputs
    conn id url
