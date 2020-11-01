@@ -196,7 +196,7 @@ WHERE derivation_output_details.path = $1"
       (() #f)))
 
   (simple-format #t "\nFetching pending builds\n")
-  (process-pending-builds conn id url)
+  (process-pending-builds conn id revision-commits url)
   (simple-format #t "\nFetching unseen derivations\n")
   (process-derivation-outputs
    conn id url
@@ -267,7 +267,12 @@ WHERE derivation_output_details.path = $1"
                        stoptime)
                    status-string)))))))
 
-(define (process-pending-builds conn build-server-id url)
+(define (process-pending-builds conn build-server-id revision-commits url)
+  (define pending-builds
+    (select-pending-builds conn build-server-id revision-commits))
+
+  (simple-format #t "fetching the status of ~A pending builds\n"
+                 (length pending-builds))
   (for-each
    (match-lambda
      ((build-id derivation-file-name)
@@ -292,8 +297,8 @@ WHERE derivation_output_details.path = $1"
          (unless (verbose-output?)
            (display "-"))))
       ;; Try not to make to many requests at once
-      (usleep 200)))
-   (select-pending-builds conn build-server-id)))
+      (usleep 0)))
+   pending-builds))
 
 (define (process-derivation-outputs conn build-server-id url
                                     derivation-output-paths-and-details-sets-ids)
@@ -489,9 +494,10 @@ WHERE derivation_output_details.path = $1"
         derivation-outputs)
    #:batch-size 100))
 
-(define (select-pending-builds conn build-server-id)
+(define (select-pending-builds conn build-server-id revision-commits)
   (define query
-    "
+    (string-append
+     "
 SELECT builds.id, derivations.file_name
 FROM derivations
 INNER JOIN builds
@@ -502,10 +508,27 @@ WHERE builds.build_server_id = $1 AND
       latest_build_status.status IN (
         'scheduled', 'started'
       ) AND
-      latest_build_status.timestamp > (current_date - interval '28' day)
+      latest_build_status.timestamp > (current_date - interval '28' day)"
+    (if (null? revision-commits)
+        ""
+        (string-append
+         "
+      AND derivations.id IN (
+        SELECT package_derivations.derivation_id
+        FROM package_derivations
+        INNER JOIN guix_revision_package_derivations
+          ON package_derivations.id =
+             guix_revision_package_derivations.package_derivation_id
+        INNER JOIN guix_revisions
+          ON guix_revisions.id = guix_revision_package_derivations.revision_id
+        WHERE guix_revisions.commit IN ("
+         (string-join (map quote-string revision-commits) ",")
+         ")
+      )"))
+    "
 ORDER BY latest_build_status.status DESC, -- 'started' first
          latest_build_status.timestamp ASC
-LIMIT 10000")
+LIMIT 10000"))
 
   (map
    (match-lambda
