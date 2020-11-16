@@ -282,25 +282,47 @@
                      (@ (style "border-bottom: 0;"))
                      (td ,package-version)
                      (td (a (@ (href ,(string-append
-                                       "/revision/" first-guix-revision-commit)))
-                            ,first-datetime)
-                         (br)
+                                       "/revision/" first-guix-revision-commit))
+                               (title ,(simple-format
+                                        #f
+                                        "~A\n (Revision created at ~A)"
+                                        first-guix-revision-commit
+                                        first-datetime)))
+                            (samp (@ (class "visible-xs visible-sm"))
+                                  ,(string-take first-guix-revision-commit 8) "…")
+                            (samp (@ (class "visible-md visible-lg"))
+                                  ,first-guix-revision-commit))
+                         (small (@ (style "display: block;")
+                                   (title
+                                    ,(simple-format #f "Revision created at ~A" first-datetime)))
+                                ,first-datetime)
                          (a (@ (href ,(string-append
                                        "/revision/"
                                        first-guix-revision-commit
                                        "/package/"
                                        package-name "/" package-version)))
-                            "(More information)"))
+                            "(Package information)"))
                      (td (a (@ (href ,(string-append
-                                       "/revision/" last-guix-revision-commit)))
-                            ,last-datetime)
-                         (br)
+                                       "/revision/" last-guix-revision-commit))
+                               (title ,(simple-format
+                                        #f
+                                        "~A\n (Revision created at ~A)"
+                                        last-guix-revision-commit
+                                        last-datetime)))
+                            (samp (@ (class "visible-xs visible-sm"))
+                                  ,(string-take last-guix-revision-commit 8) "…")
+                            (samp (@ (class "visible-md visible-lg"))
+                                  ,last-guix-revision-commit))
+                         (small (@ (style "display: block;")
+                                   (title
+                                    ,(simple-format #f "Revision created at ~A" last-datetime)))
+                                ,last-datetime)
                          (a (@ (href ,(string-append
                                        "/revision/"
                                        last-guix-revision-commit
                                        "/package/"
                                        package-name "/" package-version)))
-                            "(More information)")))
+                            "(Package information)")))
                     (tr
                      (td
                       (@ (colspan 3)
@@ -442,10 +464,10 @@
          (thead
           (tr
            (th (@ (class "col-sm-1")) "Version")
-           (th (@ (class "col-sm-4")) "Derivation")
+           (th (@ (class "col-sm-6")) "Derivation")
            (th (@ (class "col-sm-2")) "Builds")
-           (th (@ (class "col-sm-2")) "From")
-           (th (@ (class "col-sm-2")) "To")
+           (th (@ (class "col-sm-1")) "From")
+           (th (@ (class "col-sm-1")) "To")
            (th (@ (class "col-sm-1")) "")
            (th (@ (class "col-sm-1")) "")))
          (tbody
@@ -508,11 +530,29 @@
                                     ,(build-status-alist->build-icon build))))))
                           builds)))
                      (td (a (@ (href ,(string-append
-                                       "/revision/" first-guix-revision-commit)))
-                            ,first-datetime))
+                                       "/revision/" first-guix-revision-commit))
+                               (title ,(simple-format
+                                        #f
+                                        "~A\n (Revision created at ~A)"
+                                        first-guix-revision-commit
+                                        first-datetime)))
+                            (samp ,(string-take first-guix-revision-commit 8) "…"))
+                         (small (@ (style "display: block;")
+                                   (title
+                                    ,(simple-format #f "Revision created at ~A" first-datetime)))
+                                ,first-datetime))
                      (td (a (@ (href ,(string-append
-                                       "/revision/" last-guix-revision-commit)))
-                            ,last-datetime))
+                                       "/revision/" last-guix-revision-commit))
+                               (title ,(simple-format
+                                        #f
+                                        "~A\n (Revision created at ~A)"
+                                        last-guix-revision-commit
+                                        last-datetime)))
+                            (samp ,(string-take last-guix-revision-commit 8) "…"))
+                         (small (@ (style "display: block;")
+                                   (title
+                                    ,(simple-format #f "Revision created at ~A" last-datetime)))
+                                ,last-datetime))
                      (td
                       (@ (rowspan 4)
                          (style "vertical-align: middle;"))
@@ -740,11 +780,29 @@
                                     ,(build-status-alist->build-icon build))))))
                           builds)))
                      (td (a (@ (href ,(string-append
-                                       "/revision/" first-guix-revision-commit)))
-                            ,first-datetime))
+                                       "/revision/" first-guix-revision-commit))
+                               (title ,(simple-format
+                                        #f
+                                        "~A\n (Revision created at ~A)"
+                                        first-guix-revision-commit
+                                        first-datetime)))
+                            (samp ,(string-take first-guix-revision-commit 8) "…"))
+                         (small (@ (style "display: block;")
+                                   (title
+                                    ,(simple-format #f "Revision created at ~A" first-datetime)))
+                                ,first-datetime))
                      (td (a (@ (href ,(string-append
-                                       "/revision/" last-guix-revision-commit)))
-                            ,last-datetime)))
+                                       "/revision/" last-guix-revision-commit))
+                               (title ,(simple-format
+                                        #f
+                                        "~A\n (Revision created at ~A)"
+                                        last-guix-revision-commit
+                                        last-datetime)))
+                            (samp ,(string-take last-guix-revision-commit 8) "…"))
+                         (small (@ (style "display: block;")
+                                   (title
+                                    ,(simple-format #f "Revision created at ~A" last-datetime)))
+                                ,last-datetime)))
                     (tr
                      (td
                       (@ (colspan 4)
