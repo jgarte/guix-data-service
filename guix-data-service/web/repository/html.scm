@@ -333,7 +333,7 @@
                                       2)))
                                (simple-format
                                 #f
-                                "margin-left: ~A%; width: ~A%; height: 10px; background: #DCDCDC;"
+                                "margin-left: ~A%; width: ~A%; height: 10px; background: #BEBEBE;"
                                 (rationalize margin-left 1)
                                 (rationalize width 1)))))))))))
                versions-by-revision-range))))))))))
@@ -559,7 +559,7 @@
                                       2)))
                                (simple-format
                                 #f
-                                "margin-left: ~A%; width: ~A%; height: 10px; background: #DCDCDC;"
+                                "margin-left: ~A%; width: ~A%; height: 10px; background: #BEBEBE;"
                                 (rationalize margin-left 1)
                                 (rationalize width 1)))))))))))
                versions-list
@@ -777,7 +777,7 @@
                                       2)))
                                (simple-format
                                 #f
-                                "margin-left: ~A%; width: ~A%; height: 10px; background: #DCDCDC;"
+                                "margin-left: ~A%; width: ~A%; height: 10px; background: #BEBEBE;"
                                 (rationalize margin-left 1)
                                 (rationalize width 1)))))))))))
                versions-list
