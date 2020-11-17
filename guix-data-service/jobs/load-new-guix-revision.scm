@@ -302,6 +302,11 @@ WHERE job_id = $1"
     "DROP SEQUENCE "
     (log-part-sequence-name job-id))))
 
+(define (vacuum-log-parts-table conn)
+  (exec-query
+   conn
+   "VACUUM load_new_guix_revision_job_log_parts"))
+
 (define inferior-package-id
   (@@ (guix inferior) inferior-package-id))
 
@@ -1691,15 +1696,18 @@ SKIP LOCKED")
                                       (setup-port-for-inferior-error-output
                                        id previous-error-port)))
                         (thunk))))
-                 (combine-log-parts! logging-conn id)
-                 (drop-log-parts-sequence logging-conn id)
+                 (set-current-output-port previous-output-port)
+                 (set-current-error-port previous-error-port)
 
                  ;; This can happen with GC, so do it explicitly
                  (close-port logging-port)
 
+                 (combine-log-parts! logging-conn id)
+                 (drop-log-parts-sequence logging-conn id)
+                 (with-time-logging "vacuuming log parts"
+                   (vacuum-log-parts-table logging-conn))
+
                  result))))))
-    (set-current-output-port previous-output-port)
-    (set-current-error-port previous-error-port)
     result))
 
 (prevent-inlining-for-tests setup-logging)
