@@ -23,6 +23,7 @@
   #:export (delete-guix-revision-package-derivation-entries
             insert-guix-revision-package-derivation-entries
             update-package-derivations-table
+            vacuum-package-derivations-table
             rebuild-package-derivations-table))
 
 (define (delete-guix-revision-package-derivation-entries conn
@@ -148,6 +149,11 @@ LOCK TABLE ONLY package_derivations_by_guix_revision_range
     (list commit git-repository-id)))
 
   #t)
+
+(define (vacuum-package-derivations-table conn)
+  (exec-query
+   conn
+   "VACUUM package_derivations_by_guix_revision_range"))
 
 (define (rebuild-package-derivations-table conn)
   (with-postgresql-transaction

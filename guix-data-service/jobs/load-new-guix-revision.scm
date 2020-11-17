@@ -1758,6 +1758,11 @@ SKIP LOCKED")
               (record-job-succeeded conn id)
               (record-job-event conn id "success")
               (exec-query conn "COMMIT")
+
+              (with-time-logging
+                  "vacuuming package derivations by guix revision range table"
+                (vacuum-package-derivations-table conn))
+
               #t)
             (begin
               (exec-query conn "ROLLBACK")
