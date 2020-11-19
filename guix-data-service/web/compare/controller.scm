@@ -113,7 +113,7 @@
                 (build_status  ,parse-build-status #:multi-value)))))
        (render-compare/package-derivations mime-types
                                            parsed-query-parameters)))
-    (('GET "compare-by-datetime" "derivations")
+    (('GET "compare-by-datetime" "package-derivations")
      (let* ((parsed-query-parameters
              (guard-against-mutually-exclusive-query-parameters
               (parse-query-parameters
