@@ -504,18 +504,7 @@
               #:extra-headers http-headers-for-unchanging-content)))))))
 
 (define (render-compare/package-derivations mime-types
-                                    query-parameters)
-  (define (derivations->alist derivations)
-    (map (match-lambda
-           ((file-name system target buildstatus)
-            `((file_name . ,file-name)
-              (system . ,system)
-              (target . ,target)
-              (build_status . ,(if (string=? buildstatus "")
-                                   "unknown"
-                                   buildstatus)))))
-         derivations))
-
+                                            query-parameters)
   (if (any-invalid-query-parameters? query-parameters)
       (case (most-appropriate-mime-type
              '(application/json text/html)
@@ -545,8 +534,7 @@
       (let ((base-commit    (assq-ref query-parameters 'base_commit))
             (target-commit  (assq-ref query-parameters 'target_commit))
             (systems        (assq-ref query-parameters 'system))
-            (targets        (assq-ref query-parameters 'target))
-            (build-statuses (assq-ref query-parameters 'build_status)))
+            (targets        (assq-ref query-parameters 'target)))
         (letpar& ((data
                    (with-thread-postgresql-connection
                     (lambda (conn)
@@ -594,17 +582,6 @@
 
 (define (render-compare-by-datetime/package-derivations mime-types
                                                         query-parameters)
-  (define (derivations->alist derivations)
-    (map (match-lambda
-           ((file-name system target buildstatus)
-            `((file_name . ,file-name)
-              (system . ,system)
-              (target . ,target)
-              (build_status . ,(if (string=? buildstatus "")
-                                   "unknown"
-                                   buildstatus)))))
-         derivations))
-
   (if (any-invalid-query-parameters? query-parameters)
       (case (most-appropriate-mime-type
              '(application/json text/html)
@@ -628,8 +605,7 @@
             (target-branch   (assq-ref query-parameters 'target_branch))
             (target-datetime (assq-ref query-parameters 'target_datetime))
             (systems         (assq-ref query-parameters 'system))
-            (targets         (assq-ref query-parameters 'target))
-            (build-statuses  (assq-ref query-parameters 'build_status)))
+            (targets         (assq-ref query-parameters 'target)))
         (letpar&
             ((base-revision-details
               (with-thread-postgresql-connection
