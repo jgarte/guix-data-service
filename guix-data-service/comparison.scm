@@ -250,7 +250,11 @@ GROUP BY derivation_source_files.store_path"))
                                               #:key
                                               (systems #f)
                                               (targets #f)
-                                              (include-builds? #t))
+                                              (include-builds? #t)
+                                              ;; Build changes are (symbols):
+                                              ;; broken, fixed, still-failing,
+                                              ;; still-working, unknown
+                                              (build-change 'unknown))
   (define extra-constraints
     (string-append
      (if systems
@@ -364,10 +368,119 @@ FULL OUTER JOIN target_packages
   AND base_packages.system = target_packages.system
   AND base_packages.target = target_packages.target
 WHERE
-  base_packages.id IS NULL OR
-  target_packages.id IS NULL OR
-  base_packages.id != target_packages.id OR
-  base_packages.file_name != target_packages.file_name
+  (
+    base_packages.id IS NULL OR
+    target_packages.id IS NULL OR
+    base_packages.id != target_packages.id OR
+    base_packages.file_name != target_packages.file_name
+  )"
+   (cond
+    ((eq? build-change #f) "")
+    ((eq? build-change 'unknown)
+     "
+  AND (
+    (
+      base_packages.id IS NULL OR
+      target_packages.id IS NULL
+    )
+    OR
+    (
+      NOT EXISTS (
+        SELECT 1
+        FROM builds
+        INNER JOIN latest_build_status
+          ON builds.id = latest_build_status.build_id
+        WHERE builds.derivation_output_details_set_id =
+              base_packages.derivation_output_details_set_id
+          AND (
+            latest_build_status.status = 'succeeded'
+            OR
+            latest_build_status.status = 'failed'
+          )
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM builds
+        INNER JOIN latest_build_status
+          ON builds.id = latest_build_status.build_id
+        WHERE builds.derivation_output_details_set_id =
+              target_packages.derivation_output_details_set_id
+          AND (
+            latest_build_status.status = 'succeeded'
+            OR
+            latest_build_status.status = 'failed'
+          )
+      )
+    )
+  )")
+    (else
+     (let ((exists-build-with-status
+            (lambda (base-or-target status)
+              (simple-format
+               #f
+               "EXISTS (
+        SELECT 1
+        FROM builds
+        INNER JOIN latest_build_status
+          ON builds.id = latest_build_status.build_id
+        WHERE builds.derivation_output_details_set_id =
+              ~A_packages.derivation_output_details_set_id
+          AND latest_build_status.status = '~A'
+      )
+"
+               base-or-target
+               status)))
+           (not-exists-build-with-status
+            (lambda (base-or-target status)
+              (simple-format
+               #f
+               "NOT EXISTS (
+        SELECT 1
+        FROM builds
+        INNER JOIN latest_build_status
+          ON builds.id = latest_build_status.build_id
+        WHERE builds.derivation_output_details_set_id =
+              ~A_packages.derivation_output_details_set_id
+          AND latest_build_status.status = '~A'
+      )
+"
+               base-or-target
+               status)))
+           (criteria
+            (lambda args
+              (string-append
+               "\n  AND "
+               (string-join
+                args
+                "  \nAND\n  ")))))
+       (string-append
+        "
+  AND base_packages.id IS NOT NULL
+  AND target_packages.id IS NOT NULL"
+        (cond
+         ((eq? build-change 'broken)
+          (criteria
+           (exists-build-with-status "base" "succeeded")
+           (exists-build-with-status "target" "failed")
+           (not-exists-build-with-status "target" "succeeded")))
+         ((eq? build-change 'fixed)
+          (criteria
+           (exists-build-with-status "base" "failed")
+           (not-exists-build-with-status "base" "succeeded")
+           (exists-build-with-status "target" "succeeded")))
+         ((eq? build-change 'still-failing)
+          (criteria
+           (not-exists-build-with-status "base" "succeeded")
+           (exists-build-with-status "base" "failed")
+           (not-exists-build-with-status "target" "succeeded")
+           (exists-build-with-status "target" "failed")))
+         ((eq? build-change 'still-working)
+          (criteria
+           (exists-build-with-status "base" "succeeded")
+           (exists-build-with-status "target" "succeeded")))
+         (else
+          (error "unknown build-change-value")))))))
+   "
 ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.version, target_packages.version"))
 
   (exec-query conn query (list base_guix_revision_id target_guix_revision_id)))
