@@ -69,6 +69,17 @@
       (make-invalid-query-parameter
        file-name "unknown derivation")))
 
+(define (parse-build-change val)
+  (or (if (member val '("broken" "fixed"
+                        "still-working"
+                        "still-failing"
+                        "unknown"))
+          val
+          #f)
+      (make-invalid-query-parameter
+       val
+       "unknown build change value")))
+
 (define (compare-controller request
                             method-and-path-components
                             mime-types
@@ -110,7 +121,8 @@
                 (target_commit ,parse-commit #:required)
                 (system        ,parse-system #:multi-value)
                 (target        ,parse-target #:multi-value)
-                (build_status  ,parse-build-status #:multi-value)))))
+                (build_status  ,parse-build-status #:multi-value)
+                (build_change  ,parse-build-change)))))
        (render-compare/package-derivations mime-types
                                            parsed-query-parameters)))
     (('GET "compare-by-datetime" "package-derivations")
@@ -124,7 +136,8 @@
                  (target_datetime ,parse-datetime #:required)
                  (system          ,parse-system #:multi-value)
                  (target          ,parse-target #:multi-value)
-                 (build_status    ,parse-build-status #:multi-value)))
+                 (build_status    ,parse-build-status #:multi-value)
+                 (build-change    ,parse-build-change)))
               '((base_commit base_datetime)
                 (target_commit target_datetime)))))
        (render-compare-by-datetime/package-derivations mime-types
@@ -534,7 +547,10 @@
       (let ((base-commit    (assq-ref query-parameters 'base_commit))
             (target-commit  (assq-ref query-parameters 'target_commit))
             (systems        (assq-ref query-parameters 'system))
-            (targets        (assq-ref query-parameters 'target)))
+            (targets        (assq-ref query-parameters 'target))
+            (build-change   (and=>
+                             (assq-ref query-parameters 'build_change)
+                             string->symbol)))
         (letpar& ((data
                    (with-thread-postgresql-connection
                     (lambda (conn)
@@ -543,7 +559,8 @@
                        (commit->revision-id conn base-commit)
                        (commit->revision-id conn target-commit)
                        #:systems systems
-                       #:targets targets))))
+                       #:targets targets
+                       #:build-change build-change))))
                   (build-server-urls
                    (with-thread-postgresql-connection
                     select-build-server-urls-by-id)))
@@ -561,8 +578,7 @@
                        mime-types)
                   ((application/json)
                    (render-json
-                    derivation-changes
-                    #:extra-headers http-headers-for-unchanging-content))
+                    derivation-changes))
                   (else
                    (letpar& ((systems
                               (with-thread-postgresql-connection
@@ -577,8 +593,7 @@
                               (valid-targets->options targets)
                               build-status-strings
                               build-server-urls
-                              derivation-changes)
-                      #:extra-headers http-headers-for-unchanging-content)))))))))))
+                              derivation-changes))))))))))))
 
 (define (render-compare-by-datetime/package-derivations mime-types
                                                         query-parameters)
@@ -605,7 +620,10 @@
             (target-branch   (assq-ref query-parameters 'target_branch))
             (target-datetime (assq-ref query-parameters 'target_datetime))
             (systems         (assq-ref query-parameters 'system))
-            (targets         (assq-ref query-parameters 'target)))
+            (targets         (assq-ref query-parameters 'target))
+            (build-change    (and=>
+                              (assq-ref query-parameters 'build_change)
+                              string->symbol)))
         (letpar&
             ((base-revision-details
               (with-thread-postgresql-connection
@@ -628,7 +646,8 @@
                     (first base-revision-details)
                     (first target-revision-details)
                     #:systems systems
-                    #:targets targets)))))
+                    #:targets targets
+                    #:build-change build-change)))))
             (let ((names-and-versions
                    (package-derivation-data->names-and-versions data)))
               (let-values
@@ -643,8 +662,7 @@
                          mime-types)
                     ((application/json)
                      (render-json
-                      derivation-changes
-                      #:extra-headers http-headers-for-unchanging-content))
+                      derivation-changes))
                     (else
                      (render-html
                       #:sxml (compare-by-datetime/package-derivations
@@ -654,8 +672,7 @@
                               build-status-strings
                               base-revision-details
                               target-revision-details
-                              derivation-changes)
-                      #:extra-headers http-headers-for-unchanging-content)))))))))))
+                              derivation-changes))))))))))))
 
 (define (render-compare/packages mime-types
                                  query-parameters)

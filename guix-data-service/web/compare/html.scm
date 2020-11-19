@@ -652,6 +652,39 @@
             #:options valid-targets
             #:help-text "Only include derivations that are build for this system."
             #:font-family "monospace")
+          ,(form-horizontal-control
+            "Build change" query-parameters
+            #:options '(("(none specified)" . "")
+                        ("Broken"           . "broken")
+                        ("Fixed"            . "fixed")
+                        ("Still working"    . "still-working")
+                        ("Still failing"    . "still-failing")
+                        ("Unknown"          . "unknown"))
+            #:help-text '("Filter by the changes to the builds:"
+                          (dl
+                           (@ (class "dl-horizontal"))
+                           (dt "Broken")
+                           (dd
+                            "There was a successful build against the base
+derivation, but no successful build for the target derivation, and there's at
+least one failed build.")
+                           (dt "Fixed")
+                           (dd
+                            "No successful build for the base derivation and
+at least one failed build, plus at least one successful build for the target
+derivation")
+                           (dt "Still working")
+                           (dd
+                            "At least one successful build for both the base
+and target derivations")
+                           (dt "Still broken")
+                           (dd
+                            "No successful builds and at least one failed builds for both the base and target derivations")
+                           (dt "Unknown")
+                           (dd
+                            "No base and target derivation to compare, or not
+enought builds to determine a change")))
+            #:allow-selecting-multiple-options #f)
           (div (@ (class "form-group form-group-lg"))
                (div (@ (class "col-sm-offset-2 col-sm-10"))
                     (button (@ (type "submit")
