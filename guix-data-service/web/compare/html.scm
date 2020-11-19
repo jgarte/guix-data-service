@@ -683,7 +683,7 @@ and target derivations")
                            (dt "Unknown")
                            (dd
                             "No base and target derivation to compare, or not
-enought builds to determine a change")))
+enough builds to determine a change")))
             #:allow-selecting-multiple-options #f)
           (div (@ (class "form-group form-group-lg"))
                (div (@ (class "col-sm-offset-2 col-sm-10"))
