@@ -612,16 +612,19 @@
       (@ (class "container"))
       (div
        (@ (class "row"))
-       (h1 ,@(let ((base-commit (assq-ref query-parameters 'base_commit))
+       (h3 ,@(let ((base-commit (assq-ref query-parameters 'base_commit))
                    (target-commit (assq-ref query-parameters 'target_commit)))
                (if (every string? (list base-commit target-commit))
-                   `("Comparing "
-                     (a (@ (href ,(string-append "/revision/" base-commit)))
-                        (samp ,(string-take base-commit 8) "…"))
-                     " and "
-                     (a (@ (href ,(string-append "/revision/" target-commit)))
+                   `((a (@ (href ,(string-append
+                                   "/compare?base_commit="
+                                   base-commit
+                                   "&target_commit="
+                                   target-commit)))
+                        "Comparing "
+                        (samp ,(string-take base-commit 8) "…")
+                        " and "
                         (samp ,(string-take target-commit 8) "…")))
-                   '("Comparing derivations")))))
+                   '("Comparing package derivations")))))
       (div
        (@ (class "row"))
        (div
@@ -714,7 +717,7 @@ enough builds to determine a change")))
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
-        (h3 "Package derivation changes")
+        (h1 "Package derivation changes")
         ,(if
           (null? derivation-changes)
           '(p "No derivation changes")
