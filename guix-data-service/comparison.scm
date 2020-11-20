@@ -254,7 +254,9 @@ GROUP BY derivation_source_files.store_path"))
                                               ;; Build changes are (symbols):
                                               ;; broken, fixed, still-failing,
                                               ;; still-working, unknown
-                                              (build-change 'unknown))
+                                              (build-change 'unknown)
+                                              limit-results
+                                              after-name)
   (define extra-constraints
     (string-append
      (if systems
@@ -374,6 +376,10 @@ WHERE
     base_packages.id != target_packages.id OR
     base_packages.file_name != target_packages.file_name
   )"
+   (if after-name
+       "
+  AND coalesce(base_packages.name, target_packages.name) > $3"
+       "")
    (cond
     ((eq? build-change #f) "")
     ((eq? build-change 'unknown)
@@ -481,9 +487,20 @@ WHERE
          (else
           (error "unknown build-change-value")))))))
    "
-ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.version, target_packages.version"))
+ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.version, target_packages.version"
+   (if limit-results
+       (simple-format
+        #f
+        "
+LIMIT ~A"
+        (number->string limit-results))
+       "")))
 
-  (exec-query conn query (list base_guix_revision_id target_guix_revision_id)))
+  (exec-query conn query `(,base_guix_revision_id
+                           ,target_guix_revision_id
+                           ,@(if after-name
+                                 (list after-name)
+                                 '()))))
 
 (define* (package-differences-data conn
                                    base_guix_revision_id
