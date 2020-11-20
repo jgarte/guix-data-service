@@ -115,14 +115,22 @@
                                   parsed-query-parameters)))
     (('GET "compare" "package-derivations")
      (let* ((parsed-query-parameters
-             (parse-query-parameters
-              request
-              `((base_commit   ,parse-commit #:required)
-                (target_commit ,parse-commit #:required)
-                (system        ,parse-system #:multi-value)
-                (target        ,parse-target #:multi-value)
-                (build_status  ,parse-build-status #:multi-value)
-                (build_change  ,parse-build-change)))))
+             (guard-against-mutually-exclusive-query-parameters
+              (parse-query-parameters
+               request
+               `((base_commit   ,parse-commit #:required)
+                 (target_commit ,parse-commit #:required)
+                 (system        ,parse-system #:multi-value)
+                 (target        ,parse-target #:multi-value)
+                 (build_status  ,parse-build-status #:multi-value)
+                 (build_change  ,parse-build-change)
+                 (after_name    ,identity)
+                 (limit_results ,parse-result-limit
+                                #:no-default-when (all_results)
+                                #:default 40)
+                 (all_results   ,parse-checkbox-value)))
+              '((limit_results all_results)))))
+
        (render-compare/package-derivations mime-types
                                            parsed-query-parameters)))
     (('GET "compare-by-datetime" "package-derivations")
@@ -137,9 +145,15 @@
                  (system          ,parse-system #:multi-value)
                  (target          ,parse-target #:multi-value)
                  (build_status    ,parse-build-status #:multi-value)
-                 (build-change    ,parse-build-change)))
+                 (build-change    ,parse-build-change)
+                 (after_name    ,identity)
+                 (limit_results ,parse-result-limit
+                                #:no-default-when (all_results)
+                                #:default 40)
+                 (all_results   ,parse-checkbox-value)))
               '((base_commit base_datetime)
-                (target_commit target_datetime)))))
+                (target_commit target_datetime)
+                (limit_results all_results)))))
        (render-compare-by-datetime/package-derivations mime-types
                                                        parsed-query-parameters)))
     (('GET "compare" "packages")
@@ -550,7 +564,9 @@
             (targets        (assq-ref query-parameters 'target))
             (build-change   (and=>
                              (assq-ref query-parameters 'build_change)
-                             string->symbol)))
+                             string->symbol))
+            (after-name     (assq-ref query-parameters 'after_name))
+            (limit-results  (assq-ref query-parameters 'limit_results)))
         (letpar& ((data
                    (with-thread-postgresql-connection
                     (lambda (conn)
@@ -560,7 +576,9 @@
                        (commit->revision-id conn target-commit)
                        #:systems systems
                        #:targets targets
-                       #:build-change build-change))))
+                       #:build-change build-change
+                       #:after-name after-name
+                       #:limit-results limit-results))))
                   (build-server-urls
                    (with-thread-postgresql-connection
                     select-build-server-urls-by-id)))
@@ -623,7 +641,9 @@
             (targets         (assq-ref query-parameters 'target))
             (build-change    (and=>
                               (assq-ref query-parameters 'build_change)
-                              string->symbol)))
+                              string->symbol))
+            (after-name     (assq-ref query-parameters 'after_name))
+            (limit-results  (assq-ref query-parameters 'limit_results)))
         (letpar&
             ((base-revision-details
               (with-thread-postgresql-connection
@@ -647,7 +667,9 @@
                     (first target-revision-details)
                     #:systems systems
                     #:targets targets
-                    #:build-change build-change)))))
+                    #:build-change build-change
+                    #:after-name after-name
+                    #:limit-results limit-results)))))
             (let ((names-and-versions
                    (package-derivation-data->names-and-versions data)))
               (let-values

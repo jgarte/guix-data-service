@@ -685,6 +685,17 @@ and target derivations")
                             "No base and target derivation to compare, or not
 enough builds to determine a change")))
             #:allow-selecting-multiple-options #f)
+          ,(form-horizontal-control
+            "After name" query-parameters
+            #:help-text
+            "List packages that are alphabetically after the given name.")
+          ,(form-horizontal-control
+            "Limit results" query-parameters
+            #:help-text "The maximum number of results to return.")
+          ,(form-horizontal-control
+            "All results" query-parameters
+            #:type "checkbox"
+            #:help-text "Return all results.")
           (div (@ (class "form-group form-group-lg"))
                (div (@ (class "col-sm-offset-2 col-sm-10"))
                     (button (@ (type "submit")
