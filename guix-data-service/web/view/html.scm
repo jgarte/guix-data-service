@@ -661,6 +661,7 @@ time."
                  ((build-id build-server-id
                             build-server-url
                             build-server-build-id
+                            derivation-file-name
                             timestamp
                             status)
                   `(div
@@ -668,13 +669,13 @@ time."
                     (div
                      (a (@ (href ,(build-url build-server-id
                                              build-server-build-id
-                                             (second derivation))))
+                                             derivation-file-name)))
                         ,(build-status-span status)))
                     (a (@ (style "display: inline-block; margin-top: 0.4em;")
                           (href ,(build-server-link-url
                                   build-server-url
                                   build-server-build-id
-                                  (second derivation))))
+                                  derivation-file-name)))
                        "View build on " ,build-server-url))))
                builds)))
        (div

@@ -200,6 +200,7 @@ SELECT DISTINCT ON (builds.id)
        build_servers.id,
        build_servers.url,
        builds.build_server_build_id,
+       builds.derivation_file_name,
        build_status.timestamp,
        build_status.status
 FROM builds
