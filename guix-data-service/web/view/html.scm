@@ -253,7 +253,7 @@
                                                (@ (style "display: block;"))
                                                ,(string-append
                                                  "Error: " message)))
-                                           messages)))))
+                                           (filter string? messages))))))
                                '())
                          ,@(if required? '((strong "Required. ")) '())
                          ,@(if help-text
