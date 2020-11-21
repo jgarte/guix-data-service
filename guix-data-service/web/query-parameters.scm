@@ -214,7 +214,9 @@
     (lambda ()
       (string->date s "~Y-~m-~d ~H:~M:~S"))
     (lambda (key . args)
-      (make-invalid-query-parameter s #f))))
+      (make-invalid-query-parameter
+       s
+       "Unable to parse date, please use YYYY-MM-DD HH-MM-SS as the format."))))
 
 (define (parse-checkbox-value s)
   (string=? s "on"))
