@@ -203,10 +203,15 @@
               (target_job . ,target-job))))
           (else
            (render-html
-            #:sxml (compare-invalid-parameters
-                    query-parameters
-                    base-job
-                    target-job)))))
+            #:sxml (compare query-parameters
+                            'revision
+                            #f
+                            #f
+                            #f
+                            #f
+                            #f
+                            #f
+                            #f)))))
       (letpar& ((base-revision-id
                  (with-thread-postgresql-connection
                   (lambda (conn)
@@ -319,6 +324,7 @@
                                       target-revision-id))))))
                    (render-html
                     #:sxml (compare query-parameters
+                                    'revision
                                     cgit-url-bases
                                     new-packages
                                     removed-packages
@@ -353,10 +359,15 @@
                           (select-job-for-commit conn value))))
                       (_ #f))))
            (render-html
-            #:sxml (compare-invalid-parameters
-                    query-parameters
-                    base-job
-                    target-job)))))
+            #:sxml (compare query-parameters
+                            'datetime
+                            #f
+                            #f
+                            #f
+                            #f
+                            #f
+                            #f
+                            #f)))))
 
       (let ((base-branch     (assq-ref query-parameters 'base_branch))
             (base-datetime   (assq-ref query-parameters 'base_datetime))
@@ -471,6 +482,7 @@
                       #:sxml (compare `(,@query-parameters
                                         (base_commit . ,(second base-revision-details))
                                         (target_commit . ,(second target-revision-details)))
+                                      'datetime
                                       (parallel-via-thread-pool-channel
                                        (with-thread-postgresql-connection
                                         (lambda (conn)

@@ -32,6 +32,7 @@
             compare-invalid-parameters))
 
 (define (compare query-parameters
+                 mode
                  cgit-url-bases
                  new-packages
                  removed-packages
@@ -39,6 +40,9 @@
                  lint-warnings-data
                  lint-warnings-locale-options
                  channel-news-data)
+  (define invalid-query?
+    (any-invalid-query-parameters? query-parameters))
+
   (define base-commit
     (assq-ref query-parameters 'base_commit))
 
@@ -49,9 +53,10 @@
     (assq-ref query-parameters 'locale))
 
   (define query-params
-    (string-append "?base_commit=" base-commit
-                   "&target_commit=" target-commit
-                   "&locale=" locale))
+    (unless invalid-query?
+      (string-append "?base_commit=" base-commit
+                     "&target_commit=" target-commit
+                     "&locale=" locale)))
 
   (layout
    #:body
@@ -61,32 +66,42 @@
       (div
        (@ (class "row"))
        (div
-        (@ (class "col-sm-8"))
-        (h1 "Comparing "
-            (a (@ (href ,(string-append "/revision/" base-commit)))
-               (samp ,(string-take base-commit 8) "…"))
-            " and "
-            (a (@ (href ,(string-append "/revision/" target-commit)))
-               (samp ,(string-take target-commit 8) "…")))
-        ,@(if (apply string=? cgit-url-bases)
-              `((a (@ (href ,(string-append
-                              (first cgit-url-bases)
-                              "log/?qt=range&q="
-                              base-commit ".." target-commit)))
-                   "(View cgit)"))
-              '()))
+        (@ (class "col-sm-7"))
+        ,@(if invalid-query?
+              `((h1 "Compare"))
+              `((h1 "Comparing "
+                    (a (@ (href ,(string-append "/revision/" base-commit)))
+                       (samp ,(string-take base-commit 8) "…"))
+                    " and "
+                    (a (@ (href ,(string-append "/revision/" target-commit)))
+                       (samp ,(string-take target-commit 8) "…")))
+                ,@(if (apply string=? cgit-url-bases)
+                      `((a (@ (href ,(string-append
+                                      (first cgit-url-bases)
+                                      "log/?qt=range&q="
+                                      base-commit ".." target-commit)))
+                           "(View cgit)"))
+                      '()))))
        (div
-        (@ (class "col-sm-4"))
+        (@ (class "col-sm-5"))
         (div
-         (@ (class "btn-group-vertical btn-group-lg pull-right")
-            (style "margin-top: 2em;")
+         (@ (class "btn-group btn-group-lg")
+            (style "margin-top: 1.3rem; margin-bottom: 0.5rem;")
             (role "group"))
-         (a (@ (class "btn btn-default")
-               (href ,(string-append "/compare/packages" query-params)))
-            "Compare packages")
-         (a (@ (class "btn btn-default")
-               (href ,(string-append "/compare/package-derivations" query-params)))
-            "Compare package derivations"))))
+         (a (@ (class ,(string-append
+                        "btn btn-default btn-lg"
+                        (if (eq? mode 'revision)
+                            " disabled"
+                            "")))
+               (href "/compare"))
+            "Compare revisions")
+         (a (@ (class ,(string-append
+                        "btn btn-default btn-lg"
+                        (if (eq? mode 'datetime)
+                            " disabled"
+                            "")))
+               (href "/compare-by-datetime"))
+            "Compare by datetime"))))
 
       (div
          (@ (class "row"))
@@ -99,30 +114,43 @@
                (action "")
                (style "padding-bottom: 0")
                (class "form-horizontal"))
-            ,(form-horizontal-control
-              "" query-parameters
-              #:name "base_commit"
-              #:type "hidden")
-            ,(form-horizontal-control
-              "" query-parameters
-              #:name "target_commit"
-              #:type "hidden")
-            ,(form-horizontal-control
-              "" query-parameters
-              #:name "base_branch"
-              #:type "hidden")
-            ,(form-horizontal-control
-              "" query-parameters
-              #:name "base_datetime"
-              #:type "hidden")
-            ,(form-horizontal-control
-              "" query-parameters
-              #:name "target_branch"
-              #:type "hidden")
-            ,(form-horizontal-control
-              "" query-parameters
-              #:name "target_datetime"
-              #:type "hidden")
+            ,@(cond
+               ((eq? mode 'revision)
+                (list
+                 (form-horizontal-control
+                  "Base commit" query-parameters
+                  #:required? #t
+                  #:help-text "The commit to use as the basis for the comparison."
+                  #:font-family "monospace")
+                 (form-horizontal-control
+                  "Target commit" query-parameters
+                  #:required? #t
+                  #:help-text "The commit to compare against the base commit."
+                  #:font-family "monospace")))
+               ((eq? mode 'datetime)
+                (list
+                 (form-horizontal-control
+                  "Base branch" query-parameters
+                  #:required? #t
+                  #:help-text "The branch to compare from."
+                  #:font-family "monospace")
+                 (form-horizontal-control
+                  "Base datetime" query-parameters
+                  #:required? #t
+                  #:help-text "The date and time to compare from."
+                  #:font-family "monospace")
+                 (form-horizontal-control
+                  "Target branch" query-parameters
+                  #:required? #t
+                  #:help-text "The branch to compare to."
+                  #:font-family "monospace")
+                 (form-horizontal-control
+                  "Target datetime" query-parameters
+                  #:required? #t
+                  #:help-text "The date and time to compare to."
+                  #:font-family "monospace")))
+               (else
+                '()))
             ,(form-horizontal-control
               "Locale" query-parameters
               #:name "locale"
@@ -134,216 +162,231 @@
                       (button (@ (type "submit")
                                  (class "btn btn-lg btn-primary"))
                               "Update results")))))))
-      (div
-       (@ (class "row") (style "clear: left;"))
-       (div
-        (@ (class "col-sm-12"))
-        (a (@ (class "btn btn-default btn-lg pull-right")
-              (href ,(string-append
-                      "/compare.json" query-params)))
-           "View JSON")))
 
-      (div
-       (@ (class "row"))
-       (div
-        (@ (class "col-sm-12"))
-        (h3 (@ (style "clear: both;"))
-            "News entries")
-        ,(if (null? channel-news-data)
-             "No news entry changes"
-             (map
-              (match-lambda
-                ((commit tag title-text body-text change)
-                 `(div
-                   (h4 ,@(if (null? commit)
-                             '()
-                             `(("Commit: " (samp ,commit))))
-                       ,@(if (null? tag)
-                             '()
-                             `(("Tag: " ,tag))))
-                   (table
+      ,@(if
+         invalid-query?
+         '()
+         `((div
+            (@ (class "row") (style "clear: left;"))
+            (div
+             (@ (class "col-sm-6"))
+             (div
+              (@ (class "btn-group btn-group-lg")
+                 (role "group"))
+              (a (@ (class "btn btn-default")
+                    (href ,(string-append "/compare/packages" query-params)))
+                 "Compare packages")
+              (a (@ (class "btn btn-default")
+                    (href ,(string-append "/compare/package-derivations"
+                                          query-params)))
+                 "Compare package derivations")))
+            (div
+             (@ (class "col-sm-6"))
+             (a (@ (class "btn btn-default btn-lg pull-right")
+                   (href ,(string-append
+                           "/compare.json" query-params)))
+                "View JSON")))
+           (div
+            (@ (class "row"))
+            (div
+             (@ (class "col-sm-12"))
+             (h3 (@ (style "clear: both;"))
+                 "News entries")
+             ,(if (null? channel-news-data)
+                  "No news entry changes"
+                  (map
+                   (match-lambda
+                     ((commit tag title-text body-text change)
+                      `(div
+                        (h4 ,@(if (null? commit)
+                                  '()
+                                  `(("Commit: " (samp ,commit))))
+                            ,@(if (null? tag)
+                                  '()
+                                  `(("Tag: " ,tag))))
+                        (table
+                         (@ (class "table"))
+                         (thead
+                          (tr
+                           (th (@ (class "col-sm-1")) "")
+                           (th (@ (class "col-sm-1")) "Language")
+                           (th (@ (class "col-sm-3")) "Title")
+                           (th (@ (class "col-sm-7")) "Body"))
+                          (tbody
+                           ,@(let ((languages
+                                    (sort
+                                     (delete-duplicates
+                                      (append (map car title-text)
+                                              (map car body-text)))
+                                     string<?)))
+                               (map (lambda (lang index)
+                                      `(tr
+                                        ,@(if (eq? index 0)
+                                              `((td (@ (rowspan ,(length languages)))
+                                                    ,(case change
+                                                       ((new) "New")
+                                                       ((removed) "Removed")
+                                                       ((changed) "Changed"))))
+                                              '())
+                                        (td ,lang)
+                                        (td ,(stexi->shtml
+                                              (texi-fragment->stexi
+                                               (assoc-ref title-text lang))))
+                                        (td ,
+                                         (stexi->shtml
+                                          (texi-fragment->stexi
+                                           (assoc-ref body-text lang))))))
+                                    languages
+                                    (iota (length languages))))))))))
+                   channel-news-data))))
+           (div
+            (@ (class "row"))
+            (div
+             (@ (class "col-sm-12"))
+             (h3 "New packages")
+             ,(if (null? new-packages)
+                  '(p "No new packages")
+                  `(table
                     (@ (class "table"))
                     (thead
                      (tr
-                      (th (@ (class "col-sm-1")) "")
-                      (th (@ (class "col-sm-1")) "Language")
-                      (th (@ (class "col-sm-3")) "Title")
-                      (th (@ (class "col-sm-7")) "Body"))
-                     (tbody
-                      ,@(let ((languages
-                               (sort
-                                (delete-duplicates
-                                 (append (map car title-text)
-                                         (map car body-text)))
-                                string<?)))
-                          (map (lambda (lang index)
-                                 `(tr
-                                   ,@(if (eq? index 0)
-                                         `((td (@ (rowspan ,(length languages)))
-                                               ,(case change
-                                                  ((new) "New")
-                                                  ((removed) "Removed")
-                                                  ((changed) "Changed"))))
-                                         '())
-                                   (td ,lang)
-                                   (td ,(stexi->shtml
-                                         (texi-fragment->stexi
-                                          (assoc-ref title-text lang))))
-                                   (td ,
-                                    (stexi->shtml
-                                     (texi-fragment->stexi
-                                      (assoc-ref body-text lang))))))
-                               languages
-                               (iota (length languages))))))))))
-              channel-news-data))))
-      (div
-       (@ (class "row"))
-       (div
-        (@ (class "col-sm-12"))
-        (h3 "New packages")
-        ,(if (null? new-packages)
-             '(p "No new packages")
-             `(table
-               (@ (class "table"))
-               (thead
-                (tr
-                 (th (@ (class "col-md-4")) "Name")
-                 (th (@ (class "col-md-4")) "Version")
-                 (th (@ (class "col-md-4")) "")))
-               (tbody
-                ,@(map
-                   (match-lambda
-                     ((('name . name)
-                       ('version . version))
-                      `(tr
-                        (td ,name)
-                        (td ,version)
-                        (td (@ (class "text-right"))
-                            (a (@ (href ,(string-append
-                                          "/revision/" target-commit
-                                          "/package/" name "/" version)))
-                               "More information")))))
-                   new-packages))))))
-      (div
-       (@ (class "row"))
-       (div
-        (@ (class "col-sm-12"))
-        (h3 "Removed packages")
-        ,(if (null? removed-packages)
-             '(p "No removed packages")
-             `(table
-               (@ (class "table"))
-               (thead
-                (tr
-                 (th (@ (class "col-md-4")) "Name")
-                 (th (@ (class "col-md-4")) "Version")
-                 (th (@ (class "col-md-4")) "")))
-               (tbody
-                ,@(map
-                   (match-lambda
-                     ((('name . name)
-                       ('version . version))
-                      `(tr
-                        (td ,name)
-                        (td ,version)
-                        (td (@ (class "text-right"))
-                            (a (@ (href ,(string-append
-                                          "/revision/" base-commit
-                                          "/package/" name "/" version)))
-                               "More information")))))
-                   removed-packages))))))
-      (div
-       (@ (class "row"))
-       (div
-        (@ (class "col-sm-12"))
-        (h3 "Version changes")
-        ,(if
-          (null? version-changes)
-          '(p "No version changes")
-          `(table
-            (@ (class "table"))
-            (thead
-             (tr
-              (th (@ (class "col-md-3")) "Name")
-              (th (@ (class "col-md-9")) "Versions")))
-            (tbody
-             ,@(map
-                (match-lambda
-                  ((name . versions)
-                   `(tr
-                     (td ,name)
-                     (td
-                      (ul
-                       (@ (class "list-unstyled"))
-                       ,@(map
-                          (match-lambda
-                            ((type . versions)
-                             `(li (@ (class ,(if (eq? type 'base)
-                                                 "text-danger"
-                                                 "text-success")))
-                                  (ul
-                                   (@ (class "list-inline")
-                                      (style "display: inline-block;"))
-                                   ,@(map
-                                      (lambda (version)
-                                        `(li (a (@ (href
-                                                    ,(string-append
-                                                      "/revision/"
-                                                      (if (eq? type 'base)
-                                                          base-commit
-                                                          target-commit)
-                                                      "/package/"
-                                                      name "/" version)))
-                                                ,version)))
-                                      (vector->list versions)))
-                                  ,(if (eq? type 'base)
-                                       " (old)"
-                                       " (new)"))))
-                          versions))))))
-                version-changes))))))
-      (div
-       (@ (class "row"))
-       (div
-        (@ (class "col-sm-12"))
-        (h2 "Lint warnings")
-        ,@(if
-           (null? lint-warnings-data)
-           '((p "No lint warning changes"))
-           (map
-            (match-lambda
-              (((package-name package-version) . warnings)
-               `((h4 ,package-name " (version: " ,package-version ")")
-                 (table
-                  (@ (class "table"))
-                  (thead
-                   (tr
-                    (th "")
-                    (th "Linter")
-                    (th "Message")))
-                  (tbody
-                   ,@(map (match-lambda
-                            ((lint-checker-name
-                              message
-                              lint-checker-description
-                              lint-checker-network-dependent
-                              file line column-number ;; TODO Maybe use the location?
-                              change)
+                      (th (@ (class "col-md-4")) "Name")
+                      (th (@ (class "col-md-4")) "Version")
+                      (th (@ (class "col-md-4")) "")))
+                    (tbody
+                     ,@(map
+                        (match-lambda
+                          ((('name . name)
+                            ('version . version))
+                           `(tr
+                             (td ,name)
+                             (td ,version)
+                             (td (@ (class "text-right"))
+                                 (a (@ (href ,(string-append
+                                               "/revision/" target-commit
+                                               "/package/" name "/" version)))
+                                    "More information")))))
+                        new-packages))))))
+           (div
+            (@ (class "row"))
+            (div
+             (@ (class "col-sm-12"))
+             (h3 "Removed packages")
+             ,(if (null? removed-packages)
+                  '(p "No removed packages")
+                  `(table
+                    (@ (class "table"))
+                    (thead
+                     (tr
+                      (th (@ (class "col-md-4")) "Name")
+                      (th (@ (class "col-md-4")) "Version")
+                      (th (@ (class "col-md-4")) "")))
+                    (tbody
+                     ,@(map
+                        (match-lambda
+                          ((('name . name)
+                            ('version . version))
+                           `(tr
+                             (td ,name)
+                             (td ,version)
+                             (td (@ (class "text-right"))
+                                 (a (@ (href ,(string-append
+                                               "/revision/" base-commit
+                                               "/package/" name "/" version)))
+                                    "More information")))))
+                        removed-packages))))))
+           (div
+            (@ (class "row"))
+            (div
+             (@ (class "col-sm-12"))
+             (h3 "Version changes")
+             ,(if
+               (null? version-changes)
+               '(p "No version changes")
+               `(table
+                 (@ (class "table"))
+                 (thead
+                  (tr
+                   (th (@ (class "col-md-3")) "Name")
+                   (th (@ (class "col-md-9")) "Versions")))
+                 (tbody
+                  ,@(map
+                     (match-lambda
+                       ((name . versions)
+                        `(tr
+                          (td ,name)
+                          (td
+                           (ul
+                            (@ (class "list-unstyled"))
+                            ,@(map
+                               (match-lambda
+                                 ((type . versions)
+                                  `(li (@ (class ,(if (eq? type 'base)
+                                                      "text-danger"
+                                                      "text-success")))
+                                       (ul
+                                        (@ (class "list-inline")
+                                           (style "display: inline-block;"))
+                                        ,@(map
+                                           (lambda (version)
+                                             `(li (a (@ (href
+                                                         ,(string-append
+                                                           "/revision/"
+                                                           (if (eq? type 'base)
+                                                               base-commit
+                                                               target-commit)
+                                                           "/package/"
+                                                           name "/" version)))
+                                                     ,version)))
+                                           (vector->list versions)))
+                                       ,(if (eq? type 'base)
+                                            " (old)"
+                                            " (new)"))))
+                               versions))))))
+                     version-changes))))))
+           (div
+            (@ (class "row"))
+            (div
+             (@ (class "col-sm-12"))
+             (h2 "Lint warnings")
+             ,@(if
+                (null? lint-warnings-data)
+                '((p "No lint warning changes"))
+                (map
+                 (match-lambda
+                   (((package-name package-version) . warnings)
+                    `((h4 ,package-name " (version: " ,package-version ")")
+                      (table
+                       (@ (class "table"))
+                       (thead
+                        (tr
+                         (th "")
+                         (th "Linter")
+                         (th "Message")))
+                       (tbody
+                        ,@(map (match-lambda
+                                 ((lint-checker-name
+                                   message
+                                   lint-checker-description
+                                   lint-checker-network-dependent
+                                   file line column-number ;; TODO Maybe use the location?
+                                   change)
 
-                             `(tr
-                               (td (@ (class ,(if (string=? change "new")
-                                                  "text-danger"
-                                                  "text-success"))
-                                      (style "font-weight: bold"))
-                                   ,(if (string=? change "new")
-                                        "New warning"
-                                        "Resolved warning"))
-                               (td (span (@ (style "font-family: monospace; display: block;"))
-                                         ,lint-checker-name)
-                                   (p (@ (style "font-size: small; margin: 6px 0 0px;"))
-                                      ,lint-checker-description))
-                               (td ,message))))
-                          warnings))))))
-            lint-warnings-data))))))))
+                                  `(tr
+                                    (td (@ (class ,(if (string=? change "new")
+                                                       "text-danger"
+                                                       "text-success"))
+                                           (style "font-weight: bold"))
+                                        ,(if (string=? change "new")
+                                             "New warning"
+                                             "Resolved warning"))
+                                    (td (span (@ (style "font-family: monospace; display: block;"))
+                                              ,lint-checker-name)
+                                        (p (@ (style "font-size: small; margin: 6px 0 0px;"))
+                                           ,lint-checker-description))
+                                    (td ,message))))
+                               warnings))))))
+                 lint-warnings-data))))))))))
 
 (define (compare/derivation query-parameters data)
   (define base
@@ -1077,53 +1120,3 @@ enough builds to determine a change")))
               (map (lambda (data)
                      (take data 2))
                    (vlist->list target-packages-vhash))))))))))))
-
-(define (compare-invalid-parameters query-parameters
-                                    base-job
-                                    target-job)
-  (define base-commit
-    (assq-ref query-parameters 'base_commit))
-
-  (define target-commit
-    (assq-ref query-parameters 'target_commit))
-
-  (define (description-for-state state)
-    (cond
-     ((string=? state "queued")
-      " is queued for processing.")
-     ((string=? state "failed")
-      " has failed.")
-     ((string=? state "succeeded")
-      " has succeeded.")))
-
-  (layout
-   #:body
-   `(,(header)
-     (div (@ (class "container"))
-          (h1 "Unknown commit")
-          ,(if base-job
-               `(p "Revision "
-                   (a (@ (href
-                          ,(string-append
-                            "/revision/"
-                            (invalid-query-parameter-value base-commit))))
-                      (strong (samp ,(invalid-query-parameter-value
-                                      base-commit))))
-                   ,(description-for-state
-                     (assq-ref base-job 'state)))
-               `(p "No known revision with commit "
-                   (strong (samp ,base-commit))
-                   "."))
-          ,(if target-job
-               `(p "Revision "
-                   (a (@ (href
-                          ,(string-append
-                            "/revision/"
-                            (invalid-query-parameter-value target-commit))))
-                      (strong (samp ,(invalid-query-parameter-value
-                                      target-commit))))
-                   ,(description-for-state
-                     (assq-ref target-job 'state)))
-               `(p "No known revision with commit "
-                   (strong (samp ,target-commit))
-                   "."))))))
