@@ -150,7 +150,7 @@
                  (system          ,parse-system #:multi-value)
                  (target          ,parse-target #:multi-value)
                  (build_status    ,parse-build-status #:multi-value)
-                 (build-change    ,parse-build-change)
+                 (build_change    ,parse-build-change)
                  (after_name    ,identity)
                  (limit_results ,parse-result-limit
                                 #:no-default-when (all_results)
