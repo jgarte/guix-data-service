@@ -182,14 +182,16 @@
                    (($ <invalid-query-parameter> value)
                     (with-thread-postgresql-connection
                      (lambda (conn)
-                       (select-job-for-commit conn value))))
+                       (and (string? value)
+                            (select-job-for-commit conn value)))))
                    (_ #f)))
                 (target-job
                  (match (assq-ref query-parameters 'target_commit)
                    (($ <invalid-query-parameter> value)
                     (with-thread-postgresql-connection
                      (lambda (conn)
-                       (select-job-for-commit conn value))))
+                       (and (string? value)
+                            (select-job-for-commit conn value)))))
                    (_ #f))))
         (case (most-appropriate-mime-type
                '(application/json text/html)
