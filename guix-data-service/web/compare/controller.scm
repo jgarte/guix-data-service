@@ -18,6 +18,7 @@
 (define-module (guix-data-service web compare controller)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-11)
+  #:use-module (srfi srfi-19)
   #:use-module (ice-9 match)
   #:use-module (ice-9 vlist)
   #:use-module (texinfo)
@@ -99,9 +100,11 @@
              (parse-query-parameters
               request
               `((base_branch     ,identity #:required)
-                (base_datetime   ,parse-datetime #:required)
+                (base_datetime   ,parse-datetime
+                                 #:default ,(current-date))
                 (target_branch   ,identity #:required)
-                (target_datetime ,parse-datetime #:required)
+                (target_datetime ,parse-datetime
+                                 #:default ,(current-date))
                 (locale          ,identity #:default "en_US.UTF-8")))))
        (render-compare-by-datetime mime-types
                                    parsed-query-parameters)))
@@ -139,9 +142,11 @@
               (parse-query-parameters
                request
                `((base_branch     ,identity #:required)
-                 (base_datetime   ,parse-datetime #:required)
+                 (base_datetime   ,parse-datetime
+                                  #:default ,(current-date))
                  (target_branch   ,identity #:required)
-                 (target_datetime ,parse-datetime #:required)
+                 (target_datetime ,parse-datetime
+                                  #:default ,(current-date))
                  (system          ,parse-system #:multi-value)
                  (target          ,parse-target #:multi-value)
                  (build_status    ,parse-build-status #:multi-value)

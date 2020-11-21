@@ -136,7 +136,6 @@
                   #:font-family "monospace")
                  (form-horizontal-control
                   "Base datetime" query-parameters
-                  #:required? #t
                   #:help-text "The date and time to compare from."
                   #:font-family "monospace")
                  (form-horizontal-control
@@ -146,7 +145,6 @@
                   #:font-family "monospace")
                  (form-horizontal-control
                   "Target datetime" query-parameters
-                  #:required? #t
                   #:help-text "The date and time to compare to."
                   #:font-family "monospace")))
                (else
@@ -902,7 +900,6 @@ enough builds to determine a change")))
             #:font-family "monospace")
           ,(form-horizontal-control
             "Base datetime" query-parameters
-            #:required? #t
             #:help-text "The date and time to compare from."
             #:font-family "monospace")
           ,(form-horizontal-control
@@ -912,7 +909,6 @@ enough builds to determine a change")))
             #:font-family "monospace")
           ,(form-horizontal-control
             "Target datetime" query-parameters
-            #:required? #t
             #:help-text "The date and time to compare to."
             #:font-family "monospace")
           ,(form-horizontal-control
