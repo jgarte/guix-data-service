@@ -571,6 +571,7 @@
          (render-html
           #:sxml (compare/package-derivations
                   query-parameters
+                  'revision
                   systems
                   (valid-targets->options targets)
                   build-status-strings
@@ -626,6 +627,7 @@
                      (render-html
                       #:sxml (compare/package-derivations
                               query-parameters
+                              'revision
                               systems
                               (valid-targets->options targets)
                               build-status-strings

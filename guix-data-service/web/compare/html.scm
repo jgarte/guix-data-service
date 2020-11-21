@@ -653,6 +653,7 @@
                  environment-variables))))))))))
 
 (define (compare/package-derivations query-parameters
+                                     mode
                                      valid-systems
                                      valid-targets
                                      valid-build-statuses
@@ -688,26 +689,7 @@
           (@ (method "get")
              (action "")
              (class "form-horizontal"))
-          ,(form-horizontal-control
-            "Base commit" query-parameters
-            #:required? #t
-            #:help-text "The commit to use as the basis for the comparison."
-            #:font-family "monospace")
-          ,(form-horizontal-control
-            "Target commit" query-parameters
-            #:required? #t
-            #:help-text "The commit to compare against the base commit."
-            #:font-family "monospace")
-          ,(form-horizontal-control
-            "System" query-parameters
-            #:options valid-systems
-            #:help-text "Only include derivations for this system."
-            #:font-family "monospace")
-          ,(form-horizontal-control
-            "Target" query-parameters
-            #:options valid-targets
-            #:help-text "Only include derivations that are build for this system."
-            #:font-family "monospace")
+          ,@(compare-form-controls-for-mode mode query-parameters)
           ,(form-horizontal-control
             "Build change" query-parameters
             #:options '(("(none specified)" . "")
