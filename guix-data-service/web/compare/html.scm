@@ -54,9 +54,7 @@
 
   (define query-params
     (unless invalid-query?
-      (string-append "?base_commit=" base-commit
-                     "&target_commit=" target-commit
-                     "&locale=" locale)))
+      (query-parameters->string query-parameters)))
 
   (layout
    #:body
@@ -172,17 +170,28 @@
               (@ (class "btn-group btn-group-lg")
                  (role "group"))
               (a (@ (class "btn btn-default")
-                    (href ,(string-append "/compare/packages" query-params)))
+                    (href ,(string-append
+                            "/"
+                            (cond
+                             ((eq? mode 'revision) "compare")
+                             ((eq? mode 'datetime) "compare-by-datetime"))
+                            "/packages?"
+                            query-params)))
                  "Compare packages")
               (a (@ (class "btn btn-default")
-                    (href ,(string-append "/compare/package-derivations"
-                                          query-params)))
+                    (href ,(string-append
+                            "/"
+                            (cond
+                             ((eq? mode 'revision) "compare")
+                             ((eq? mode 'datetime) "compare-by-datetime"))
+                            "/package-derivations?"
+                            query-params)))
                  "Compare package derivations")))
             (div
              (@ (class "col-sm-6"))
              (a (@ (class "btn btn-default btn-lg pull-right")
                    (href ,(string-append
-                           "/compare.json" query-params)))
+                           "/compare.json?" query-params)))
                 "View JSON")))
            (div
             (@ (class "row"))
