@@ -31,6 +31,43 @@
             compare/packages
             compare-invalid-parameters))
 
+(define (compare-form-controls-for-mode mode query-parameters)
+  (cond
+   ((eq? mode 'revision)
+    (list
+     (form-horizontal-control
+      "Base commit" query-parameters
+      #:required? #t
+      #:help-text "The commit to use as the basis for the comparison."
+      #:font-family "monospace")
+     (form-horizontal-control
+      "Target commit" query-parameters
+      #:required? #t
+      #:help-text "The commit to compare against the base commit."
+      #:font-family "monospace")))
+   ((eq? mode 'datetime)
+    (list
+     (form-horizontal-control
+      "Base branch" query-parameters
+      #:required? #t
+      #:help-text "The branch to compare from."
+      #:font-family "monospace")
+     (form-horizontal-control
+      "Base datetime" query-parameters
+      #:help-text "The date and time to compare from."
+      #:font-family "monospace")
+     (form-horizontal-control
+      "Target branch" query-parameters
+      #:required? #t
+      #:help-text "The branch to compare to."
+      #:font-family "monospace")
+     (form-horizontal-control
+      "Target datetime" query-parameters
+      #:help-text "The date and time to compare to."
+      #:font-family "monospace")))
+   (else
+    '())))
+
 (define (compare query-parameters
                  mode
                  cgit-url-bases
@@ -112,41 +149,7 @@
                (action "")
                (style "padding-bottom: 0")
                (class "form-horizontal"))
-            ,@(cond
-               ((eq? mode 'revision)
-                (list
-                 (form-horizontal-control
-                  "Base commit" query-parameters
-                  #:required? #t
-                  #:help-text "The commit to use as the basis for the comparison."
-                  #:font-family "monospace")
-                 (form-horizontal-control
-                  "Target commit" query-parameters
-                  #:required? #t
-                  #:help-text "The commit to compare against the base commit."
-                  #:font-family "monospace")))
-               ((eq? mode 'datetime)
-                (list
-                 (form-horizontal-control
-                  "Base branch" query-parameters
-                  #:required? #t
-                  #:help-text "The branch to compare from."
-                  #:font-family "monospace")
-                 (form-horizontal-control
-                  "Base datetime" query-parameters
-                  #:help-text "The date and time to compare from."
-                  #:font-family "monospace")
-                 (form-horizontal-control
-                  "Target branch" query-parameters
-                  #:required? #t
-                  #:help-text "The branch to compare to."
-                  #:font-family "monospace")
-                 (form-horizontal-control
-                  "Target datetime" query-parameters
-                  #:help-text "The date and time to compare to."
-                  #:font-family "monospace")))
-               (else
-                '()))
+            ,@(compare-form-controls-for-mode mode query-parameters)
             ,(form-horizontal-control
               "Locale" query-parameters
               #:name "locale"
