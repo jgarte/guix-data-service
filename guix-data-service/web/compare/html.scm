@@ -785,7 +785,11 @@ enough builds to determine a change")))
                 (href ,(let ((query-parameter-string
                               (query-parameters->string query-parameters)))
                          (string-append
-                          "/compare/package-derivations.json"
+                          "/"
+                          (cond
+                           ((eq? mode 'revision) "compare")
+                           ((eq? mode 'datetime) "compare-by-datetime"))
+                          "/package-derivations.json"
                           (if (string-null? query-parameter-string)
                               ""
                               (string-append "?" query-parameter-string))))))
