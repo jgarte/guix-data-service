@@ -645,10 +645,14 @@
           '((error . "invalid query"))))
         (else
          (render-html
-          #:sxml (compare-by-datetime/package-derivations
+          #:sxml (compare/package-derivations
                   query-parameters
+                  'datetime
                   (parallel-via-thread-pool-channel
                    (with-thread-postgresql-connection valid-systems))
+                  (valid-targets->options
+                   (parallel-via-thread-pool-channel
+                    (with-thread-postgresql-connection valid-targets)))
                   build-status-strings
                   '()
                   '()
@@ -708,14 +712,21 @@
                       derivation-changes))
                     (else
                      (render-html
-                      #:sxml (compare-by-datetime/package-derivations
+                      #:sxml (compare/package-derivations
                               query-parameters
+                              'datetime
                               (parallel-via-thread-pool-channel
                                (with-thread-postgresql-connection valid-systems))
+                              (valid-targets->options
+                               (parallel-via-thread-pool-channel
+                                (with-thread-postgresql-connection valid-targets)))
                               build-status-strings
+                              (parallel-via-thread-pool-channel
+                               (with-thread-postgresql-connection
+                                select-build-server-urls-by-id))
+                              derivation-changes
                               base-revision-details
-                              target-revision-details
-                              derivation-changes))))))))))))
+                              target-revision-details))))))))))))
 
 (define (render-compare/packages mime-types
                                  query-parameters)
