@@ -733,6 +733,16 @@
              (class "form-horizontal"))
           ,@(compare-form-controls-for-mode mode query-parameters)
           ,(form-horizontal-control
+            "System" query-parameters
+            #:options valid-systems
+            #:help-text "Only include derivations for this system."
+            #:font-family "monospace")
+          ,(form-horizontal-control
+            "Target" query-parameters
+            #:options valid-targets
+            #:help-text "Only include derivations that are build for this system."
+            #:font-family "monospace")
+          ,(form-horizontal-control
             "Build change" query-parameters
             #:options '(("(none specified)" . "")
                         ("Broken"           . "broken")
