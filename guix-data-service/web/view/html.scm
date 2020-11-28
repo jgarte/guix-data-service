@@ -251,9 +251,13 @@
                                            (lambda (message)
                                              `(strong
                                                (@ (style "display: block;"))
-                                               ,(string-append
-                                                 "Error: " message)))
-                                           (filter string? messages))))))
+                                               "Error: "
+                                               ,@(if (list? message)
+                                                     message
+                                                     (list message))))
+                                           (remove (lambda (v)
+                                                     (eq? #f v))
+                                                   messages))))))
                                '())
                          ,@(if required? '((strong "Required. ")) '())
                          ,@(if help-text
