@@ -53,13 +53,33 @@
   s)
 
 (define (parse-commit s)
-  (if (parallel-via-thread-pool-channel
-       (with-thread-postgresql-connection
-        (lambda (conn)
-          (guix-commit-exists? conn s))))
-      s
-      (make-invalid-query-parameter
-       s "unknown commit")))
+  (parallel-via-thread-pool-channel
+   (with-thread-postgresql-connection
+    (lambda (conn)
+      (if (guix-commit-exists? conn s)
+          s
+          (let* ((job-details
+                  (select-job-for-commit conn s))
+                 (job-state
+                  (assq-ref job-details 'state)))
+            (if job-details
+                (make-invalid-query-parameter
+                 s
+                 (cond
+                  ((string=? job-state "queued")
+                   `("data unavailable, "
+                     (a (@ (href ,(string-append
+                                   "/revision/" s)))
+                        "yet to process revision")))
+                  ((string=? job-state "failed")
+                   `("data unavailable, "
+                     (a (@ (href ,(string-append
+                                   "/revision/" s)))
+                        "failed to process revision")))
+                  (else
+                   "unknown job state")))
+                (make-invalid-query-parameter
+                 s "unknown commit"))))))))
 
 (define (parse-derivation file-name)
   (if (parallel-via-thread-pool-channel
