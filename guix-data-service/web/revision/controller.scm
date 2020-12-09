@@ -203,6 +203,7 @@
                     (target ,parse-target #:multi-value)
                     (maximum_builds ,parse-number)
                     (minimum_builds ,parse-number)
+                    (build_status   ,parse-derivation-build-status)
                     (field          ,identity #:multi-value
                                     #:default ("system" "target" "builds"))
                     (after_name ,identity)
@@ -989,6 +990,9 @@
                       #:targets (assq-ref query-parameters 'target)
                       #:maximum-builds (assq-ref query-parameters 'maximum_builds)
                       #:minimum-builds (assq-ref query-parameters 'minimum_builds)
+                      #:build-status (and=> (assq-ref query-parameters
+                                                      'build_status)
+                                            string->symbol)
                       #:limit-results limit-results
                       #:after-name (assq-ref query-parameters 'after_name)
                       #:include-builds? (member "builds" fields))
@@ -999,6 +1003,9 @@
                       #:targets (assq-ref query-parameters 'target)
                       #:maximum-builds (assq-ref query-parameters 'maximum_builds)
                       #:minimum-builds (assq-ref query-parameters 'minimum_builds)
+                      #:build-status (and=> (assq-ref query-parameters
+                                                      'build_status)
+                                            string->symbol)
                       #:limit-results limit-results
                       #:after-name (assq-ref query-parameters 'after_name)
                       #:include-builds? (member "builds" fields))))))

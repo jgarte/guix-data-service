@@ -276,6 +276,7 @@
                       (target ,parse-target #:multi-value)
                       (maximum_builds ,parse-number)
                       (minimum_builds ,parse-number)
+                      (build_status   ,parse-derivation-build-status)
                       (field          ,identity #:multi-value
                                       #:default ("system" "target" "builds"))
                       (after_name ,identity)

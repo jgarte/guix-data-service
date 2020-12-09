@@ -1502,6 +1502,12 @@ figure {
                                             #:key (path-base "/revision/")
                                             header-text
                                             header-link)
+  (define derivation-build-status-options
+    '((""        . "none")
+      ("Working" . "working")
+      ("Failing" . "failing")
+      ("Unknown" . "unknown")))
+
   (define field-options
     (map
      (lambda (field)
@@ -1556,6 +1562,11 @@ figure {
           ,(form-horizontal-control
             "Maximum builds" query-parameters
             #:help-text "Only show derivations with a maximum number of known builds.")
+          ,(form-horizontal-control
+            "Build status" query-parameters
+            #:allow-selecting-multiple-options #f
+            #:options derivation-build-status-options
+            #:help-text "Only show derivations with this overall build status.")
           ,(form-horizontal-control
             "Fields" query-parameters
             #:name "field"

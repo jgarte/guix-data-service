@@ -45,6 +45,7 @@
             parse-result-limit
             parse-system
             parse-target
+            parse-derivation-build-status
 
             valid-targets->options))
 
@@ -234,6 +235,19 @@
   (if (string=? target "none")
       ""
       target))
+
+(define (parse-derivation-build-status status)
+  (define options
+    '("none" "working" "failing" "unknown"))
+
+  (if (member status options)
+      (if (string=? status "none")
+          #f
+          status)
+      (make-invalid-query-parameter
+       status
+       (string-append "unknown derivation build status: "
+                      status))))
 
 (define (valid-targets->options targets)
   `(("(no target)" . "none")
