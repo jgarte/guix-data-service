@@ -193,7 +193,10 @@ ORDER BY derivations.system DESC,
                                                  maximum-builds
                                                  limit-results
                                                  after-name
-                                                 (include-builds? #t))
+                                                 (include-builds? #t)
+                                                 ;; build-status: failing,
+                                                 ;; working, unknown
+                                                 build-status)
   (define criteria
     (string-join
      `(,@(filter-map
@@ -234,7 +237,66 @@ ORDER BY derivations.system DESC,
         derivations_by_output_details_set.derivation_output_details_set_id
 ) <= "
                (number->string maximum-builds)))
-             '()))
+             '())
+       ,@(cond
+          ((eq? build-status #f) '())
+          ((eq? build-status 'failing)
+           '("
+(
+  NOT EXISTS (
+    SELECT 1
+    FROM builds
+    INNER JOIN latest_build_status
+      ON builds.id = latest_build_status.build_id
+    WHERE builds.derivation_output_details_set_id =
+          derivations_by_output_details_set.derivation_output_details_set_id
+      AND latest_build_status.status = 'succeeded'
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM builds
+    INNER JOIN latest_build_status
+      ON builds.id = latest_build_status.build_id
+    WHERE builds.derivation_output_details_set_id =
+          derivations_by_output_details_set.derivation_output_details_set_id
+      AND latest_build_status.status = 'failed'
+  )
+)"))
+          ((eq? build-status 'working)
+           '("
+EXISTS (
+  SELECT 1
+  FROM builds
+  INNER JOIN latest_build_status
+    ON builds.id = latest_build_status.build_id
+  WHERE builds.derivation_output_details_set_id =
+        derivations_by_output_details_set.derivation_output_details_set_id
+    AND latest_build_status.status = 'succeeded'
+)"))
+          ((eq? build-status 'unknown)
+           '("
+(
+  NOT EXISTS (
+    SELECT 1
+    FROM builds
+    INNER JOIN latest_build_status
+      ON builds.id = latest_build_status.build_id
+    WHERE builds.derivation_output_details_set_id =
+          derivations_by_output_details_set.derivation_output_details_set_id
+      AND latest_build_status.status = 'succeeded'
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM builds
+    INNER JOIN latest_build_status
+      ON builds.id = latest_build_status.build_id
+    WHERE builds.derivation_output_details_set_id =
+          derivations_by_output_details_set.derivation_output_details_set_id
+      AND latest_build_status.status = 'failed'
+  )
+)"))
+          (else
+           (error "unknown build-status"))))
      " AND "))
 
   (define query
@@ -318,7 +380,10 @@ ORDER BY derivations.file_name
                                                  maximum-builds
                                                  limit-results
                                                  after-name
-                                                 (include-builds? #t))
+                                                 (include-builds? #t)
+                                                 ;; build-status: failing,
+                                                 ;; working, unknown
+                                                 build-status)
   (define criteria
     (string-join
      `(,@(filter-map
@@ -359,7 +424,66 @@ ORDER BY derivations.file_name
         derivations_by_output_details_set.derivation_output_details_set_id
 ) <= "
                (number->string maximum-builds)))
-             '()))
+             '())
+       ,@(cond
+          ((eq? build-status #f) '())
+          ((eq? build-status 'failing)
+           '("
+(
+  NOT EXISTS (
+    SELECT 1
+    FROM builds
+    INNER JOIN latest_build_status
+      ON builds.id = latest_build_status.build_id
+    WHERE builds.derivation_output_details_set_id =
+          derivations_by_output_details_set.derivation_output_details_set_id
+      AND latest_build_status.status = 'succeeded'
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM builds
+    INNER JOIN latest_build_status
+      ON builds.id = latest_build_status.build_id
+    WHERE builds.derivation_output_details_set_id =
+          derivations_by_output_details_set.derivation_output_details_set_id
+      AND latest_build_status.status = 'failed'
+  )
+)"))
+          ((eq? build-status 'working)
+           '("
+EXISTS (
+  SELECT 1
+  FROM builds
+  INNER JOIN latest_build_status
+    ON builds.id = latest_build_status.build_id
+  WHERE builds.derivation_output_details_set_id =
+        derivations_by_output_details_set.derivation_output_details_set_id
+    AND latest_build_status.status = 'succeeded'
+)"))
+          ((eq? build-status 'unknown)
+           '("
+(
+  NOT EXISTS (
+    SELECT 1
+    FROM builds
+    INNER JOIN latest_build_status
+      ON builds.id = latest_build_status.build_id
+    WHERE builds.derivation_output_details_set_id =
+          derivations_by_output_details_set.derivation_output_details_set_id
+      AND latest_build_status.status = 'succeeded'
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM builds
+    INNER JOIN latest_build_status
+      ON builds.id = latest_build_status.build_id
+    WHERE builds.derivation_output_details_set_id =
+          derivations_by_output_details_set.derivation_output_details_set_id
+      AND latest_build_status.status = 'failed'
+  )
+)"))
+          (else
+           (error "unknown build-status"))))
      " AND "))
 
   (define query
