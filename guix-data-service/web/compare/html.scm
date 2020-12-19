@@ -55,7 +55,7 @@
       #:font-family "monospace")
      (form-horizontal-control
       "Base datetime" query-parameters
-      #:help-text "The date and time to compare from."
+      #:help-text "The date and time to compare from. The required format is YYYY-MM-DD HH:MM:SS"
       #:font-family "monospace")
      (form-horizontal-control
       "Target branch" query-parameters
@@ -64,7 +64,7 @@
       #:font-family "monospace")
      (form-horizontal-control
       "Target datetime" query-parameters
-      #:help-text "The date and time to compare to."
+      #:help-text "The date and time to compare to. The required format is YYYY-MM-DD HH:MM:SS"
       #:font-family "monospace")))
    (else
     '())))
