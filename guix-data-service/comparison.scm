@@ -373,7 +373,6 @@ WHERE
   (
     base_packages.id IS NULL OR
     target_packages.id IS NULL OR
-    base_packages.id != target_packages.id OR
     base_packages.file_name != target_packages.file_name
   )"
    (if after-name
