@@ -636,7 +636,13 @@
                        mime-types)
                   ((application/json)
                    (render-json
-                    derivation-changes))
+                    `((revisions
+                       . ((base
+                           . ((commit . ,base-commit)))
+                          (target
+                           . ((commit . ,target-commit)))))
+                      (derivation_changes
+                       . ,derivation-changes))))
                   (else
                    (letpar& ((systems
                               (with-thread-postgresql-connection
@@ -729,7 +735,15 @@
                          mime-types)
                     ((application/json)
                      (render-json
-                      derivation-changes))
+                      `((revisions
+                         . ((base
+                             . ((commit . ,(second base-revision-details))
+                                (datetime . ,(fifth base-revision-details))))
+                            (target
+                             . ((commit . ,(second target-revision-details))
+                                (datetime . ,(fifth target-revision-details))))))
+                        (derivation_changes
+                         . ,derivation-changes))))
                     (else
                      (render-html
                       #:sxml (compare/package-derivations
