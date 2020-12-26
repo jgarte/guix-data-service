@@ -356,14 +356,14 @@ SELECT all_derivations.file_name, latest_build_status.status
 FROM all_derivations
 INNER JOIN derivations_by_output_details_set
   ON all_derivations.id = derivations_by_output_details_set.derivation_id
-LEFT OUTER JOIN builds
+INNER JOIN builds
   ON derivations_by_output_details_set.derivation_output_details_set_id =
      builds.derivation_output_details_set_id
  AND builds.build_server_id = $2
-LEFT OUTER JOIN latest_build_status
+INNER JOIN latest_build_status
   ON builds.id = latest_build_status.build_id
-WHERE latest_build_status.status = 'failed'
-  AND NOT EXISTS (
+ AND latest_build_status.status = 'failed'
+WHERE NOT EXISTS (
     SELECT 1
     FROM builds AS successful_builds
     INNER JOIN build_status AS successful_builds_build_status
