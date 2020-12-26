@@ -49,6 +49,7 @@
             select-derivations-using-output
             select-package-derivations-in-revision
             search-package-derivations-in-revision
+            select-fixed-output-package-derivations-in-revision
             select-derivation-outputs-in-revision
             fix-derivation-output-details-hash-encoding
             select-derivations-by-revision-name-and-version
@@ -561,6 +562,112 @@ ORDER BY derivations.file_name
                      ,(string-append "%" search-query "%")
                      ,@(if after-name
                            (list after-name)
+                           '())))))
+
+(define* (select-fixed-output-package-derivations-in-revision
+          conn
+          commit
+          system
+          target
+          #:key
+          after-derivation-file-name
+          (limit-results 50)
+          ;; latest-build-status: failing,
+          ;; working, unknown
+          latest-build-status)
+  (define query
+    (string-append
+     "
+WITH RECURSIVE all_derivations(id) AS (
+    SELECT package_derivations.derivation_id
+    FROM package_derivations
+    INNER JOIN guix_revision_package_derivations
+      ON package_derivations.id =
+         guix_revision_package_derivations.package_derivation_id
+    INNER JOIN guix_revisions
+      ON guix_revision_package_derivations.revision_id = guix_revisions.id
+    WHERE guix_revisions.commit = $1
+      AND package_derivations.system = $2
+      AND package_derivations.target = $3
+  UNION
+    SELECT derivation_outputs.derivation_id
+    FROM all_derivations
+    INNER JOIN derivation_inputs
+      ON all_derivations.id = derivation_inputs.derivation_id
+    INNER JOIN derivation_outputs
+      ON derivation_inputs.derivation_output_id = derivation_outputs.id
+)
+SELECT derivations.file_name,
+       (
+          CASE
+          WHEN latest_builds.id IS NULL THEN NULL
+          ELSE
+            json_build_object(
+              'build_server_id', latest_builds.build_server_id,
+              'build_server_build_id', latest_builds.build_server_build_id,
+              'status', latest_builds.status,
+              'timestamp', latest_builds.timestamp
+            )
+          END
+       ) AS latest_build
+FROM all_derivations
+INNER JOIN derivations
+  ON all_derivations.id = derivations.id
+INNER JOIN derivation_outputs
+  ON all_derivations.id = derivation_outputs.derivation_id
+INNER JOIN derivation_output_details
+  ON derivation_outputs.derivation_output_details_id = derivation_output_details.id
+LEFT JOIN (
+  SELECT DISTINCT ON (builds.derivation_file_name)
+         builds.*,
+         latest_build_status.status,
+         latest_build_status.timestamp
+  FROM builds
+  INNER JOIN latest_build_status
+    ON builds.id = latest_build_status.build_id
+  -- This is intentional, as we want to build/check this exact derivation, not
+  -- any others that happen to produce the same output
+  ORDER BY builds.derivation_file_name, latest_build_status.timestamp DESC
+) AS latest_builds
+  ON derivations.file_name = latest_builds.derivation_file_name
+WHERE hash IS NOT NULL"
+     (if after-derivation-file-name
+         "
+  AND derivations.file_name > $5"
+         "")
+     (if latest-build-status
+         (simple-format
+          #f
+          "
+  AND latest_builds.status = $~A"
+          (if after-derivation-file-name 6 5))
+         "")
+     "
+ORDER BY derivations.file_name
+LIMIT $4"))
+
+  (map (match-lambda
+         ((derivation_file_name latest_build)
+          `((derivation_file_name . ,derivation_file_name)
+            (latest_build         . ,(if
+                                      (string-null? latest_build)
+                                      'null
+                                      (map (match-lambda
+                                             ((key . value)
+                                              (cons (string->symbol key)
+                                                    value)))
+                                           (json-string->scm latest_build)))))))
+       (exec-query conn
+                   query
+                   `(,commit
+                     ,system
+                     ,target
+                     ,(number->string (or limit-results 999999)) ; TODO
+                     ,@(if after-derivation-file-name
+                           (list after-derivation-file-name)
+                           '())
+                     ,@(if latest-build-status
+                           (list latest-build-status)
                            '())))))
 
 (define* (select-derivation-outputs-in-revision conn
