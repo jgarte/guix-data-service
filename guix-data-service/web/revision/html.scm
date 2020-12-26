@@ -36,6 +36,7 @@
             view-revision-packages
             view-revision-packages-translation-availability
             view-revision-package-derivations
+            view-revision-fixed-output-package-derivations
             view-revision-package-derivation-outputs
             view-revision-system-tests
             view-revision-channel-instances
@@ -1679,6 +1680,148 @@ figure {
                                          query-parameters
                                          'after_name
                                          (car (last derivations)))))
+                    "Next page")))
+              '())))))))
+
+(define* (view-revision-fixed-output-package-derivations
+          commit-hash
+          query-parameters
+          valid-systems
+          valid-targets
+          derivations
+          build-server-urls
+          show-next-page?
+          #:key (path-base "/revision/")
+          header-text
+          header-link)
+  (define build-status-options
+    '((""          . "")
+      ("Succeeded" . "succeeded")
+      ("Failed"    . "failed")
+      ;;("Unknown"   . "unknown") TODO
+      ))
+
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h3 (a (@ (style "white-space: nowrap;")
+                  (href ,header-link))
+               ,@header-text))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (div
+         (@ (class "well"))
+         (form
+          (@ (method "get")
+             (action "")
+             (style "padding-bottom: 0")
+             (class "form-horizontal"))
+          ,(form-horizontal-control
+            "System" query-parameters
+            #:options valid-systems
+            #:allow-selecting-multiple-options #f
+            #:help-text "Only include derivations for this system."
+            #:font-family "monospace")
+          ,(form-horizontal-control
+            "Target" query-parameters
+            #:options valid-targets
+            #:allow-selecting-multiple-options #f
+            #:help-text "Only include derivations that are build for this system."
+            #:font-family "monospace")
+          ,(form-horizontal-control
+            "Latest build status" query-parameters
+            #:allow-selecting-multiple-options #f
+            #:options build-status-options
+            #:help-text "Only show derivations with this overall build status.")
+          ,(form-horizontal-control
+            "After name" query-parameters
+            #:help-text
+            "List derivations that are alphabetically after the given name.")
+          ,(form-horizontal-control
+            "Limit results" query-parameters
+            #:help-text "The maximum number of derivations to return.")
+          ,(form-horizontal-control
+            "All results" query-parameters
+            #:type "checkbox"
+            #:help-text "Return all results.")
+          (div (@ (class "form-group form-group-lg"))
+               (div (@ (class "col-sm-offset-2 col-sm-10"))
+                    (button (@ (type "submit")
+                               (class "btn btn-lg btn-primary"))
+                            "Update results")))))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (a (@ (class "btn btn-default btn-lg pull-right")
+              (href ,(let ((query-parameter-string
+                            (query-parameters->string query-parameters)))
+                       (string-append
+                        path-base ".json"
+                        (if (string-null? query-parameter-string)
+                            ""
+                            (string-append "?" query-parameter-string))))))
+           "View JSON")))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (h1 "Fixed output package derivations")
+        (p "Showing " ,(length derivations) " results")
+        (table
+         (@ (class "table"))
+         (thead
+          (tr
+           (th "File name")
+           (th "Latest build")))
+         (tbody
+          ,@(map
+             (lambda (row)
+               (let ((derivation-file-name (assq-ref row 'derivation_file_name))
+                     (latest-build         (assq-ref row 'latest_build)))
+                 `(tr
+                   (td (a (@ (href ,derivation-file-name))
+                          ,(display-store-item-short derivation-file-name)))
+                   (td
+                    (dl
+                     (@ (style "margin-bottom: 0;"))
+                     ,@(if (eq? 'null latest-build)
+                           '()
+                           (let ((build-server-id
+                                  (assq-ref latest-build 'build_server_id)))
+                             `((dt
+                                (@ (style "font-weight: unset;"))
+                                (a (@ (href
+                                       ,(assq-ref build-server-urls
+                                                  build-server-id)))
+                                   ,(assq-ref build-server-urls
+                                              build-server-id)))
+                               (dd
+                                (a (@ (href ,(build-url
+                                              build-server-id
+                                              (assq-ref latest-build
+                                                         'build_server_build_id)
+                                              derivation-file-name)))
+                                   ,(build-status-alist->build-icon
+                                     latest-build)))))))))))
+             derivations)))
+        ,@(if show-next-page?
+              `((div
+                 (@ (class "row"))
+                 (a (@ (href
+                        ,(next-page-link path-base
+                                         query-parameters
+                                         'after_name
+                                         (assq-ref (last derivations)
+                                                   'derivation_file_name))))
                     "Next page")))
               '())))))))
 

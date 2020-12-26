@@ -58,6 +58,7 @@
             render-revision-package-reproduciblity
             render-revision-package-substitute-availability
             render-revision-package-derivations
+            render-revision-fixed-output-package-derivations
             render-revision-package-derivation-outputs
             render-unknown-revision
             render-view-revision))
@@ -217,6 +218,32 @@
                                                 commit-hash
                                                 parsed-query-parameters
                                                 #:path-base path))
+         (render-unknown-revision mime-types
+                                  commit-hash)))
+    (('GET "revision" commit-hash "fixed-output-package-derivations")
+     (if (parallel-via-thread-pool-channel
+          (with-thread-postgresql-connection
+           (lambda (conn)
+             (guix-commit-exists? conn commit-hash))))
+         (let ((parsed-query-parameters
+                (guard-against-mutually-exclusive-query-parameters
+                 (parse-query-parameters
+                  request
+                  `((system ,parse-system #:default "x86_64-linux")
+                    (target ,parse-target #:default "")
+                    (latest_build_status ,parse-build-status)
+                    (after_name          ,identity)
+                    (limit_results       ,parse-result-limit
+                                         #:no-default-when (all_results)
+                                         #:default 50)
+                    (all_results         ,parse-checkbox-value)))
+                 '((limit_results all_results)))))
+
+           (render-revision-fixed-output-package-derivations
+            mime-types
+            commit-hash
+            parsed-query-parameters
+            #:path-base path))
          (render-unknown-revision mime-types
                                   commit-hash)))
     (('GET "revision" commit-hash "package-derivation-outputs")
@@ -1050,6 +1077,96 @@
                           (with-thread-postgresql-connection valid-targets)))
                  (render-html
                   #:sxml (view-revision-package-derivations
+                          commit-hash
+                          query-parameters
+                          systems
+                          (valid-targets->options targets)
+                          derivations
+                          build-server-urls
+                          show-next-page?
+                          #:path-base path-base
+                          #:header-text header-text
+                          #:header-link header-link))))))))))
+
+(define* (render-revision-fixed-output-package-derivations
+          mime-types
+          commit-hash
+          query-parameters
+          #:key
+          (path-base "/revision/")
+          (header-text
+           `("Revision " (samp ,commit-hash)))
+          (header-link
+           (string-append "/revision/"
+                          commit-hash)))
+  (if (any-invalid-query-parameters? query-parameters)
+      (case (most-appropriate-mime-type
+             '(application/json text/html)
+             mime-types)
+        ((application/json)
+         (render-json
+          `((error . "invalid query"))))
+        (else
+         (letpar& ((systems
+                    (with-thread-postgresql-connection valid-systems))
+                   (targets
+                    (with-thread-postgresql-connection valid-targets)))
+           (render-html
+            #:sxml (view-revision-fixed-output-package-derivations
+                    commit-hash
+                    query-parameters
+                    systems
+                    (valid-targets->options targets)
+                    '()
+                    '()
+                    #f
+                    #:path-base path-base
+                    #:header-text header-text
+                    #:header-link header-link)))))
+      (let ((limit-results
+             (assq-ref query-parameters 'limit_results))
+            (all-results
+             (assq-ref query-parameters 'all_results))
+            (search-query
+             (assq-ref query-parameters 'search_query))
+            (fields
+             (assq-ref query-parameters 'field)))
+        (letpar&
+            ((derivations
+              (with-thread-postgresql-connection
+               (lambda (conn)
+                 (select-fixed-output-package-derivations-in-revision
+                  conn
+                  commit-hash
+                  (assq-ref query-parameters 'system)
+                  (assq-ref query-parameters 'target)
+                  #:latest-build-status (assq-ref query-parameters
+                                                  'latest_build_status)
+                  #:limit-results limit-results
+                  #:after-derivation-file-name
+                  (assq-ref query-parameters 'after_name)))))
+             (build-server-urls
+              (with-thread-postgresql-connection
+               select-build-server-urls-by-id)))
+          (let ((show-next-page?
+                 (if all-results
+                     #f
+                     (and (not (null? derivations))
+                          (>= (length derivations)
+                              limit-results)))))
+            (case (most-appropriate-mime-type
+                   '(application/json text/html)
+                   mime-types)
+              ((application/json)
+               (render-json
+                `((derivations . ,(list->vector derivations)))))
+              (else
+               (letpar& ((systems
+                          (with-thread-postgresql-connection valid-systems))
+                         (targets
+                          (with-thread-postgresql-connection valid-targets)))
+                 (render-html
+                  #:sxml (view-revision-fixed-output-package-derivations
                           commit-hash
                           query-parameters
                           systems
