@@ -116,7 +116,8 @@
          ,(build-status-value->display-string status)))
 
 (define (build-status-alist->build-icon status)
-  (build-status-span (assoc-ref status "status")))
+  (build-status-span (or (assoc-ref status "status")
+                         (assq-ref status 'status))))
 
 (define (build-status-label status count)
   `(span (@ (class ,(string-append
