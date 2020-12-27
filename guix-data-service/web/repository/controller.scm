@@ -293,6 +293,37 @@
            (render-no-latest-revision mime-types
                                       repository-id
                                       branch-name))))
+    (('GET "repository" repository-id "branch" branch-name
+           "latest-processed-revision" "fixed-output-package-derivations")
+     (letpar& ((commit-hash
+                (with-thread-postgresql-connection
+                 (lambda (conn)
+                   (latest-processed-commit-for-branch conn
+                                                       repository-id
+                                                       branch-name)))))
+       (if commit-hash
+           (let ((parsed-query-parameters
+                  (guard-against-mutually-exclusive-query-parameters
+                   (parse-query-parameters
+                    request
+                    `((system ,parse-system #:default "x86_64-linux")
+                      (target ,parse-target #:default "")
+                      (latest_build_status   ,parse-build-status)
+                      (after_name ,identity)
+                      (limit_results  ,parse-result-limit
+                                      #:no-default-when (all_results)
+                                      #:default 50)
+                      (all_results    ,parse-checkbox-value)))
+                   '((limit_results all_results)))))
+
+             (render-revision-fixed-output-package-derivations
+              mime-types
+              commit-hash
+              parsed-query-parameters
+              #:path-base path))
+           (render-no-latest-revision mime-types
+                                      repository-id
+                                      branch-name))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision" "package-derivation-outputs")
      (letpar& ((commit-hash
                 (with-thread-postgresql-connection
