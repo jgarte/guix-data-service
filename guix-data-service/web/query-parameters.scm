@@ -19,6 +19,7 @@
 
 (define-module (guix-data-service web query-parameters)
   #:use-module (guix-data-service web util)
+  #:use-module (guix-data-service model build-status)
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9 gnu)
@@ -45,6 +46,7 @@
             parse-result-limit
             parse-system
             parse-target
+            parse-build-status
             parse-derivation-build-status
 
             valid-targets->options))
@@ -235,6 +237,14 @@
   (if (string=? target "none")
       ""
       target))
+
+(define (parse-build-status status)
+  (if (member status build-status-strings)
+      status
+      (make-invalid-query-parameter
+       status
+       (string-append "unknown build status: "
+                      status))))
 
 (define (parse-derivation-build-status status)
   (define options
