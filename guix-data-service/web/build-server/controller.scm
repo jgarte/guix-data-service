@@ -135,7 +135,8 @@
           (lambda (item-data)
             (list (assoc-ref item-data "timestamp")
                   (assoc-ref item-data "event")))
-          items)))))
+          items)
+         #:transaction? #f))))
 
   (define (process-items items)
     (parallel-via-thread-pool-channel
