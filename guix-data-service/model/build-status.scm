@@ -58,7 +58,8 @@ WHERE builds.build_server_id = $1 AND
    (list build-id)
    `((,timestamp ,status))))
 
-(define (insert-build-statuses conn build-ids data)
+(define* (insert-build-statuses conn build-ids data
+                                #:key (transaction? #t))
   (define query
     (string-append
      "
@@ -130,10 +131,13 @@ WINDOW rows_for_build AS (
 
     (exec-query conn query))
 
-  (with-postgresql-transaction
-   conn
-   (lambda (conn)
-     (exec-query conn query '())
+  (define (operations conn)
+    (exec-query conn query '())
 
-     (delete-old-latest-status-entries conn)
-     (insert-new-latest-status-entries conn))))
+    (delete-old-latest-status-entries conn)
+    (insert-new-latest-status-entries conn))
+
+  (if transaction?
+      (with-postgresql-transaction conn
+                                   operations)
+      (operations conn)))
