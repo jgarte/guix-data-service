@@ -597,16 +597,17 @@ WITH RECURSIVE all_derivations(id) AS (
     INNER JOIN derivation_outputs
       ON derivation_inputs.derivation_output_id = derivation_outputs.id
 )
-SELECT derivations.file_name,
+SELECT DISTINCT ON (derivations.file_name)
+       derivations.file_name,
        (
           CASE
-          WHEN latest_builds.id IS NULL THEN NULL
+          WHEN builds.id IS NULL THEN NULL
           ELSE
             json_build_object(
-              'build_server_id', latest_builds.build_server_id,
-              'build_server_build_id', latest_builds.build_server_build_id,
-              'status', latest_builds.status,
-              'timestamp', latest_builds.timestamp
+              'build_server_id', builds.build_server_id,
+              'build_server_build_id', builds.build_server_build_id,
+              'status', latest_build_status.status,
+              'timestamp', latest_build_status.timestamp
             )
           END
        ) AS latest_build
@@ -617,20 +618,13 @@ INNER JOIN derivation_outputs
   ON all_derivations.id = derivation_outputs.derivation_id
 INNER JOIN derivation_output_details
   ON derivation_outputs.derivation_output_details_id = derivation_output_details.id
-LEFT JOIN (
-  SELECT DISTINCT ON (builds.derivation_file_name)
-         builds.*,
-         latest_build_status.status,
-         latest_build_status.timestamp
-  FROM builds
-  INNER JOIN latest_build_status
-    ON builds.id = latest_build_status.build_id
+LEFT JOIN builds
   -- This is intentional, as we want to build/check this exact derivation, not
   -- any others that happen to produce the same output
-  ORDER BY builds.derivation_file_name, latest_build_status.timestamp DESC
-) AS latest_builds
-  ON derivations.file_name = latest_builds.derivation_file_name
-WHERE hash IS NOT NULL"
+  ON derivations.file_name = builds.derivation_file_name
+LEFT JOIN latest_build_status
+  ON builds.id = latest_build_status.build_id
+WHERE derivation_output_details.hash IS NOT NULL"
      (if after-derivation-file-name
          "
   AND derivations.file_name > $5"
@@ -639,11 +633,11 @@ WHERE hash IS NOT NULL"
          (simple-format
           #f
           "
-  AND latest_builds.status = $~A"
+  AND latest_build_status.status = $~A"
           (if after-derivation-file-name 6 5))
          "")
      "
-ORDER BY derivations.file_name
+ORDER BY derivations.file_name, latest_build_status.timestamp DESC
 LIMIT $4"))
 
   (map (match-lambda
