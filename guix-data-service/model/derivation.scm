@@ -1299,8 +1299,8 @@ WHERE derivation_source_files.store_path = $1"
                           (double-quote
                            (string-append
                             (if recursive? "r:" "")
-                            hash-algorithm))
-                          (double-quote hash)))))
+                            (or hash-algorithm "")))
+                          (double-quote (or hash ""))))))
                      derivation-outputs))
               ;; Inputs
               ,(square-brackets-list
