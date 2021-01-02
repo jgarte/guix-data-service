@@ -1,4 +1,4 @@
- (define-module (tests model-license-set)
+(define-module (tests model-license-set)
   #:use-module (srfi srfi-64)
   #:use-module (guix utils)
   #:use-module (guix tests)
