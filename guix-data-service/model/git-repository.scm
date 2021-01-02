@@ -75,10 +75,12 @@ FROM git_repositories WHERE id = $1"
           (list (number->string id)))
     (((included_branches excluded_branches))
      (values
-      (if (string=? included_branches "")
+      (if (or (eq? #f included_branches)
+              (string-null? included_branches))
           '()
           (parse-postgresql-array-string included_branches))
-      (if (string=? excluded_branches "")
+      (if (or (eq? excluded_branches #f)
+              (string-null? excluded_branches))
           '()
           (parse-postgresql-array-string excluded_branches))))))
 
@@ -144,7 +146,8 @@ ORDER BY 1 DESC NULLS FIRST, 2 DESC LIMIT 10;")
      ((id job_id job_events commit source)
       (list id
             job_id
-            (if (string=? "" job_events)
+            (if (or (eq? #f job_events)
+                    (string-null? job_events))
                 '()
                 (vector->list (json-string->scm job_events)))
             commit source)))

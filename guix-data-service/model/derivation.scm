@@ -360,7 +360,8 @@ ORDER BY derivations.file_name
           (list file_name
                 system
                 target
-                (if (string-null? builds)
+                (if (or (and (string? builds) (string-null? builds))
+                        (eq? #f builds))
                     #()
                     (json-string->scm builds))))
          ((file_name system target)
@@ -553,7 +554,8 @@ ORDER BY derivations.file_name
           (list file_name
                 system
                 target
-                (if (string-null? builds)
+                (if (or (and (string? builds) (string-null? builds))
+                        (eq? #f builds))
                     #()
                     (json-string->scm builds)))))
        (exec-query conn
@@ -643,26 +645,26 @@ LIMIT $4"))
   (map (match-lambda
          ((derivation_file_name latest_build)
           `((derivation_file_name . ,derivation_file_name)
-            (latest_build         . ,(if
-                                      (string-null? latest_build)
-                                      'null
-                                      (map (match-lambda
-                                             ((key . value)
-                                              (cons (string->symbol key)
-                                                    value)))
-                                           (json-string->scm latest_build)))))))
-       (exec-query conn
-                   query
-                   `(,commit
-                     ,system
-                     ,target
-                     ,(number->string (or limit-results 999999)) ; TODO
-                     ,@(if after-derivation-file-name
-                           (list after-derivation-file-name)
-                           '())
-                     ,@(if latest-build-status
-                           (list latest-build-status)
-                           '())))))
+            (latest_build         . ,(if latest_build
+                                         (map (match-lambda
+                                                ((key . value)
+                                                 (cons (string->symbol key)
+                                                       value)))
+                                              (json-string->scm latest_build))
+                                         'null)))))
+       (exec-query-with-null-handling
+        conn
+        query
+        `(,commit
+          ,system
+          ,target
+          ,(number->string (or limit-results 999999)) ; TODO
+          ,@(if after-derivation-file-name
+                (list after-derivation-file-name)
+                '())
+          ,@(if latest-build-status
+                (list latest-build-status)
+                '())))))
 
 (define* (select-derivation-outputs-in-revision conn
                                                 commit-hash

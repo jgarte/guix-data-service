@@ -191,12 +191,14 @@
        (map
         (lambda (col-i)
           (let ((val (result-get-value result-ptr row-i col-i)))
-            (if (string-null? val)
-                (if (eq? 1 (%PQgetisnull
-                            (squee/unwrap-result-ptr result-ptr) row-i col-i))
-                    '()
-                    val)
-                val)))
+            (cond
+             ((eq? #f val) '())
+             ((string-null? val)
+              (if (eq? 1 (%PQgetisnull
+                          (squee/unwrap-result-ptr result-ptr) row-i col-i))
+                  '()
+                  val))
+             (else val))))
         cols-range))
      rows-range)))
 

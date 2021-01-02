@@ -548,7 +548,8 @@ ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.v
 (define (package-data->package-data-vhashes package-data)
   (define (add-data-to-vhash data vhash)
     (let ((key (first data)))
-      (if (string-null? key)
+      (if (or (eq? #f key)
+              (string-null? key))
           vhash
           (vhash-cons key
                       (drop data 1)
@@ -567,7 +568,8 @@ ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.v
 (define (package-derivation-data->package-derivation-data-vhashes package-data)
   (define (add-data-to-vhash data vhash)
     (let ((key (first data)))
-      (if (string-null? key)
+      (if (or (eq? key #f)
+              (string-null? key))
           vhash
           (vhash-cons key
                       (drop data 1)
@@ -600,7 +602,8 @@ ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.v
     '()
     (map (match-lambda
            ((base-name base-version _ _ _ _ _ target-name target-version _ _ _ _ _)
-            (if (string-null? base-name)
+            (if (or (and (string? base-name) (string-null? base-name))
+                    (eq? base-name #f))
                 (cons target-name target-version)
                 (cons base-name base-version))))
          package-data))))
@@ -733,7 +736,9 @@ ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.v
               `((system . ,system)
                 (target . ,target)
                 (derivation-file-name . ,derivation-file-name)
-                (builds               . ,(if (string-null? builds)
+                (builds               . ,(if (or (and (string? builds)
+                                                      (string-null? builds))
+                                                 (eq? #f builds))
                                              #()
                                              (json-string->scm builds))))))
           ,@(derivation-system-and-target-list->alist (cdr lst)))))

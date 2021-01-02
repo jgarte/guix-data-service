@@ -105,7 +105,8 @@ WHERE git_branches.commit = $1")
       (list commit
             datetime
             (string=? guix_revision_exists "t")
-            (if (string=? job_events "")
+            (if (or (and (string? job_events) (string-null? job_events))
+                    (eq? #f job_events))
                 '()
                 (vector->list (json-string->scm job_events))))))
    (exec-query
@@ -161,7 +162,8 @@ ORDER BY name, datetime DESC"))
             commit
             datetime
             (string=? guix_revision_exists "t")
-            (if (string=? job_events "")
+            (if (or (and (string? job_events) (string=? job_events ""))
+                    (eq? #f job_events))
                 '()
                 (vector->list (json-string->scm job_events))))))
    (exec-query
