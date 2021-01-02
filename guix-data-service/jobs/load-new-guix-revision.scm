@@ -1497,7 +1497,8 @@ ORDER BY load_new_guix_revision_jobs.id DESC
      ((id commit source git-repository-id created-at succeeded-at
           events-json log-exists?)
       (list id commit source git-repository-id created-at succeeded-at
-            (if (string-null? events-json)
+            (if (or (eq? #f events-json)
+                    (string-null? events-json))
                 #()
                 (json-string->scm events-json))
             (string=? log-exists? "t"))))
@@ -1552,7 +1553,8 @@ ORDER BY latest_branch_commit DESC, id DESC")
      ((id commit source git-repository-id created-at
           events-json log-exists? latest-branch-commit)
       (list id commit source git-repository-id created-at
-            (if (string-null? events-json)
+            (if (or (eq? #f events-json)
+                    (string-null? events-json))
                 #()
                 (json-string->scm events-json))
             (string=? log-exists? "t")
