@@ -324,6 +324,7 @@ SELECT base_packages.name, base_packages.version,
     SELECT JSON_AGG(
              json_build_object(
                'build_server_id', builds.build_server_id,
+               'build_server_build_id', builds.build_server_build_id,
                'status',  latest_build_status.status,
                'timestamp',  latest_build_status.timestamp,
                'build_for_equivalent_derivation',
@@ -348,6 +349,7 @@ SELECT base_packages.name, base_packages.version,
     SELECT JSON_AGG(
              json_build_object(
                'build_server_id', builds.build_server_id,
+               'build_server_build_id', builds.build_server_build_id,
                'status',  latest_build_status.status,
                'timestamp',  latest_build_status.timestamp,
                'build_for_equivalent_derivation',
