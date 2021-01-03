@@ -15,7 +15,7 @@ DESTINATION_FILE_NAME="$BACKUP_DIRECTORY/$DATE/$FULL_BACKUP_NAME"
 renice 19 -p $$ || true
 ionice -p $$ -c 3 || true
 
-pg_dump --format=custom --compress=9 --serializable-deferrable \
+"${PG_DUMP:-pg_dump}" --format=custom --compress=9 --serializable-deferrable \
         --no-comments \
         --username=guix_data_service \
         --file="$TEMPORARY_FILE_NAME" \

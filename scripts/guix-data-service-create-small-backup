@@ -350,7 +350,7 @@ EOF
 
 TEMPORARY_FILE_NAME="${TMPDIR:-/tmp}/guix_data_service_small-$DATE.dump.tmp"
 
-pg_dump --username=guix_data_service \
+"${PG_DUMP:-pg_dump}" --username=guix_data_service \
         --format=custom --compress=9 --serializable-deferrable \
         --no-comments \
         --username=guix_data_service \
