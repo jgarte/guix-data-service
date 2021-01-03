@@ -297,13 +297,12 @@
                     (@ (class "list-inline"))
                     ,@(map (lambda (build)
                              `(li
-                               (a (@ (href
-                                      ,(simple-format
-                                        #f "/build-server/~A/build?derivation_file_name=~A"
-                                        (assoc-ref build "build_server_id")
-                                        file-name)))
-                                  ,(build-status-span
-                                    (assoc-ref build "status")))))
+                               `(a (@ (href ,(build-url
+                                              build-server-id
+                                              (assoc-ref build
+                                                         "build_server_build_id")
+                                              derivation-file-name)))
+                                   ,(build-status-alist->build-icon build))))
                            builds))))))
              derivations)))))
       (div
@@ -922,11 +921,11 @@
                          (lambda (build)
                            (let ((build-server-id
                                   (assoc-ref build "build_server_id")))
-                             `(a (@ (href
-                                     ,(simple-format
-                                       #f "/build-server/~A/build?derivation_file_name=~A"
-                                       build-server-id
-                                       derivation-file-name)))
+                             `(a (@ (href ,(build-url
+                                            build-server-id
+                                            (assoc-ref build
+                                                       "build_server_build_id")
+                                            derivation-file-name)))
                                  ,(build-status-alist->build-icon build))))
                          builds)))))
              system-tests)))))))))
@@ -972,11 +971,11 @@
                          (lambda (build)
                            (let ((build-server-id
                                   (assoc-ref build "build_server_id")))
-                             `(a (@ (href
-                                     ,(simple-format
-                                       #f "/build-server/~A/build?derivation_file_name=~A"
-                                       build-server-id
-                                       derivation-file-name)))
+                             `(a (@ (href ,(build-url
+                                            build-server-id
+                                            (assoc-ref build
+                                                       "build_server_build_id")
+                                            derivation-file-name)))
                                  ,(build-status-alist->build-icon build))))
                          builds)))))
              channel-instances)))))))))

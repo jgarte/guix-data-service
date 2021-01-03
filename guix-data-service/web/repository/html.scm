@@ -523,9 +523,9 @@
                                                build-server-id)))
                                 (dd
                                  (a (@ (href
-                                        ,(simple-format
-                                          #f "/build-server/~A/build?derivation_file_name=~A"
+                                        ,(build-url
                                           build-server-id
+                                          (assoc-ref build "build_server_build_id")
                                           derivation-file-name)))
                                     ,(build-status-alist->build-icon build))))))
                           builds)))
@@ -773,9 +773,9 @@
                                                build-server-id)))
                                 (dd
                                  (a (@ (href
-                                        ,(simple-format
-                                          #f "/build-server/~A/build?derivation_file_name=~A"
+                                        ,(build-url
                                           build-server-id
+                                          (assoc-ref build "build_server_build_id")
                                           (assoc-ref build "derivation_file_name"))))
                                     ,(build-status-alist->build-icon build))))))
                           builds)))
