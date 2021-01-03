@@ -297,12 +297,13 @@
                     (@ (class "list-inline"))
                     ,@(map (lambda (build)
                              `(li
-                               `(a (@ (href ,(build-url
-                                              build-server-id
-                                              (assoc-ref build
-                                                         "build_server_build_id")
-                                              derivation-file-name)))
-                                   ,(build-status-alist->build-icon build))))
+                               (a (@ (href ,(build-url
+                                             (assoc-ref build
+                                                        "build_server_id")
+                                             (assoc-ref build
+                                                        "build_server_build_id")
+                                             file-name)))
+                                  ,(build-status-alist->build-icon build))))
                            builds))))))
              derivations)))))
       (div
