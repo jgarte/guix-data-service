@@ -78,9 +78,9 @@ LEFT JOIN pg_tablespace ON tablespace_id = pg_tablespace.oid")
          ((name tablespace row-estimate table-bytes toast-bytes)
           (list name
                 tablespace
-                (or (string->number row-estimate) 0)
-                (or (string->number table-bytes) 0)
-                (or (string->number toast-bytes) 0))))
+                (or (string->number (or row-estimate "")) 0)
+                (or (string->number (or table-bytes "")) 0)
+                (or (string->number (or toast-bytes "")) 0))))
        (exec-query conn query)))
 
 (define (fetch-pg-stat-user-tables-metrics conn)
