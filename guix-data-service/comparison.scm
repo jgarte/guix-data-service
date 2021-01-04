@@ -1064,12 +1064,6 @@ ORDER BY coalesce(base_system_tests.name, target_system_tests.name) ASC"))
           (line          . ,(string->number line))
           (column_number . ,(string->number column-number))))
 
-      (peek base_name base_description base_derivation_file_name
-                 base_file base_line base_column_number
-                 base_builds
-                 target_name target_description target_derivation_file_name
-                 target_file target_line target_column_number
-                 target_builds)
       `((name        . ,(or base_name target_name))
         (description . ,(if (and (string? base_description)
                                  (string? target_description)
