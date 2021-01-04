@@ -1195,22 +1195,40 @@ enough builds to determine a change")))
                      (list
                       (if (list? description-data)
                           (cons
-                           `(td ,(assq-ref description-data 'base))
-                           `(td ,(assq-ref description-data 'target)))
+                           `(td ,(let ((description
+                                        (assq-ref description-data 'base)))
+                                   (if (eq? description 'null)
+                                       ""
+                                       description)))
+                           `(td ,(let ((description
+                                        (assq-ref description-data 'target)))
+                                   (if (eq? description 'null)
+                                       ""
+                                       description))))
                           (cons
                            `(td (@ (rowspan 2))
                                 ,description-data)
                            ""))
                       (if (assq-ref location-data 'base)
                           (cons
-                           `(td ,(render-location
-                                  base-git-repositories
-                                  (assq-ref query-parameters 'base_commit)
-                                  (assq-ref location-data 'base)))
-                           `(td ,(render-location
-                                  target-git-repositories
-                                  (assq-ref query-parameters 'target_commit)
-                                  (assq-ref location-data 'target))))
+                           (if (list? (assq-ref location-data 'base))
+                               `(td ,(render-location
+                                      base-git-repositories
+                                      (if (eq? mode 'revision)
+                                          (assq-ref query-parameters
+                                                    'base_commit)
+                                          (second base-revision-details))
+                                      (assq-ref location-data 'base)))
+                               "")
+                           (if (list? (assq-ref location-data 'target))
+                               `(td ,(render-location
+                                      target-git-repositories
+                                      (if (eq? mode 'revision)
+                                          (assq-ref query-parameters
+                                                    'target_commit)
+                                          (second target-revision-details))
+                                      (assq-ref location-data 'target)))
+                               ""))
                           (cons
                            `(td (@ (rowspan 2))
                                 ,(render-location
@@ -1220,36 +1238,43 @@ enough builds to determine a change")))
                            ""))
                       (cons
                        (let ((base-derivation (assq-ref derivation-data 'base)))
-                         `(td
-                           (a (@ (style "display: block;")
-                                 (href ,base-derivation))
-                              (span (@ (class "text-danger glyphicon glyphicon-minus pull-left")
-                                       (style "font-size: 1.5em; padding-right: 0.4em;")))
-                              ,@(build-statuses->build-status-labels
-                                 (vector->list (assq-ref builds-data 'base)))
-                              ,(display-store-item-short base-derivation))))
+                         (if (string? base-derivation)
+                             `(td
+                               (a (@ (style "display: block;")
+                                     (href ,base-derivation))
+                                  (span (@ (class "text-danger glyphicon glyphicon-minus pull-left")
+                                           (style "font-size: 1.5em; padding-right: 0.4em;")))
+                                  ,@(build-statuses->build-status-labels
+                                     (vector->list (assq-ref builds-data 'base)))
+                                  ,(display-store-item-short base-derivation)))
+                             ""))
                        (let ((target-derivation (assq-ref derivation-data 'target)))
-                         `(td
-                           (a (@ (style "display: block;")
-                                 (href ,target-derivation))
-                              (span (@ (class "text-success glyphicon glyphicon-plus pull-left")
-                                       (style "font-size: 1.5em; padding-right: 0.4em;")))
-                              ,@(build-statuses->build-status-labels
-                                 (vector->list (assq-ref builds-data 'target)))
-                              ,(display-store-item-short target-derivation)))))
+                         (if (string? target-derivation)
+                             `(td
+                               (a (@ (style "display: block;")
+                                     (href ,target-derivation))
+                                  (span (@ (class "text-success glyphicon glyphicon-plus pull-left")
+                                           (style "font-size: 1.5em; padding-right: 0.4em;")))
+                                  ,@(build-statuses->build-status-labels
+                                     (vector->list (assq-ref builds-data 'target)))
+                                  ,(display-store-item-short target-derivation)))
+                             "")))
                       (cons
-                       `(td (@ (style "vertical-align: middle;")
-                               (rowspan 2))
-                            (a (@ (class "btn btn-sm btn-default")
-                                  (title "Compare")
-                                  (href
-                                   ,(string-append
-                                     "/compare/derivation?"
-                                     "base_derivation="
-                                     (assq-ref derivation-data 'base)
-                                     "&target_derivation="
-                                     (assq-ref derivation-data 'target))))
-                               "⇕ Compare"))
+                       (if (and (string? (assq-ref derivation-data 'base))
+                                (string? (assq-ref derivation-data 'target)))
+                           `(td (@ (style "vertical-align: middle;")
+                                   (rowspan 2))
+                                (a (@ (class "btn btn-sm btn-default")
+                                      (title "Compare")
+                                      (href
+                                       ,(string-append
+                                         "/compare/derivation?"
+                                         "base_derivation="
+                                         (assq-ref derivation-data 'base)
+                                         "&target_derivation="
+                                         (assq-ref derivation-data 'target))))
+                                   "⇕ Compare"))
+                           "")
                        "")))
 
                    `((tr

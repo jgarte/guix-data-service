@@ -200,6 +200,21 @@
 
        (render-compare/system-test-derivations mime-types
                                                parsed-query-parameters)))
+    (('GET "compare-by-datetime" "system-test-derivations")
+     (let* ((parsed-query-parameters
+             (parse-query-parameters
+              request
+              `((base_branch     ,identity #:required)
+                 (base_datetime   ,parse-datetime
+                                  #:default ,(current-date))
+                 (target_branch   ,identity #:required)
+                 (target_datetime ,parse-datetime
+                                  #:default ,(current-date))
+                 (system        ,parse-system #:default "x86_64-linux")))))
+
+       (render-compare-by-datetime/system-test-derivations
+        mime-types
+        parsed-query-parameters)))
     (_ #f)))
 
 (define (texinfo->variants-alist s)
@@ -929,3 +944,99 @@
                       base-git-repositories
                       target-git-repositories
                       data))))))))
+
+(define (render-compare-by-datetime/system-test-derivations mime-types
+                                                            query-parameters)
+  (if (any-invalid-query-parameters? query-parameters)
+      (case (most-appropriate-mime-type
+             '(application/json text/html)
+             mime-types)
+        ((application/json)
+         (render-json
+          '((error . "invalid query"))))
+        (else
+         (letpar& ((systems
+                    (with-thread-postgresql-connection
+                     valid-systems))
+                   (build-server-urls
+                    (with-thread-postgresql-connection
+                     select-build-server-urls-by-id)))
+         (render-html
+          #:sxml (compare/system-test-derivations
+                  query-parameters
+                  'datetime
+                  systems
+                  build-server-urls
+                  '()
+                  '()
+                  '())))))
+
+      (let ((base-branch     (assq-ref query-parameters 'base_branch))
+            (base-datetime   (assq-ref query-parameters 'base_datetime))
+            (target-branch   (assq-ref query-parameters 'target_branch))
+            (target-datetime (assq-ref query-parameters 'target_datetime))
+            (system         (assq-ref query-parameters 'system)))
+        (letpar&
+            ((base-revision-details
+              (with-thread-postgresql-connection
+               (lambda (conn)
+                 (select-guix-revision-for-branch-and-datetime conn
+                                                               base-branch
+                                                               base-datetime))))
+             (target-revision-details
+              (with-thread-postgresql-connection
+               (lambda (conn)
+                 (select-guix-revision-for-branch-and-datetime conn
+                                                               target-branch
+                                                               target-datetime)))))
+          (letpar& ((data
+                     (with-thread-postgresql-connection
+                      (lambda (conn)
+                        (system-test-derivations-differences-data
+                         conn
+                         (first base-revision-details)
+                         (first target-revision-details)
+                         system))))
+                    (build-server-urls
+                     (with-thread-postgresql-connection
+                      select-build-server-urls-by-id))
+                    (base-git-repositories
+                     (with-thread-postgresql-connection
+                      (lambda (conn)
+                        (git-repositories-containing-commit
+                         conn
+                         (second base-revision-details)))))
+                    (target-git-repositories
+                     (with-thread-postgresql-connection
+                      (lambda (conn)
+                        (git-repositories-containing-commit
+                         conn
+                         (second target-revision-details)))))
+                    (systems
+                     (with-thread-postgresql-connection
+                      valid-systems)))
+            (case (most-appropriate-mime-type
+                   '(application/json text/html)
+                   mime-types)
+              ((application/json)
+               (render-json
+                `((revisions
+                   . ((base
+                       . ((commit . ,(second base-revision-details))
+                          (datetime . ,(fifth base-revision-details))))
+                      (target
+                       . ((commit . ,(second target-revision-details))
+                          (datetime . ,(fifth target-revision-details))))))
+                  (changes . ,(list->vector data)))))
+              (else
+               (render-html
+                #:sxml (compare/system-test-derivations
+                        query-parameters
+                        'datetime
+                        systems
+                        build-server-urls
+                        base-git-repositories
+                        target-git-repositories
+                        data
+                        base-revision-details
+                        target-revision-details)))))))))
