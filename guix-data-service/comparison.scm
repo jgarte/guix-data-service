@@ -704,7 +704,7 @@ ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.v
         (target-versions
          (package-data-vhash->package-versions-hash-table
           target-packages-vhash)))
->
+
     (hash-fold (lambda (name target-versions result)
                  (let ((base-versions (hash-ref base-versions name)))
                    (if base-versions
@@ -787,9 +787,9 @@ ORDER BY coalesce(base_packages.name, target_packages.name) ASC, base_packages.v
     names-and-versions)))
 
 (define* (lint-warning-differences-data conn
-                                       base-guix-revision-id
-                                       target-guix-revision-id
-                                       locale)
+                                        base-guix-revision-id
+                                        target-guix-revision-id
+                                        locale)
   (define query
     (string-append "
 WITH base_lint_warnings AS (
