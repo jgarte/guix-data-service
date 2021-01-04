@@ -23,6 +23,7 @@
   #:use-module (texinfo)
   #:use-module (texinfo html)
   #:use-module (guix-data-service web query-parameters)
+  #:use-module (guix-data-service web util)
   #:use-module (guix-data-service web html-utils)
   #:use-module (guix-data-service web view html)
   #:export (compare
@@ -30,6 +31,7 @@
             compare/package-derivations
             compare-by-datetime/package-derivations
             compare/packages
+            compare/system-test-derivations
             compare-invalid-parameters))
 
 (define (compare-form-controls-for-mode mode query-parameters)
@@ -169,7 +171,7 @@
          `((div
             (@ (class "row") (style "clear: left;"))
             (div
-             (@ (class "col-sm-6"))
+             (@ (class "col-sm-10"))
              (div
               (@ (class "btn-group btn-group-lg")
                  (role "group"))
@@ -190,9 +192,18 @@
                              ((eq? mode 'datetime) "compare-by-datetime"))
                             "/package-derivations?"
                             query-params)))
-                 "Compare package derivations")))
+                 "Compare package derivations")
+             (a (@ (class "btn btn-default")
+                   (href ,(string-append
+                           "/"
+                           (cond
+                            ((eq? mode 'revision) "compare")
+                            ((eq? mode 'datetime) "compare-by-datetime"))
+                           "/system-test-derivations?"
+                           query-params)))
+                "Compare system test derivations")))
             (div
-             (@ (class "col-sm-6"))
+             (@ (class "col-sm-2"))
              (a (@ (class "btn btn-default btn-lg pull-right")
                    (href ,(string-append
                            "/compare.json?" query-params)))
@@ -663,6 +674,17 @@
                                       #:optional
                                       base-revision-details
                                       target-revision-details)
+  (define field-options
+    (map
+     (lambda (field)
+       (cons field
+             (hyphenate-words
+              (string-downcase field))))
+     '("(no additional fields)" "Builds")))
+
+  (define fields
+    (assq-ref query-parameters 'field))
+
   (layout
    #:body
    `(,(header)
@@ -775,6 +797,11 @@ and target derivations")
                             "No base and target derivation to compare, or not
 enough builds to determine a change")))
             #:allow-selecting-multiple-options #f)
+          ,(form-horizontal-control
+            "Fields" query-parameters
+            #:name "field"
+            #:options field-options
+            #:help-text "Fields to return in the response.")
           ,(form-horizontal-control
             "After name" query-parameters
             #:help-text
@@ -1004,3 +1031,231 @@ enough builds to determine a change")))
               (map (lambda (data)
                      (take data 2))
                    (vlist->list target-packages-vhash))))))))))))
+
+(define* (compare/system-test-derivations query-parameters
+                                          mode
+                                          valid-systems
+                                          build-server-urls
+                                          base-git-repositories
+                                          target-git-repositories
+                                          changes
+                                          #:optional
+                                          base-revision-details
+                                          target-revision-details)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container-fluid"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        ,@(cond
+           ((any-invalid-query-parameters? query-parameters)
+            '((h3 "Comparing system test derivations")))
+           ((eq? mode 'revision)
+            (let ((base-commit (assq-ref query-parameters 'base_commit))
+                  (target-commit (assq-ref query-parameters 'target_commit)))
+              `((h3
+                 (a (@ (href ,(string-append
+                               "/compare?base_commit="
+                               base-commit
+                               "&target_commit="
+                               target-commit)))
+                    "Comparing "
+                    (samp ,(string-take base-commit 8) "…")
+                    " and "
+                    (samp ,(string-take target-commit 8) "…"))))))
+           ((eq? mode 'datetime)
+            (let ((base-branch (assq-ref query-parameters 'base_branch))
+                  (base-datetime (assq-ref query-parameters 'base_datetime))
+                  (target-branch (assq-ref query-parameters 'target_branch))
+                  (target-datetime (assq-ref query-parameters 'target_datetime)))
+              `((h3
+                 (a (@ (href ,(string-append
+                               "/compare-by-datetime?"
+                               (query-parameters->string
+                                (filter (match-lambda
+                                          ((key . _)
+                                           (member key '(base_branch
+                                                         base_datetime
+                                                         target_branch
+                                                         target_datetime))))
+                                        query-parameters)))))
+                    "Comparing "
+                    (br)
+                    (samp (*ENTITY* nbsp) (*ENTITY* nbsp)
+                          ,base-branch
+                          ,@(map (lambda _ '(*ENTITY* nbsp))
+                                 (iota (max
+                                        0
+                                        (- (string-length target-branch)
+                                           (string-length base-branch))))))
+                    " at " ,(date->string base-datetime "~1 ~3")
+                    " to "
+                    (br)
+                    (samp (*ENTITY* nbsp) (*ENTITY* nbsp)
+                          ,target-branch
+                          ,@(map (lambda _ '(*ENTITY* nbsp))
+                                 (iota (max 0
+                                            (- (string-length base-branch)
+                                               (string-length target-branch))))))
+                    " at " ,(date->string target-datetime "~1 ~3")))))))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (div
+         (@ (class "well"))
+         (form
+          (@ (method "get")
+             (action "")
+             (class "form-horizontal"))
+          ,@(compare-form-controls-for-mode mode query-parameters)
+          ,(form-horizontal-control
+            "System" query-parameters
+            #:options valid-systems
+            #:allow-selecting-multiple-options #f
+            #:help-text "Only include derivations for this system."
+            #:font-family "monospace")
+          (div (@ (class "form-group form-group-lg"))
+               (div (@ (class "col-sm-offset-2 col-sm-10"))
+                    (button (@ (type "submit")
+                               (class "btn btn-lg btn-primary"))
+                            "Update results")))
+          (a (@ (class "btn btn-default btn-lg pull-right")
+                (href ,(let ((query-parameter-string
+                              (query-parameters->string query-parameters)))
+                         (string-append
+                          "/"
+                          (cond
+                           ((eq? mode 'revision) "compare")
+                           ((eq? mode 'datetime) "compare-by-datetime"))
+                          "/system-test-derivations.json"
+                          (if (string-null? query-parameter-string)
+                              ""
+                              (string-append "?" query-parameter-string))))))
+             "View JSON")))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-sm-12"))
+        (h1 "System test derivation changes")
+        ,(if
+          (null? changes)
+          '(p "No system test derivation changes")
+          `(table
+            (@ (class "table")
+               (style "table-layout: fixed;"))
+            (thead
+             (tr
+              (th (@ (class "col-sm-2"))
+                  "Name")
+              (th (@ (class "col-sm-2"))
+                  "Description")
+              (th (@ (class "col-sm-2"))
+                  "Location")
+              (th "Derivation")
+              (th (@ (class "col-sm-1"))
+                  "")))
+            (tbody
+             ,@(append-map
+                (match-lambda
+                  ((('name        . name)
+                    ('description . description-data)
+                    ('derivation  . derivation-data)
+                    ('location    . location-data)
+                    ('builds      . builds-data))
+
+                   (define (render-location git-repositories commit-hash
+                                            data)
+                     (map
+                      (match-lambda
+                        ((id label url cgit-url-base)
+                         (if
+                          (and cgit-url-base
+                               (not (string-null? cgit-url-base)))
+                          (match data
+                            ((('file          . file)
+                              ('line          . line)
+                              ('column_number . column-number))
+                             `(a (@ (href
+                                     ,(string-append
+                                       cgit-url-base "tree/"
+                                       file "?id=" commit-hash
+                                       "#n" (number->string line))))
+                                 ,file
+                                 " (line: " ,line
+                                 ", column: " ,column-number ")")))
+                          '())))
+                      git-repositories))
+
+                   (define cells
+                     (list
+                      (if (list? description-data)
+                          (cons
+                           `(td ,(assq-ref description-data 'base))
+                           `(td ,(assq-ref description-data 'target)))
+                          (cons
+                           `(td (@ (rowspan 2))
+                                ,description-data)
+                           ""))
+                      (if (assq-ref location-data 'base)
+                          (cons
+                           `(td ,(render-location
+                                  base-git-repositories
+                                  (assq-ref query-parameters 'base_commit)
+                                  (assq-ref location-data 'base)))
+                           `(td ,(render-location
+                                  target-git-repositories
+                                  (assq-ref query-parameters 'target_commit)
+                                  (assq-ref location-data 'target))))
+                          (cons
+                           `(td (@ (rowspan 2))
+                                ,(render-location
+                                  target-git-repositories
+                                  (assq-ref query-parameters 'target_commit)
+                                  location-data))
+                           ""))
+                      (cons
+                       (let ((base-derivation (assq-ref derivation-data 'base)))
+                         `(td
+                           (a (@ (style "display: block;")
+                                 (href ,base-derivation))
+                              (span (@ (class "text-danger glyphicon glyphicon-minus pull-left")
+                                       (style "font-size: 1.5em; padding-right: 0.4em;")))
+                              ,@(build-statuses->build-status-labels
+                                 (vector->list (assq-ref builds-data 'base)))
+                              ,(display-store-item-short base-derivation))))
+                       (let ((target-derivation (assq-ref derivation-data 'target)))
+                         `(td
+                           (a (@ (style "display: block;")
+                                 (href ,target-derivation))
+                              (span (@ (class "text-success glyphicon glyphicon-plus pull-left")
+                                       (style "font-size: 1.5em; padding-right: 0.4em;")))
+                              ,@(build-statuses->build-status-labels
+                                 (vector->list (assq-ref builds-data 'target)))
+                              ,(display-store-item-short target-derivation)))))
+                      (cons
+                       `(td (@ (style "vertical-align: middle;")
+                               (rowspan 2))
+                            (a (@ (class "btn btn-sm btn-default")
+                                  (title "Compare")
+                                  (href
+                                   ,(string-append
+                                     "/compare/derivation?"
+                                     "base_derivation="
+                                     (assq-ref derivation-data 'base)
+                                     "&target_derivation="
+                                     (assq-ref derivation-data 'target))))
+                               "⇕ Compare"))
+                       "")))
+
+                   `((tr
+                      (td (@ (rowspan 2))
+                          ,name)
+                      ,@(map car cells))
+                     (tr
+                      ,@(map cdr cells)))))
+                changes))))))))))

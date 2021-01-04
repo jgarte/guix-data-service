@@ -34,6 +34,7 @@
   #:use-module (guix-data-service comparison)
   #:use-module (guix-data-service jobs load-new-guix-revision)
   #:use-module (guix-data-service model guix-revision)
+  #:use-module (guix-data-service model git-repository)
   #:use-module (guix-data-service model derivation)
   #:use-module (guix-data-service model build-server)
   #:use-module (guix-data-service model build-status)
@@ -188,7 +189,17 @@
               `((base_commit   ,parse-commit #:required)
                 (target_commit ,parse-commit #:required)))))
        (render-compare/packages mime-types
-                               parsed-query-parameters)))
+                                parsed-query-parameters)))
+    (('GET "compare" "system-test-derivations")
+     (let* ((parsed-query-parameters
+             (parse-query-parameters
+              request
+              `((base_commit   ,parse-commit #:required)
+                (target_commit ,parse-commit #:required)
+                (system        ,parse-system #:default "x86_64-linux")))))
+
+       (render-compare/system-test-derivations mime-types
+                                               parsed-query-parameters)))
     (_ #f)))
 
 (define (texinfo->variants-alist s)
@@ -845,3 +856,76 @@
                         base-packages-vhash
                         target-packages-vhash)
                 #:extra-headers http-headers-for-unchanging-content))))))))
+
+(define (render-compare/system-test-derivations mime-types
+                                                query-parameters)
+  (if (any-invalid-query-parameters? query-parameters)
+      (case (most-appropriate-mime-type
+             '(application/json text/html)
+             mime-types)
+        ((application/json)
+         (render-json
+          '((error . "invalid query"))))
+        (else
+         (letpar& ((systems
+                    (with-thread-postgresql-connection
+                     valid-systems))
+                   (build-server-urls
+                    (with-thread-postgresql-connection
+                     select-build-server-urls-by-id)))
+         (render-html
+          #:sxml (compare/system-test-derivations
+                  query-parameters
+                  'revision
+                  systems
+                  build-server-urls
+                  '()
+                  '()
+                  '())))))
+
+      (let ((base-commit    (assq-ref query-parameters 'base_commit))
+            (target-commit  (assq-ref query-parameters 'target_commit))
+            (system         (assq-ref query-parameters 'system)))
+        (letpar& ((data
+                   (with-thread-postgresql-connection
+                    (lambda (conn)
+                      (system-test-derivations-differences-data
+                       conn
+                       (commit->revision-id conn base-commit)
+                       (commit->revision-id conn target-commit)
+                       system))))
+                  (build-server-urls
+                   (with-thread-postgresql-connection
+                    select-build-server-urls-by-id))
+                  (base-git-repositories
+                   (with-thread-postgresql-connection
+                    (lambda (conn)
+                      (git-repositories-containing-commit conn base-commit))))
+                  (target-git-repositories
+                   (with-thread-postgresql-connection
+                    (lambda (conn)
+                      (git-repositories-containing-commit conn target-commit))))
+                  (systems
+                   (with-thread-postgresql-connection
+                    valid-systems)))
+          (case (most-appropriate-mime-type
+                 '(application/json text/html)
+                 mime-types)
+            ((application/json)
+             (render-json
+              `((revisions
+                 . ((base
+                     . ((commit . ,base-commit)))
+                    (target
+                     . ((commit . ,target-commit)))))
+                (changes . ,(list->vector data)))))
+            (else
+             (render-html
+              #:sxml (compare/system-test-derivations
+                      query-parameters
+                      'revision
+                      systems
+                      build-server-urls
+                      base-git-repositories
+                      target-git-repositories
+                      data))))))))

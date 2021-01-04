@@ -44,6 +44,8 @@
 
             lint-warning-differences-data
 
+            system-test-derivations-differences-data
+
             channel-news-differences-data))
 
 (define (derivation-differences-data conn
@@ -962,6 +964,166 @@ ORDER BY coalesce(base_lint_warnings.name, target_lint_warnings.name) ASC, base_
               (list base-guix-revision-id
                     target-guix-revision-id
                     locale)))
+
+(define* (system-test-derivations-differences-data conn
+                                                   base_guix_revision_id
+                                                   target_guix_revision_id
+                                                   system)
+  (define query
+    (string-append "
+WITH base_system_tests AS (
+  SELECT name, description,
+         derivations.file_name AS derivation_file_name, derivation_output_details_set_id,
+         locations.file, locations.line, locations.column_number
+  FROM guix_revision_system_test_derivations
+  INNER JOIN system_tests
+    ON guix_revision_system_test_derivations.system_test_id = system_tests.id
+  INNER JOIN locations
+    ON system_tests.location_id = locations.id
+  INNER JOIN derivations
+    ON guix_revision_system_test_derivations.derivation_id = derivations.id
+  INNER JOIN derivations_by_output_details_set
+    ON guix_revision_system_test_derivations.derivation_id = derivations_by_output_details_set.derivation_id
+  WHERE guix_revision_id = $1
+    AND guix_revision_system_test_derivations.system = $3
+), target_system_tests AS (
+  SELECT name, description,
+         derivations.file_name AS derivation_file_name, derivation_output_details_set_id,
+         locations.file, locations.line, locations.column_number
+  FROM guix_revision_system_test_derivations
+  INNER JOIN system_tests
+    ON guix_revision_system_test_derivations.system_test_id = system_tests.id
+  INNER JOIN locations
+    ON system_tests.location_id = locations.id
+  INNER JOIN derivations
+    ON guix_revision_system_test_derivations.derivation_id = derivations.id
+  INNER JOIN derivations_by_output_details_set
+    ON guix_revision_system_test_derivations.derivation_id = derivations_by_output_details_set.derivation_id
+  WHERE guix_revision_id = $2
+    AND guix_revision_system_test_derivations.system = $3
+)
+SELECT base_system_tests.name, base_system_tests.description, base_system_tests.derivation_file_name,
+       base_system_tests.file, base_system_tests.line, base_system_tests.column_number,
+       (
+         SELECT JSON_AGG(
+           json_build_object(
+             'build_server_id', builds.build_server_id,
+             'build_server_build_id', builds.build_server_build_id,
+             'status',  latest_build_status.status,
+             'timestamp',  latest_build_status.timestamp,
+             'build_for_equivalent_derivation',
+             builds.derivation_file_name != base_system_tests.derivation_file_name
+           )
+           ORDER BY latest_build_status.timestamp
+         )
+         FROM builds
+         INNER JOIN latest_build_status
+           ON builds.id = latest_build_status.build_id
+         WHERE builds.derivation_output_details_set_id =
+               base_system_tests.derivation_output_details_set_id
+       ) AS base_builds,
+       target_system_tests.name, target_system_tests.description, target_system_tests.derivation_file_name,
+       target_system_tests.file, target_system_tests.line, target_system_tests.column_number,
+       (
+         SELECT JSON_AGG(
+           json_build_object(
+             'build_server_id', builds.build_server_id,
+             'build_server_build_id', builds.build_server_build_id,
+             'status',  latest_build_status.status,
+             'timestamp',  latest_build_status.timestamp,
+             'build_for_equivalent_derivation',
+             builds.derivation_file_name != target_system_tests.derivation_file_name
+           )
+           ORDER BY latest_build_status.timestamp
+         )
+         FROM builds
+         INNER JOIN latest_build_status
+           ON builds.id = latest_build_status.build_id
+         WHERE builds.derivation_output_details_set_id =
+               target_system_tests.derivation_output_details_set_id
+       ) AS target_builds
+FROM base_system_tests
+FULL OUTER JOIN target_system_tests
+  ON base_system_tests.name = target_system_tests.name
+WHERE
+  base_system_tests.name IS NULL OR
+  target_system_tests.name IS NULL OR
+  base_system_tests.derivation_file_name != target_system_tests.derivation_file_name
+ORDER BY coalesce(base_system_tests.name, target_system_tests.name) ASC"))
+
+  (map
+   (match-lambda
+     ((base_name base_description base_derivation_file_name
+                 base_file base_line base_column_number
+                 base_builds
+                 target_name target_description target_derivation_file_name
+                 target_file target_line target_column_number
+                 target_builds)
+      (define (location->alist file line column-number)
+        `((file          . ,file)
+          (line          . ,(string->number line))
+          (column_number . ,(string->number column-number))))
+
+      (peek base_name base_description base_derivation_file_name
+                 base_file base_line base_column_number
+                 base_builds
+                 target_name target_description target_derivation_file_name
+                 target_file target_line target_column_number
+                 target_builds)
+      `((name        . ,(or base_name target_name))
+        (description . ,(if (and (string? base_description)
+                                 (string? target_description)
+                                 (string=? base_description target_description))
+                            base_description
+                            `((base   . ,(if (null? base_description)
+                                             'null
+                                             base_description))
+                              (target . ,(if (null? target_description)
+                                             'null
+                                             target_description)))))
+        (derivation  . ,(if (and (string? base_derivation_file_name)
+                                 (string? target_derivation_file_name)
+                                 (string=? base_derivation_file_name
+                                           target_derivation_file_name))
+                            base_derivation_file_name
+                            `((base   . ,base_derivation_file_name)
+                              (target . ,target_derivation_file_name))))
+        (location    . ,(if
+                         (and (string? base_file)
+                              (string? target_file)
+                              (string=? base_file target_file)
+                              (string=? base_line target_line)
+                              (string=? base_column_number target_column_number))
+                         (location->alist base_file base_line base_column_number)
+                         `((base . ,(if (null? base_file)
+                                        'null
+                                        (location->alist
+                                         base_file
+                                         base_line
+                                         base_column_number)))
+                           (target . ,(if (null? base_file)
+                                          'null
+                                          (location->alist
+                                           target_file
+                                           target_line
+                                           target_column_number))))))
+        (builds      . ,(if (and (string? base_derivation_file_name)
+                                 (string? target_derivation_file_name)
+                                 (string=? base_derivation_file_name
+                                           target_derivation_file_name))
+                            (json-string->scm base_builds)
+                            `((base   . ,(if (null? base_builds)
+                                             #()
+                                             (json-string->scm base_builds)))
+                              (target . ,(if (null? target_builds)
+                                             #()
+                                             (json-string->scm target_builds)))))))))
+   (exec-query-with-null-handling
+    conn
+    query
+    (list base_guix_revision_id
+          target_guix_revision_id
+          system))))
 
 (define (channel-news-differences-data conn
                                        base-guix-revision-id
