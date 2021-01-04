@@ -1095,7 +1095,7 @@ ORDER BY coalesce(base_system_tests.name, target_system_tests.name) ASC"))
                                          base_file
                                          base_line
                                          base_column_number)))
-                           (target . ,(if (null? base_file)
+                           (target . ,(if (null? target_file)
                                           'null
                                           (location->alist
                                            target_file
