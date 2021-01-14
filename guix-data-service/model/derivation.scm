@@ -646,13 +646,13 @@ LIMIT $4"))
   (map (match-lambda
          ((derivation_file_name latest_build)
           `((derivation_file_name . ,derivation_file_name)
-            (latest_build         . ,(if latest_build
+            (latest_build         . ,(if (null? latest_build)
+                                         'null
                                          (map (match-lambda
                                                 ((key . value)
                                                  (cons (string->symbol key)
                                                        value)))
-                                              (json-string->scm latest_build))
-                                         'null)))))
+                                              (json-string->scm latest_build)))))))
        (exec-query-with-null-handling
         conn
         query
