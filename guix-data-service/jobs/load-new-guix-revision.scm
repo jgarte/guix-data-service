@@ -352,7 +352,11 @@ WHERE job_id = $1"
            (system-test-name system-test))
           (list (system-test-name system-test)
                 (system-test-description system-test)
-                (map (lambda (system)
+                (filter-map
+                 (lambda (system)
+                   (catch
+                     #t
+                     (lambda ()
                        (cons
                         system
                         (parameterize ((%current-system system))
@@ -360,7 +364,13 @@ WHERE job_id = $1"
                            (run-with-store store
                              (mbegin %store-monad
                                (system-test-value system-test)))))))
-                     (list ,@inferior-%supported-systems))
+                     (lambda (key . args)
+                       (simple-format
+                        (current-error-port)
+                        "guix-data-service: error computing derivation ~A: ~A\n"
+                        key args)
+                       #f)))
+                 (list ,@inferior-%supported-systems))
                 (match (system-test-location system-test)
                   (($ <location> file line column)
                    (list file
