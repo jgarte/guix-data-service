@@ -1233,7 +1233,10 @@ enough builds to determine a change")))
                            `(td (@ (rowspan 2))
                                 ,(render-location
                                   target-git-repositories
-                                  (assq-ref query-parameters 'target_commit)
+                                  (if (eq? mode 'revision)
+                                      (assq-ref query-parameters
+                                                'target_commit)
+                                      (second target-revision-details))
                                   location-data))
                            ""))
                       (cons
