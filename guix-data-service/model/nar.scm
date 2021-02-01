@@ -24,7 +24,7 @@
   #:use-module (rnrs bytevectors)
   #:use-module (gcrypt pk-crypto)
   #:use-module (gcrypt base16)
-  #:use-module (guix scripts substitute)
+  #:use-module (guix narinfo)
   #:use-module (guix-data-service model utils)
   #:export (select-outputs-without-known-nar-entries
             select-nars-for-output
@@ -36,7 +36,7 @@
             record-narinfo-details-and-return-ids))
 
 (define narinfo-contents
-  (@@ (guix scripts substitute) narinfo-contents))
+  (@@ (guix narinfo) narinfo-contents))
 
 (define (record-narinfo-details-and-return-ids conn build-server-id narinfos)
   (define data
