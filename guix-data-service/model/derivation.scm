@@ -604,7 +604,7 @@ SELECT DISTINCT ON (derivations.file_name)
        derivations.file_name,
        (
           CASE
-          WHEN builds.id IS NULL THEN NULL
+          WHEN latest_build_status.status IS NULL THEN NULL
           ELSE
             json_build_object(
               'build_server_id', builds.build_server_id,
@@ -627,6 +627,8 @@ LEFT JOIN builds
   ON derivations.file_name = builds.derivation_file_name
 LEFT JOIN latest_build_status
   ON builds.id = latest_build_status.build_id
+  -- These are the two interesting states, so ignore builds in any other states
+ AND latest_build_status.status IN ('succeeded', 'failed')
 WHERE derivation_output_details.hash IS NOT NULL"
      (if after-derivation-file-name
          "
