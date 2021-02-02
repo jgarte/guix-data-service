@@ -68,6 +68,7 @@
             select-recent-job-events
             select-unprocessed-jobs-and-events
             select-jobs-and-events-for-commit
+            guix-revision-loaded-successfully?
             record-job-event
             enqueue-load-new-guix-revision-job
             most-recent-n-load-new-guix-revision-jobs))
@@ -1314,50 +1315,60 @@ WHERE job_id = $1"
           (channel->derivations-by-system conn
                                           store
                                           channel-for-commit
-                                          fetch-with-authentication?))
-         (store-item
-          (channel-derivations-by-system->guix-store-item
-           store
-           channel-derivations-by-system)))
-    (if store-item
-        (let ((guix-revision-id
-               (insert-guix-revision conn git-repository-id
-                                     commit store-item)))
-          (and
-           guix-revision-id
-           (extract-information-from conn store
-                                     guix-revision-id
-                                     commit store-item)
-           (insert-channel-instances conn
-                                     guix-revision-id
-                                     (filter-map
-                                      (match-lambda
-                                        ((system . derivations)
-                                         (and=>
-                                          (assoc-ref derivations
-                                                     'manifest-entry-item)
-                                          (lambda (drv)
-                                            (cons system drv)))))
-                                      channel-derivations-by-system))
-           (if (defined? 'channel-news-for-commit
-                 (resolve-module '(guix channels)))
-               (with-time-logging "inserting channel news entries"
-                 (insert-channel-news-entries-for-guix-revision
-                  conn
-                  guix-revision-id
-                  (channel-news-for-commit channel-for-commit commit)))
-               (begin
-                 (simple-format #t "debug: importing channel news not supported\n")
-                 #t))
+                                          fetch-with-authentication?)))
+    (let ((guix-revision-id
+           (insert-guix-revision conn git-repository-id commit)))
+      (insert-channel-instances conn
+                                guix-revision-id
+                                (filter-map
+                                 (match-lambda
+                                   ((system . derivations)
+                                    (and=>
+                                     (assoc-ref derivations
+                                                'manifest-entry-item)
+                                     (lambda (drv)
+                                       (cons system drv)))))
+                                 channel-derivations-by-system))
 
-           (update-package-derivations-table conn
-                                             git-repository-id
-                                             guix-revision-id
-                                             commit)))
-        (begin
-          (simple-format #t "Failed to generate store item for ~A\n"
-                         commit)
-          #f))))
+      (simple-format
+       (current-error-port)
+       "guix-data-service: saving the channel instance derivations to the database\n")
+
+      ;; COMMIT so that the channel instances are saved to the database, then
+      ;; start a new transaction for the rest of the processing.
+      (exec-query conn "COMMIT")
+      (exec-query conn "BEGIN")
+
+      (let ((store-item
+             (channel-derivations-by-system->guix-store-item
+              store
+              channel-derivations-by-system)))
+        (if store-item
+            (begin
+              (extract-information-from conn store
+                                        guix-revision-id
+                                        commit store-item)
+
+              (if (defined? 'channel-news-for-commit
+                    (resolve-module '(guix channels)))
+                  (with-time-logging "inserting channel news entries"
+                    (insert-channel-news-entries-for-guix-revision
+                     conn
+                     guix-revision-id
+                     (channel-news-for-commit channel-for-commit commit)))
+                  (begin
+                    (simple-format
+                     #t "debug: importing channel news not supported\n")
+                    #t))
+
+              (update-package-derivations-table conn
+                                                git-repository-id
+                                                guix-revision-id
+                                                commit))
+            (begin
+              (simple-format #t "Failed to generate store item for ~A\n"
+                             commit)
+              #f))))))
 
 (define (enqueue-load-new-guix-revision-job conn git-repository-id commit source)
   (define query
@@ -1605,6 +1616,23 @@ ORDER BY load_new_guix_revision_jobs.id DESC")
                 (json-string->scm events-json))
             (string=? log-exists? "t"))))
    (exec-query conn query (list commit))))
+
+(define (guix-revision-loaded-successfully? conn commit)
+  (define query
+    "
+SELECT EXISTS(
+  SELECT 1
+  FROM load_new_guix_revision_jobs
+  INNER JOIN load_new_guix_revision_job_events
+    ON job_id = load_new_guix_revision_jobs.id
+  WHERE commit = $1
+    AND event = 'success'
+)")
+
+  (let ((result (caar
+                 (exec-query conn query (list commit)))))
+    (string=? result "t")))
+
 
 (define (most-recent-n-load-new-guix-revision-jobs conn n)
   (let ((result

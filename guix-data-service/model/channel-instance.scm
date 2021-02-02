@@ -24,6 +24,7 @@
   #:use-module (guix-data-service model utils)
   #:use-module (guix-data-service model derivation)
   #:export (insert-channel-instances
+            channel-instances-exist-for-guix-revision?
             select-channel-instances-for-guix-revision))
 
 (define (insert-channel-instances conn
@@ -51,6 +52,21 @@ VALUES "
             derivation-ids)
        ", "))))
   #t)
+
+(define (channel-instances-exist-for-guix-revision? conn commit-hash)
+  (define query
+    "
+SELECT EXISTS(
+  SELECT 1
+  FROM channel_instances
+  INNER JOIN guix_revisions
+    ON guix_revisions.id = channel_instances.guix_revision_id
+  WHERE guix_revisions.commit = $1
+)")
+
+  (let ((result (caar
+                 (exec-query conn query (list commit-hash)))))
+    (string=? result "t")))
 
 (define (select-channel-instances-for-guix-revision conn
                                                     commit-hash)

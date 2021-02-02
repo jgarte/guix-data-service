@@ -105,7 +105,7 @@
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
            (lambda (conn)
-             (guix-commit-exists? conn commit-hash))))
+             (guix-revision-loaded-successfully? conn commit-hash))))
          (render-view-revision mime-types
                                commit-hash
                                #:path-base path)
@@ -115,7 +115,7 @@
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
            (lambda (conn)
-             (guix-commit-exists? conn commit-hash))))
+             (guix-revision-loaded-successfully? conn commit-hash))))
          (let ((parsed-query-parameters
                 (parse-query-parameters
                  request
@@ -129,7 +129,7 @@
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
            (lambda (conn)
-             (guix-commit-exists? conn commit-hash))))
+             (guix-revision-loaded-successfully? conn commit-hash))))
          (let ((parsed-query-parameters
                 (guard-against-mutually-exclusive-query-parameters
                  (parse-query-parameters
@@ -158,7 +158,7 @@
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
            (lambda (conn)
-             (guix-commit-exists? conn commit-hash))))
+             (guix-revision-loaded-successfully? conn commit-hash))))
          (render-revision-packages-translation-availability mime-types
                                                             commit-hash
                                                             #:path-base path)
@@ -168,7 +168,7 @@
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
            (lambda (conn)
-             (guix-commit-exists? conn commit-hash))))
+             (guix-revision-loaded-successfully? conn commit-hash))))
          (render-revision-package mime-types
                                   commit-hash
                                   name)
@@ -178,7 +178,7 @@
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
            (lambda (conn)
-             (guix-commit-exists? conn commit-hash))))
+             (guix-revision-loaded-successfully? conn commit-hash))))
          (let ((parsed-query-parameters
                 (parse-query-parameters
                  request
@@ -194,7 +194,7 @@
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
            (lambda (conn)
-             (guix-commit-exists? conn commit-hash))))
+             (guix-revision-loaded-successfully? conn commit-hash))))
          (let ((parsed-query-parameters
                 (guard-against-mutually-exclusive-query-parameters
                  (parse-query-parameters
@@ -224,7 +224,7 @@
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
            (lambda (conn)
-             (guix-commit-exists? conn commit-hash))))
+             (guix-revision-loaded-successfully? conn commit-hash))))
          (let ((parsed-query-parameters
                 (guard-against-mutually-exclusive-query-parameters
                  (parse-query-parameters
@@ -250,7 +250,7 @@
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
            (lambda (conn)
-             (guix-commit-exists? conn commit-hash))))
+             (guix-revision-loaded-successfully? conn commit-hash))))
          (let ((parsed-query-parameters
                 (guard-against-mutually-exclusive-query-parameters
                  (parse-query-parameters
@@ -281,7 +281,7 @@
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
            (lambda (conn)
-             (guix-commit-exists? conn commit-hash))))
+             (guix-revision-loaded-successfully? conn commit-hash))))
          (let ((parsed-query-parameters
                 (parse-query-parameters
                  request
@@ -296,7 +296,7 @@
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
            (lambda (conn)
-             (guix-commit-exists? conn commit-hash))))
+             (channel-instances-exist-for-guix-revision? conn commit-hash))))
          (render-revision-channel-instances mime-types
                                             commit-hash
                                             #:path-base path)
@@ -306,7 +306,7 @@
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
            (lambda (conn)
-             (guix-commit-exists? conn commit-hash))))
+             (guix-revision-loaded-successfully? conn commit-hash))))
          (render-revision-package-substitute-availability mime-types
                                                           commit-hash
                                                           #:path-base path)
@@ -316,7 +316,7 @@
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
            (lambda (conn)
-             (guix-commit-exists? conn commit-hash))))
+             (guix-revision-loaded-successfully? conn commit-hash))))
          (render-revision-package-reproduciblity mime-types
                                                  commit-hash
                                                  #:path-base path)
@@ -326,7 +326,7 @@
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
            (lambda (conn)
-             (guix-commit-exists? conn commit-hash))))
+             (guix-revision-loaded-successfully? conn commit-hash))))
          (let ((parsed-query-parameters
                 (guard-against-mutually-exclusive-query-parameters
                  (parse-query-parameters
@@ -351,7 +351,7 @@
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
            (lambda (conn)
-             (guix-commit-exists? conn commit-hash))))
+             (guix-revision-loaded-successfully? conn commit-hash))))
          (let ((parsed-query-parameters
                 (parse-query-parameters
                  request

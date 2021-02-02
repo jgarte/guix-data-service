@@ -46,16 +46,13 @@
      id)
     (() #f)))
 
-(define (insert-guix-revision conn git-repository-id commit store_path)
+(define (insert-guix-revision conn git-repository-id commit)
   (define insert
-    (string-append "INSERT INTO guix_revisions "
-                   "(git_repository_id, commit, store_path) VALUES "
-                   "(" git-repository-id ", '"
-                   commit "', '"
-                   store_path "') "
-                   "RETURNING id;"))
+    "
+INSERT INTO guix_revisions (git_repository_id, commit)
+  VALUES ($1, $2) RETURNING id")
 
-  (match (exec-query conn insert)
+  (match (exec-query conn insert (list git-repository-id commit))
     (((id)) id)))
 
 (define (guix-commit-exists? conn commit)
