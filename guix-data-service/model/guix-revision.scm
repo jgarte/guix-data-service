@@ -83,7 +83,6 @@
     "
 SELECT guix_revisions.id,
        guix_revisions.commit,
-       guix_revisions.store_path,
        guix_revisions.git_repository_id,
        git_branches.datetime
 FROM guix_revisions

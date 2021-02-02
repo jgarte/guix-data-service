@@ -486,10 +486,10 @@
                       `((revisions
                          . ((base
                              . ((commit . ,(second base-revision-details))
-                                (datetime . ,(fifth base-revision-details))))
+                                (datetime . ,(fourth base-revision-details))))
                             (target
                              . ((commit . ,(second target-revision-details))
-                                (datetime . ,(fifth target-revision-details))))))
+                                (datetime . ,(fourth target-revision-details))))))
                         (channel-news . ,(list->vector
                                           (map
                                            (match-lambda
@@ -764,10 +764,10 @@
                       `((revisions
                          . ((base
                              . ((commit . ,(second base-revision-details))
-                                (datetime . ,(fifth base-revision-details))))
+                                (datetime . ,(fourth base-revision-details))))
                             (target
                              . ((commit . ,(second target-revision-details))
-                                (datetime . ,(fifth target-revision-details))))))
+                                (datetime . ,(fourth target-revision-details))))))
                         (derivation_changes
                          . ,derivation-changes))))
                     (else
@@ -1023,10 +1023,10 @@
                 `((revisions
                    . ((base
                        . ((commit . ,(second base-revision-details))
-                          (datetime . ,(fifth base-revision-details))))
+                          (datetime . ,(fourth base-revision-details))))
                       (target
                        . ((commit . ,(second target-revision-details))
-                          (datetime . ,(fifth target-revision-details))))))
+                          (datetime . ,(fourth target-revision-details))))))
                   (changes . ,(list->vector data)))))
               (else
                (render-html
