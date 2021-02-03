@@ -163,7 +163,10 @@ LIMIT 1"))
      "
 SELECT DISTINCT ON (name)
   name, git_branches.commit,
-  datetime, (guix_revisions.id IS NOT NULL) guix_revision_exists,
+  datetime,
+  (
+    load_new_guix_revision_jobs.succeeded_at IS NOT NULL
+  ) AS guix_revision_exists,
   (
     SELECT json_agg(event)
     FROM load_new_guix_revision_job_events
@@ -173,7 +176,11 @@ SELECT DISTINCT ON (name)
           git_branches.git_repository_id = load_new_guix_revision_jobs.git_repository_id
   ) AS job_events
 FROM git_branches
-LEFT OUTER JOIN guix_revisions ON git_branches.commit = guix_revisions.commit
+LEFT OUTER JOIN guix_revisions
+  ON git_branches.commit = guix_revisions.commit
+LEFT JOIN load_new_guix_revision_jobs
+  ON git_branches.commit = load_new_guix_revision_jobs.commit
+ AND git_branches.git_repository_id = load_new_guix_revision_jobs.git_repository_id
 WHERE git_branches.git_repository_id = $1
 ORDER BY name, datetime DESC"))
 
