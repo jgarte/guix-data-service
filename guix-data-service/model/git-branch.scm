@@ -118,13 +118,21 @@ WHERE git_branches.commit = $1")
 (define* (latest-processed-commit-for-branch conn repository-id branch-name)
   (define query
     (string-append
-     "SELECT git_branches.commit "
-     "FROM git_branches "
-     "INNER JOIN guix_revisions ON git_branches.commit = guix_revisions.commit "
-     "WHERE guix_revisions.git_repository_id = $1 AND "
-     "git_branches.git_repository_id = $1 AND git_branches.name = $2 "
-     "ORDER BY datetime DESC "
-     "LIMIT 1"))
+     "
+SELECT git_branches.commit
+FROM git_branches
+INNER JOIN guix_revisions
+  ON git_branches.commit = guix_revisions.commit
+INNER JOIN load_new_guix_revision_jobs
+  ON load_new_guix_revision_jobs.commit = guix_revisions.commit
+INNER JOIN load_new_guix_revision_job_events
+  ON job_id = load_new_guix_revision_jobs.id
+WHERE guix_revisions.git_repository_id = $1
+  AND git_branches.git_repository_id = $1
+  AND git_branches.name = $2
+  AND load_new_guix_revision_job_events.event = 'success'
+ORDER BY datetime DESC
+LIMIT 1"))
 
   (match (exec-query
           conn
