@@ -1790,27 +1790,26 @@ SKIP LOCKED")
                        id commit source)
 
         (if (eq?
-             (with-time-logging (string-append "loading revision " commit)
+             (with-time-logging (string-append "processing revision " commit)
                (setup-logging
                 id
                 (lambda ()
                   (with-exception-handler
                       (const #f)
                     (lambda ()
-                      (with-exception-handler
-                          (lambda (exn)
-                            (simple-format (current-error-port)
-                                           "error: load-new-guix-revision: ~A\n"
-                                           exn)
-                            (backtrace)
-                            #f)
+                      (with-throw-handler #t
                         (lambda ()
                           (with-store-connection
                            (lambda (store)
                              (load-new-guix-revision conn
                                                      store
                                                      git-repository-id
-                                                     commit))))))
+                                                     commit))))
+                        (lambda (key . args)
+                          (simple-format (current-error-port)
+                                         "error: load-new-guix-revision: ~A ~A\n"
+                                         key args)
+                          (backtrace))))
                     #:unwind? #t))))
              #t)
             (begin
