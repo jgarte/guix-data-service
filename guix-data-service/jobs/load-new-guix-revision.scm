@@ -1316,20 +1316,32 @@ WHERE job_id = $1"
                                           store
                                           channel-for-commit
                                           fetch-with-authentication?)))
-    (let ((guix-revision-id
-           (insert-guix-revision conn git-repository-id commit)))
-      (insert-channel-instances conn
-                                guix-revision-id
-                                (filter-map
-                                 (match-lambda
-                                   ((system . derivations)
-                                    (and=>
-                                     (assoc-ref derivations
-                                                'manifest-entry-item)
-                                     (lambda (drv)
-                                       (cons system drv)))))
-                                 channel-derivations-by-system))
 
+    (with-time-logging
+        "acquiring advisory transaction lock: load-new-guix-revision-inserts"
+      ;; Wait until this is the only transaction inserting data, to avoid any
+      ;; concurrency issues
+      (obtain-advisory-transaction-lock conn
+                                        'load-new-guix-revision-inserts))
+    (let* ((existing-guix-revision-id
+            (git-repository-id-and-commit->revision-id conn
+                                                       git-repository-id
+                                                       commit))
+           (guix-revision-id
+            (or existing-guix-revision-id
+                (insert-guix-revision conn git-repository-id commit))))
+      (unless existing-guix-revision-id
+        (insert-channel-instances conn
+                                  guix-revision-id
+                                  (filter-map
+                                   (match-lambda
+                                     ((system . derivations)
+                                      (and=>
+                                       (assoc-ref derivations
+                                                  'manifest-entry-item)
+                                       (lambda (drv)
+                                         (cons system drv)))))
+                                   channel-derivations-by-system)))
       (simple-format
        (current-error-port)
        "guix-data-service: saving the channel instance derivations to the database\n")
@@ -1777,32 +1789,30 @@ SKIP LOCKED")
         (simple-format #t "Processing job ~A (commit: ~A, source: ~A)\n\n"
                        id commit source)
 
-        (if (or
-             (guix-revision-exists? conn git-repository-id commit)
-             (eq?
-              (with-time-logging (string-append "loading revision " commit)
-                (setup-logging
-                 id
-                 (lambda ()
-                   (with-exception-handler
-                       (const #f)
-                     (lambda ()
-                       (with-exception-handler
-                           (lambda (exn)
-                             (simple-format (current-error-port)
-                                            "error: load-new-guix-revision: ~A\n"
-                                            exn)
-                             (backtrace)
-                             #f)
-                         (lambda ()
-                           (with-store-connection
-                            (lambda (store)
-                              (load-new-guix-revision conn
-                                                      store
-                                                      git-repository-id
-                                                      commit))))))
-                     #:unwind? #t))))
-              #t))
+        (if (eq?
+             (with-time-logging (string-append "loading revision " commit)
+               (setup-logging
+                id
+                (lambda ()
+                  (with-exception-handler
+                      (const #f)
+                    (lambda ()
+                      (with-exception-handler
+                          (lambda (exn)
+                            (simple-format (current-error-port)
+                                           "error: load-new-guix-revision: ~A\n"
+                                           exn)
+                            (backtrace)
+                            #f)
+                        (lambda ()
+                          (with-store-connection
+                           (lambda (store)
+                             (load-new-guix-revision conn
+                                                     store
+                                                     git-repository-id
+                                                     commit))))))
+                    #:unwind? #t))))
+             #t)
             (begin
               (record-job-succeeded conn id)
               (record-job-event conn id "success")

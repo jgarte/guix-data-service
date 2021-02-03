@@ -23,6 +23,7 @@
   #:export (count-guix-revisions
             most-recent-n-guix-revisions
             commit->revision-id
+            git-repository-id-and-commit->revision-id
             insert-guix-revision
             guix-commit-exists?
             guix-revision-exists?
@@ -42,6 +43,19 @@
   (match (exec-query
           conn "SELECT id FROM guix_revisions WHERE commit = $1 LIMIT 1"
           (list commit))
+    (((id))
+     id)
+    (() #f)))
+
+(define (git-repository-id-and-commit->revision-id conn git-repository-id commit)
+  (match (exec-query
+          conn
+          "
+SELECT id
+FROM guix_revisions
+WHERE commit = $1
+  AND git_repository_id = $2"
+          (list commit git-repository-id))
     (((id))
      id)
     (() #f)))
