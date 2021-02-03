@@ -139,10 +139,10 @@
              `((revisions
                 . ,(list->vector
                     (map (match-lambda
-                           ((commit-hash date revision-exists? _)
+                           ((commit-hash date data-available? _)
                             `((date            . ,date)
                               (commit-hash     . ,commit-hash)
-                              (data_available  . ,revision-exists?))))
+                              (data_available  . ,data-available?))))
                          revisions))))))
            (else
             (render-html

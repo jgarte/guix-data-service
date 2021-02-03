@@ -73,19 +73,30 @@ WHERE git_branches.commit = $1")
                                          before-date)
   (define query
     (string-append
-     "SELECT git_branches.commit, datetime, "
-     "(guix_revisions.id IS NOT NULL) as guix_revision_exists, "
-     "(
-        SELECT json_agg(event)
-        FROM load_new_guix_revision_job_events
-        INNER JOIN load_new_guix_revision_jobs ON
-          load_new_guix_revision_jobs.id = load_new_guix_revision_job_events.job_id
-        WHERE load_new_guix_revision_jobs.commit = git_branches.commit AND
-              git_branches.git_repository_id = load_new_guix_revision_jobs.git_repository_id
-      ) AS job_events "
-     "FROM git_branches "
-     "LEFT OUTER JOIN guix_revisions ON git_branches.commit = guix_revisions.commit "
-     "WHERE name = $1 AND git_branches.git_repository_id = $2"
+     "
+SELECT git_branches.commit,
+       datetime,
+       (
+         load_new_guix_revision_job_events.event IS NOT NULL
+       ) as data_available,
+       (
+          SELECT json_agg(event)
+          FROM load_new_guix_revision_job_events
+          INNER JOIN load_new_guix_revision_jobs ON
+            load_new_guix_revision_jobs.id = load_new_guix_revision_job_events.job_id
+          WHERE load_new_guix_revision_jobs.commit = git_branches.commit AND
+                git_branches.git_repository_id = load_new_guix_revision_jobs.git_repository_id
+       ) AS job_events
+FROM git_branches
+LEFT OUTER JOIN guix_revisions
+  ON git_branches.commit = guix_revisions.commit
+LEFT JOIN load_new_guix_revision_jobs
+  ON load_new_guix_revision_jobs.commit = guix_revisions.commit
+LEFT JOIN load_new_guix_revision_job_events
+  ON job_id = load_new_guix_revision_jobs.id
+ AND load_new_guix_revision_job_events.event = 'success'
+WHERE name = $1
+  AND git_branches.git_repository_id = $2"
      (if after-date
          (simple-format #f " AND datetime > '~A'"
                         (date->string after-date "~1 ~3"))
@@ -94,17 +105,20 @@ WHERE git_branches.commit = $1")
          (simple-format #f " AND datetime < '~A'"
                         (date->string before-date "~1 ~3"))
          "")
-     "ORDER BY datetime DESC"
+     "
+ORDER BY datetime DESC"
      (if limit
-         (simple-format #f " LIMIT ~A;" limit)
+         (string-append
+          "
+LIMIT " (number->string limit))
          "")))
 
   (map
    (match-lambda
-     ((commit datetime guix_revision_exists job_events)
+     ((commit datetime data_available job_events)
       (list commit
             datetime
-            (string=? guix_revision_exists "t")
+            (string=? data_available "t")
             (if (or (and (string? job_events) (string-null? job_events))
                     (eq? #f job_events))
                 '()
