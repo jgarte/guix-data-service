@@ -42,7 +42,8 @@
             view-revision-channel-instances
             view-revision-builds
             view-revision-lint-warnings
-            unknown-revision))
+            unknown-revision
+            unprocessed-revision))
 
 (define* (view-revision-news commit-hash
                              query-parameters
@@ -2350,3 +2351,30 @@ figure {
               (p "No known revision with commit "
                  (strong (samp ,commit-hash)))))))))
 
+(define (unprocessed-revision commit-hash job git-repositories-and-branches
+                              jobs-and-events)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container"))
+      ,@(if job
+            `((div
+               (@ (class "row"))
+               (div
+                (@ (class "col-md-12"))
+                (h1 (@ (style "white-space: nowrap;"))
+                    "Revision " (samp ,commit-hash) (br) "not yet processed")))
+              (div
+               (@ (class "row"))
+               (div
+                (@ (class "col-md-12"))
+                ,@(if (null? git-repositories-and-branches)
+                      '()
+                      (view-revision/git-repositories
+                       git-repositories-and-branches
+                       commit-hash))
+                ,@(view-revision/jobs-and-events jobs-and-events))))
+            `((h1 "Unknown revision")
+              (p "No known revision with commit "
+                 (strong (samp ,commit-hash)))))))))

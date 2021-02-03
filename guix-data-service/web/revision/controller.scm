@@ -123,8 +123,8 @@
            (render-revision-news mime-types
                                  commit-hash
                                  parsed-query-parameters))
-         (render-unknown-revision mime-types
-                                  commit-hash)))
+         (render-unprocessed-revision mime-types
+                                      commit-hash)))
     (('GET "revision" commit-hash "packages")
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
@@ -152,8 +152,8 @@
                                      commit-hash
                                      parsed-query-parameters
                                      #:path-base path))
-         (render-unknown-revision mime-types
-                                  commit-hash)))
+         (render-unprocessed-revision mime-types
+                                      commit-hash)))
     (('GET "revision" commit-hash "packages-translation-availability")
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
@@ -162,8 +162,8 @@
          (render-revision-packages-translation-availability mime-types
                                                             commit-hash
                                                             #:path-base path)
-         (render-unknown-revision mime-types
-                                  commit-hash)))
+         (render-unprocessed-revision mime-types
+                                      commit-hash)))
     (('GET "revision" commit-hash "package" name)
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
@@ -172,8 +172,8 @@
          (render-revision-package mime-types
                                   commit-hash
                                   name)
-         (render-unknown-revision mime-types
-                                  commit-hash)))
+         (render-unprocessed-revision mime-types
+                                      commit-hash)))
     (('GET "revision" commit-hash "package" name version)
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
@@ -188,8 +188,8 @@
                                                name
                                                version
                                                parsed-query-parameters))
-         (render-unknown-revision mime-types
-                                  commit-hash)))
+         (render-unprocessed-revision mime-types
+                                      commit-hash)))
     (('GET "revision" commit-hash "package-derivations")
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
@@ -218,8 +218,8 @@
                                                 commit-hash
                                                 parsed-query-parameters
                                                 #:path-base path))
-         (render-unknown-revision mime-types
-                                  commit-hash)))
+         (render-unprocessed-revision mime-types
+                                      commit-hash)))
     (('GET "revision" commit-hash "fixed-output-package-derivations")
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
@@ -244,8 +244,8 @@
             commit-hash
             parsed-query-parameters
             #:path-base path))
-         (render-unknown-revision mime-types
-                                  commit-hash)))
+         (render-unprocessed-revision mime-types
+                                      commit-hash)))
     (('GET "revision" commit-hash "package-derivation-outputs")
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
@@ -275,8 +275,8 @@
                                                        commit-hash
                                                        parsed-query-parameters
                                                        #:path-base path))
-         (render-unknown-revision mime-types
-                                  commit-hash)))
+         (render-unprocessed-revision mime-types
+                                      commit-hash)))
     (('GET "revision" commit-hash "system-tests")
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
@@ -290,8 +290,8 @@
                                          commit-hash
                                          parsed-query-parameters
                                          #:path-base path))
-         (render-unknown-revision mime-types
-                                  commit-hash)))
+         (render-unprocessed-revision mime-types
+                                      commit-hash)))
     (('GET "revision" commit-hash "channel-instances")
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
@@ -300,8 +300,8 @@
          (render-revision-channel-instances mime-types
                                             commit-hash
                                             #:path-base path)
-         (render-unknown-revision mime-types
-                                  commit-hash)))
+         (render-unprocessed-revision mime-types
+                                      commit-hash)))
     (('GET "revision" commit-hash "package-substitute-availability")
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
@@ -310,8 +310,8 @@
          (render-revision-package-substitute-availability mime-types
                                                           commit-hash
                                                           #:path-base path)
-         (render-unknown-revision mime-types
-                                  commit-hash)))
+         (render-unprocessed-revision mime-types
+                                      commit-hash)))
     (('GET "revision" commit-hash "package-reproducibility")
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
@@ -320,8 +320,8 @@
          (render-revision-package-reproduciblity mime-types
                                                  commit-hash
                                                  #:path-base path)
-         (render-unknown-revision mime-types
-                                  commit-hash)))
+         (render-unprocessed-revision mime-types
+                                      commit-hash)))
     (('GET "revision" commit-hash "builds")
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
@@ -345,8 +345,8 @@
                                    commit-hash
                                    parsed-query-parameters
                                    #:path-base path))
-         (render-unknown-revision mime-types
-                                  commit-hash)))
+         (render-unprocessed-revision mime-types
+                                      commit-hash)))
     (('GET "revision" commit-hash "lint-warnings")
      (if (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
@@ -368,8 +368,8 @@
                                           commit-hash
                                           parsed-query-parameters
                                           #:path-base path))
-         (render-unknown-revision mime-types
-                                  commit-hash)))
+         (render-unprocessed-revision mime-types
+                                      commit-hash)))
     (_ #f)))
 
 (define (texinfo->variants-alist s locale)
@@ -407,6 +407,37 @@
      (render-html
       #:code 404
       #:sxml (unknown-revision
+              commit-hash
+              job
+              git-repositories-and-branches
+              jobs-and-events))))))
+
+(define (render-unprocessed-revision mime-types commit-hash)
+  (case (most-appropriate-mime-type
+         '(application/json text/html)
+         mime-types)
+    ((application/json)
+     (render-json
+      '((unknown_commit . ,commit-hash))
+      #:code 404))
+    (else
+     (letpar& ((job
+                (with-thread-postgresql-connection
+                 (lambda (conn)
+                   (select-job-for-commit conn commit-hash))))
+               (git-repositories-and-branches
+                (with-thread-postgresql-connection
+                 (lambda (conn)
+                   (git-branches-with-repository-details-for-commit conn
+                                                                    commit-hash))))
+               (jobs-and-events
+                (with-thread-postgresql-connection
+                 (lambda (conn)
+                   (select-jobs-and-events-for-commit conn commit-hash)))))
+
+     (render-html
+      #:code 404
+      #:sxml (unprocessed-revision
               commit-hash
               job
               git-repositories-and-branches
