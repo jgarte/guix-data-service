@@ -100,13 +100,19 @@ FROM guix_revisions
 INNER JOIN git_branches
   ON git_branches.commit = guix_revisions.commit
  AND git_branches.git_repository_id = guix_revisions.git_repository_id
-WHERE git_branches.name = $1 AND git_branches.datetime <= $2
+INNER JOIN load_new_guix_revision_jobs
+  ON load_new_guix_revision_jobs.commit = guix_revisions.commit
+WHERE git_branches.name = $1
+  AND git_branches.datetime <= $2
+  AND load_new_guix_revision_jobs.succeeded_at IS NOT NULL
 ORDER BY git_branches.datetime DESC
 LIMIT 1")
 
-  (car
-   (exec-query conn query (list branch
-                                (date->string datetime "~1 ~3")))))
+  (match (exec-query conn query
+                     (list branch
+                           (date->string datetime "~1 ~3")))
+    (() #f)
+    ((result) result)))
 
 (define (guix-revisions-cgit-url-bases conn guix-revision-ids)
   (map
