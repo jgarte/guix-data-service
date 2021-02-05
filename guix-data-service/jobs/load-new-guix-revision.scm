@@ -1302,6 +1302,50 @@ WHERE job_id = $1")
 
 (prevent-inlining-for-tests extract-information-from)
 
+(define (load-channel-instances git-repository-id commit
+                                channel-derivations-by-system)
+  ;; Load the channel instances in a different transaction, so that this can
+  ;; commit prior to the outer transaction
+  (with-postgresql-connection
+   "load-new-guix-revision insert channel instances"
+   (lambda (channel-instances-conn)
+     (with-postgresql-transaction
+      channel-instances-conn
+      (lambda (channel-instances-conn)
+
+        (with-time-logging
+            "acquiring advisory transaction lock: load-new-guix-revision-inserts"
+          ;; Wait until this is the only transaction inserting data, to avoid
+          ;; any concurrency issues
+          (obtain-advisory-transaction-lock channel-instances-conn
+                                            'load-new-guix-revision-inserts))
+
+        (let* ((existing-guix-revision-id
+                (git-repository-id-and-commit->revision-id channel-instances-conn
+                                                           git-repository-id
+                                                           commit))
+               (guix-revision-id
+                (or existing-guix-revision-id
+                    (insert-guix-revision channel-instances-conn
+                                          git-repository-id commit))))
+          (unless existing-guix-revision-id
+            (insert-channel-instances channel-instances-conn
+                                      guix-revision-id
+                                      (filter-map
+                                       (match-lambda
+                                         ((system . derivations)
+                                          (and=>
+                                           (assoc-ref derivations
+                                                      'manifest-entry-item)
+                                           (lambda (drv)
+                                             (cons system drv)))))
+                                       channel-derivations-by-system))
+            (simple-format
+             (current-error-port)
+             "guix-data-service: saved the channel instance derivations to the database\n"))
+
+          guix-revision-id))))))
+
 (define (load-new-guix-revision conn store git-repository-id commit)
   (let* ((git-repository-fields
           (select-git-repository conn git-repository-id))
@@ -1317,72 +1361,40 @@ WHERE job_id = $1")
           (channel->derivations-by-system conn
                                           store
                                           channel-for-commit
-                                          fetch-with-authentication?)))
+                                          fetch-with-authentication?))
+         (guix-revision-id
+          (load-channel-instances git-repository-id commit
+                                  channel-derivations-by-system)))
+    (let ((store-item
+           (channel-derivations-by-system->guix-store-item
+            store
+            channel-derivations-by-system)))
+      (if store-item
+          (begin
+            (extract-information-from conn store
+                                      guix-revision-id
+                                      commit store-item)
 
-    (with-time-logging
-        "acquiring advisory transaction lock: load-new-guix-revision-inserts"
-      ;; Wait until this is the only transaction inserting data, to avoid any
-      ;; concurrency issues
-      (obtain-advisory-transaction-lock conn
-                                        'load-new-guix-revision-inserts))
-    (let* ((existing-guix-revision-id
-            (git-repository-id-and-commit->revision-id conn
-                                                       git-repository-id
-                                                       commit))
-           (guix-revision-id
-            (or existing-guix-revision-id
-                (insert-guix-revision conn git-repository-id commit))))
-      (unless existing-guix-revision-id
-        (insert-channel-instances conn
-                                  guix-revision-id
-                                  (filter-map
-                                   (match-lambda
-                                     ((system . derivations)
-                                      (and=>
-                                       (assoc-ref derivations
-                                                  'manifest-entry-item)
-                                       (lambda (drv)
-                                         (cons system drv)))))
-                                   channel-derivations-by-system)))
-      (simple-format
-       (current-error-port)
-       "guix-data-service: saving the channel instance derivations to the database\n")
+            (if (defined? 'channel-news-for-commit
+                  (resolve-module '(guix channels)))
+                (with-time-logging "inserting channel news entries"
+                  (insert-channel-news-entries-for-guix-revision
+                   conn
+                   guix-revision-id
+                   (channel-news-for-commit channel-for-commit commit)))
+                (begin
+                  (simple-format
+                   #t "debug: importing channel news not supported\n")
+                  #t))
 
-      ;; COMMIT so that the channel instances are saved to the database, then
-      ;; start a new transaction for the rest of the processing.
-      (exec-query conn "COMMIT")
-      (exec-query conn "BEGIN")
-
-      (let ((store-item
-             (channel-derivations-by-system->guix-store-item
-              store
-              channel-derivations-by-system)))
-        (if store-item
-            (begin
-              (extract-information-from conn store
-                                        guix-revision-id
-                                        commit store-item)
-
-              (if (defined? 'channel-news-for-commit
-                    (resolve-module '(guix channels)))
-                  (with-time-logging "inserting channel news entries"
-                    (insert-channel-news-entries-for-guix-revision
-                     conn
-                     guix-revision-id
-                     (channel-news-for-commit channel-for-commit commit)))
-                  (begin
-                    (simple-format
-                     #t "debug: importing channel news not supported\n")
-                    #t))
-
-              (update-package-derivations-table conn
-                                                git-repository-id
-                                                guix-revision-id
-                                                commit))
-            (begin
-              (simple-format #t "Failed to generate store item for ~A\n"
-                             commit)
-              #f))))))
+            (update-package-derivations-table conn
+                                              git-repository-id
+                                              guix-revision-id
+                                              commit))
+          (begin
+            (simple-format #t "Failed to generate store item for ~A\n"
+                           commit)
+            #f)))))
 
 (define (enqueue-load-new-guix-revision-job conn git-repository-id commit source)
   (define query
