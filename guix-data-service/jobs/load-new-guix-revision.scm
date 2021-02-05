@@ -90,8 +90,9 @@
     (exec-query
      conn
      (string-append
-      "INSERT INTO load_new_guix_revision_job_log_parts (id, job_id, contents) "
-      "VALUES (nextval('" (log-part-sequence-name job_id) "'), $1, $2)")
+      "
+INSERT INTO load_new_guix_revision_job_log_parts (id, job_id, contents)
+VALUES (nextval('" (log-part-sequence-name job_id) "'), $1, $2)")
      (list job_id s)))
 
   (define (log-string s)
@@ -283,13 +284,14 @@ WHERE job_id = $1"
      (exec-query
       conn
       (string-append
-       "UPDATE load_new_guix_revision_job_logs SET contents = "
-       "("
-       "SELECT STRING_AGG(contents, '' ORDER BY id ASC) FROM "
-       "load_new_guix_revision_job_log_parts WHERE job_id = $1 "
-       "GROUP BY job_id"
-       ")"
-       "WHERE job_id = $1")
+       "
+UPDATE load_new_guix_revision_job_logs SET contents = (
+  SELECT STRING_AGG(contents, '' ORDER BY id ASC)
+  FROM load_new_guix_revision_job_log_parts
+  WHERE job_id = $1
+  GROUP BY job_id
+)
+WHERE job_id = $1")
       (list job-id))
      (exec-query
       conn
@@ -1650,37 +1652,42 @@ SELECT EXISTS(
   (let ((result
          (exec-query
           conn
-          (string-append
-           "SELECT id, commit, source, git_repository_id "
-           "FROM load_new_guix_revision_jobs ORDER BY id ASC LIMIT $1")
+          "
+SELECT id, commit, source, git_repository_id
+FROM load_new_guix_revision_jobs
+ORDER BY id ASC
+LIMIT $1"
           (list (number->string n)))))
     result))
 
 (define (select-job-for-update conn id)
   (exec-query
    conn
-   (string-append
-    "SELECT id, commit, source, git_repository_id "
-    "FROM load_new_guix_revision_jobs "
-    "WHERE id = $1 AND succeeded_at IS NULL "
-    "FOR NO KEY UPDATE SKIP LOCKED")
+   "
+SELECT id, commit, source, git_repository_id
+FROM load_new_guix_revision_jobs
+WHERE id = $1
+  AND succeeded_at IS NULL
+FOR NO KEY UPDATE SKIP LOCKED"
    (list id)))
 
 (define (record-job-event conn job-id event)
   (exec-query
    conn
    (string-append
-    "INSERT INTO load_new_guix_revision_job_events (job_id, event) "
-    "VALUES ($1, $2)")
+    "
+INSERT INTO load_new_guix_revision_job_events (job_id, event)
+VALUES ($1, $2)")
    (list job-id event)))
 
 (define (record-job-succeeded conn id)
   (exec-query
    conn
    (string-append
-    "UPDATE load_new_guix_revision_jobs "
-    "SET succeeded_at = clock_timestamp() "
-    "WHERE id = $1 ")
+    "
+UPDATE load_new_guix_revision_jobs
+SET succeeded_at = clock_timestamp()
+WHERE id = $1 ")
    (list id)))
 
 (define (fetch-unlocked-jobs conn)
