@@ -25,6 +25,7 @@
   #:use-module (gcrypt pk-crypto)
   #:use-module (gcrypt base16)
   #:use-module (guix narinfo)
+  #:use-module (guix-data-service database)
   #:use-module (guix-data-service model utils)
   #:export (select-outputs-without-known-nar-entries
             select-nars-for-output
@@ -366,9 +367,9 @@ ORDER BY COUNT(*) DESC")
                  (match status
                    ("t" 'matching)
                    ("f" 'not-matching)
-                   ("" 'unknown))
+                   (() 'unknown))
                  (string->number count))))
-        (exec-query conn query (list revision-commit)))))
+        (exec-query-with-null-handling conn query (list revision-commit)))))
 
 (define (select-outputs-without-known-nar-entries
          conn
