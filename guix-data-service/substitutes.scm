@@ -16,8 +16,10 @@
 ;;; <http://www.gnu.org/licenses/>.
 
 (define-module (guix-data-service substitutes)
+  #:use-module (srfi srfi-1)
   #:use-module (ice-9 match)
   #:use-module (guix scripts substitute)
+  #:use-module (guix narinfo)
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service model build-server)
   #:use-module (guix-data-service model nar)
@@ -54,6 +56,11 @@
                      key args)))))))
          build-servers)))))
 
+(define %narinfo-max-size
+  (- (expt 2 (- (* 8 8) ;; 8 bytes
+                1))
+     1))
+
 (define* (fetch-narinfo-files conn build-server-id build-server-url
                               revision-commits
                               #:key specific-outputs)
@@ -80,4 +87,15 @@
          (record-narinfo-details-and-return-ids
           conn
           build-server-id
-          narinfos))))))
+          (filter-map
+           (lambda (narinfo)
+             (if (> (narinfo-size narinfo)
+                    %narinfo-max-size)
+                 (begin
+                   (simple-format (current-error-port)
+                                  "narinfo ~A has excessive size ~A\n"
+                                  (narinfo-path narinfo)
+                                  (narinfo-size narinfo))
+                   #f)
+                 narinfo))
+           narinfos)))))))
