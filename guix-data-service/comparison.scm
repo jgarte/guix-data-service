@@ -253,6 +253,7 @@ GROUP BY derivation_source_files.store_path"))
                                               (systems #f)
                                               (targets #f)
                                               (include-builds? #t)
+                                              (exclude-unchanged-outputs? #t)
                                               ;; Build changes are (symbols):
                                               ;; broken, fixed, still-failing,
                                               ;; still-working, unknown
@@ -285,7 +286,7 @@ GROUP BY derivation_source_files.store_path"))
   (define query
     (string-append "
 WITH base_packages AS (
-  SELECT packages.*, derivations.file_name,
+  SELECT packages.*, derivations.id AS derivation_id, derivations.file_name,
     package_derivations.system, package_derivations.target,
     derivations_by_output_details_set.derivation_output_details_set_id
   FROM packages
@@ -301,7 +302,7 @@ WITH base_packages AS (
     WHERE revision_id = $1
   )" extra-constraints "
 ), target_packages AS (
-  SELECT packages.*, derivations.file_name,
+  SELECT packages.*, derivations.id AS derivation_id, derivations.file_name,
     package_derivations.system, package_derivations.target,
     derivations_by_output_details_set.derivation_output_details_set_id
   FROM packages
@@ -382,6 +383,22 @@ WHERE
    (if after-name
        "
   AND coalesce(base_packages.name, target_packages.name) > $3"
+       "")
+   (if exclude-unchanged-outputs?
+       "
+  AND NOT (
+    (
+      SELECT array_agg(id ORDER BY id)
+      FROM derivation_outputs
+      WHERE derivation_outputs.derivation_id = base_packages.derivation_id
+    )
+    &&
+    (
+      SELECT array_agg(id ORDER BY id)
+      FROM derivation_outputs
+      WHERE derivation_outputs.derivation_id = target_packages.derivation_id
+    )
+  )"
        "")
    (cond
     ((eq? build-change #f) "")
