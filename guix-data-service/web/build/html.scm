@@ -25,6 +25,8 @@
 (define (view-builds query-parameters
                      build-status-strings
                      build-server-options
+                     valid-systems
+                     valid-targets
                      stats
                      builds)
   (layout
@@ -82,6 +84,25 @@
             query-parameters
             #:options build-server-options
             #:help-text "Return builds from these build servers.")
+          ,(form-horizontal-control
+            "System" query-parameters
+            #:options valid-systems
+            #:allow-selecting-multiple-options #f
+            #:help-text "Only include derivations for this system."
+            #:font-family "monospace")
+          ,(form-horizontal-control
+            "Target" query-parameters
+            #:options valid-targets
+            #:allow-selecting-multiple-options #f
+            #:help-text "Only include derivations that are build for this system."
+            #:font-family "monospace")
+          ,(form-horizontal-control
+            "Limit results" query-parameters
+            #:help-text "The maximum number of results to return.")
+          ,(form-horizontal-control
+            "All results" query-parameters
+            #:type "checkbox"
+            #:help-text "Return all results")
           (div (@ (class "form-group form-group-lg"))
                (div (@ (class "col-sm-offset-2 col-sm-10"))
                     (button (@ (type "submit")

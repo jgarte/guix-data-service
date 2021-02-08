@@ -25,6 +25,7 @@
   #:use-module (guix-data-service model build)
   #:use-module (guix-data-service model build-status)
   #:use-module (guix-data-service model build-server)
+  #:use-module (guix-data-service model derivation)
   #:use-module (guix-data-service web build html)
   #:export (build-controller))
 
@@ -66,44 +67,65 @@
   (let ((parsed-query-parameters
          (parse-query-parameters
           request
-          `((build_status ,parse-build-status #:multi-value)
-            (build_server ,parse-build-server #:multi-value)))))
+          `((build_status  ,parse-build-status #:multi-value)
+            (build_server  ,parse-build-server #:multi-value)
+            (system        ,parse-system #:default "x86_64-linux")
+            (target        ,parse-target #:default "")
+            (limit_results ,parse-result-limit
+                           #:no-default-when (all_results)
+                           #:default 50)
+            (all_results   ,parse-checkbox-value)))))
     (if (any-invalid-query-parameters? parsed-query-parameters)
         (render-html
          #:sxml (view-builds parsed-query-parameters
                              build-status-strings
                              '()
                              '()
+                             '()
+                             '()
                              '()))
-        (letpar& ((build-server-options
-                   (with-thread-postgresql-connection
-                    (lambda (conn)
-                      (map (match-lambda
-                             ((id url lookup-all-derivations
-                                  lookup-builds)
-                              (cons url id)))
-                           (select-build-servers conn)))))
-                  (build-stats
-                   (with-thread-postgresql-connection
-                    (lambda (conn)
-                      (select-build-stats
-                       conn
-                       (assq-ref parsed-query-parameters
-                                 'build_server)))))
-                  (builds-with-context
-                   (with-thread-postgresql-connection
-                    (lambda (conn)
-                      (select-builds-with-context
-                       conn
-                       (assq-ref parsed-query-parameters
-                                 'build_status)
-                       (assq-ref parsed-query-parameters
-                                 'build_server)
-                       #:limit 50)))))
+        (let ((system (assq-ref parsed-query-parameters 'system))
+              (target (assq-ref parsed-query-parameters 'target)))
+          (letpar& ((build-server-options
+                     (with-thread-postgresql-connection
+                      (lambda (conn)
+                        (map (match-lambda
+                               ((id url lookup-all-derivations
+                                    lookup-builds)
+                                (cons url id)))
+                             (select-build-servers conn)))))
+                    (build-stats
+                     (with-thread-postgresql-connection
+                      (lambda (conn)
+                        (select-build-stats
+                         conn
+                         (assq-ref parsed-query-parameters
+                                   'build_server)
+                         #:system system
+                         #:target target))))
+                    (builds-with-context
+                     (with-thread-postgresql-connection
+                      (lambda (conn)
+                        (select-builds-with-context
+                         conn
+                         (assq-ref parsed-query-parameters
+                                   'build_status)
+                         (assq-ref parsed-query-parameters
+                                   'build_server)
+                         #:system system
+                         #:target target
+                         #:limit (assq-ref parsed-query-parameters
+                                           'limit_results)))))
+                    (systems
+                     (with-thread-postgresql-connection valid-systems))
+                    (targets
+                     (with-thread-postgresql-connection valid-targets)))
 
-          (render-html
-           #:sxml (view-builds parsed-query-parameters
-                               build-status-strings
-                               build-server-options
-                               build-stats
-                               builds-with-context))))))
+            (render-html
+             #:sxml (view-builds parsed-query-parameters
+                                 build-status-strings
+                                 build-server-options
+                                 systems
+                                 (valid-targets->options targets)
+                                 build-stats
+                                 builds-with-context)))))))

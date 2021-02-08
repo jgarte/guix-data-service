@@ -16,6 +16,8 @@
 ;;; <http://www.gnu.org/licenses/>.
 
 (define-module (guix-data-service model build)
+  #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-11)
   #:use-module (ice-9 match)
   #:use-module (squee)
   #:use-module (json)
@@ -46,13 +48,13 @@
               ")"))
             '())
       ,@(if revision-commit
-            '("guix_revisions.commit = $1")
+            `(("guix_revisions.commit = $" . ,revision-commit))
             '())
       ,@(if system
-            '("package_derivations.system = $2")
+            `(("package_derivations.system = $" . ,system))
             '())
       ,@(if target
-            '("package_derivations.target = $3")
+            `(("package_derivations.target = $" . ,target))
             '())))
 
   (define query
@@ -60,15 +62,17 @@
      "
 SELECT latest_build_status.status AS build_status, build_servers.id, COUNT(*)
 FROM derivation_output_details_sets
-CROSS JOIN build_servers
-"
-     (if revision-commit
+CROSS JOIN build_servers"
+     (if (or revision-commit system target)
          "
 INNER JOIN derivations_by_output_details_set
   ON derivation_output_details_sets.id =
      derivations_by_output_details_set.derivation_output_details_set_id
 INNER JOIN package_derivations
-  ON derivations_by_output_details_set.derivation_id = package_derivations.derivation_id
+  ON derivations_by_output_details_set.derivation_id = package_derivations.derivation_id"
+         "")
+     (if revision-commit
+         "
 INNER JOIN guix_revision_package_derivations
   ON guix_revision_package_derivations.package_derivation_id = package_derivations.id
 INNER JOIN guix_revisions
@@ -86,7 +90,14 @@ LEFT JOIN latest_build_status
          ""
          (string-append
           "WHERE "
-          (string-join criteria " AND ")))
+          (string-join (let-values (((with-parameters without-parameters)
+                                     (partition pair? criteria)))
+                         (append (map (lambda (s index)
+                                        (string-append s (number->string index)))
+                                      (map car with-parameters)
+                                      (iota (length with-parameters) 1))
+                                 without-parameters))
+                       " AND ")))
      "
 GROUP BY latest_build_status.status, build_servers.id
 ORDER BY status"))
@@ -103,42 +114,40 @@ ORDER BY status"))
         1
         (exec-query conn
                     query
-                    `(,@(if revision-commit
-                            (list revision-commit)
-                            '())
-                      ,@(if system
-                            (list system)
-                            '())
-                      ,@(if target
-                            (list target)
-                            '()))))))
+                    (map (match-lambda
+                           ((sql . value) value))
+                         (filter pair? criteria))))))
 
 (define* (select-builds-with-context conn build-statuses build-server-ids
                                      #:key revision-commit
                                      system target
                                      limit)
   (define where-conditions
-    (filter
-     string?
-     (list
-      (when (list? build-statuses)
-        (string-append
-         "latest_build_status.status IN ("
-         (string-join (map quote-string build-statuses)
-                      ",")
-         ")"))
-      (when (list? build-server-ids)
-        (string-append
-         "builds.build_server_id IN ("
-         (string-join (map number->string build-server-ids)
-                      ", ")
-         ")"))
-      (when revision-commit
-        "guix_revisions.commit = $1")
-      (when system
-        "package_derivations.system = $2")
-      (when target
-        "package_derivations.target = $3"))))
+    `(,@(if (list? build-statuses)
+            (list
+             (string-append
+              "latest_build_status.status IN ("
+              (string-join (map quote-string build-statuses)
+                           ",")
+              ")"))
+            '())
+      ,@(if (list? build-server-ids)
+            (list
+             (string-append
+              "builds.build_server_id IN ("
+              (string-join (map number->string build-server-ids)
+                           ", ")
+              ")"))
+            '())
+      ,@(if revision-commit
+            `(("guix_revisions.commit = $" . ,revision-commit))
+            '())
+      ,@(if system
+            `(("package_derivations.system = $" . ,system))
+            '())
+      ,@(if target
+            `(("package_derivations.target = $" . ,target))
+            '())))
 
   (define query
     (string-append
@@ -148,15 +157,17 @@ SELECT builds.id, build_servers.url,
        latest_build_status.timestamp, latest_build_status.status
 FROM builds
 INNER JOIN build_servers ON build_servers.id = builds.build_server_id
-INNER JOIN derivations ON derivations.file_name = builds.derivation_file_name
-"
-     (if revision-commit
+INNER JOIN derivations ON derivations.file_name = builds.derivation_file_name"
+     (if (or revision-commit system target)
          "
 INNER JOIN derivations_by_output_details_set
   ON builds.derivation_output_details_set_id =
      derivations_by_output_details_set.derivation_output_details_set_id
 INNER JOIN package_derivations
-  ON derivations_by_output_details_set.derivation_id = package_derivations.derivation_id
+  ON derivations_by_output_details_set.derivation_id = package_derivations.derivation_id"
+         "")
+     (if revision-commit
+         "
 INNER JOIN guix_revision_package_derivations
   ON guix_revision_package_derivations.package_derivation_id = package_derivations.id
 INNER JOIN guix_revisions
@@ -164,13 +175,20 @@ INNER JOIN guix_revisions
          "")
      "
 INNER JOIN latest_build_status
-  ON latest_build_status.build_id = builds.id
-"
-                   (if (null? where-conditions)
-                       ""
-                       (string-append
-                        "WHERE "
-                        (string-join where-conditions " AND ")))
+  ON latest_build_status.build_id = builds.id"
+     (if (null? where-conditions)
+         ""
+         (string-append
+          "
+WHERE "
+          (string-join (let-values (((with-parameters without-parameters)
+                                     (partition pair? where-conditions)))
+                         (append (map (lambda (s index)
+                                        (string-append s (number->string index)))
+                                      (map car with-parameters)
+                                      (iota (length with-parameters) 1))
+                                 without-parameters))
+                       " AND ")))
                    "
 ORDER BY latest_build_status.timestamp DESC NULLS LAST, derivations.file_name
 "
@@ -181,15 +199,9 @@ ORDER BY latest_build_status.timestamp DESC NULLS LAST, derivations.file_name
 
   (exec-query-with-null-handling conn
                                  query
-                                 `(,@(if revision-commit
-                                         (list revision-commit)
-                                         '())
-                                   ,@(if system
-                                         (list system)
-                                         '())
-                                   ,@(if target
-                                         (list target)
-                                         '()))))
+                                 (map (match-lambda
+                                        ((sql . value) value))
+                                      (filter pair? where-conditions))))
 
 (define (select-builds-with-context-by-derivation-file-name
          conn derivation-file-name)
