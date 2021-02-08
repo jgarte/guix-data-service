@@ -386,19 +386,9 @@ WHERE
        "")
    (if exclude-unchanged-outputs?
        "
-  AND NOT (
-    (
-      SELECT array_agg(id ORDER BY id)
-      FROM derivation_outputs
-      WHERE derivation_outputs.derivation_id = base_packages.derivation_id
-    )
-    &&
-    (
-      SELECT array_agg(id ORDER BY id)
-      FROM derivation_outputs
-      WHERE derivation_outputs.derivation_id = target_packages.derivation_id
-    )
-  )"
+  AND base_packages.derivation_output_details_set_id <>
+      target_packages.derivation_output_details_set_id
+  "
        "")
    (cond
     ((eq? build-change #f) "")
