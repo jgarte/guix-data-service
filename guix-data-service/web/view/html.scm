@@ -26,6 +26,7 @@
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-19)
+  #:use-module (web uri)
   #:use-module (texinfo)
   #:use-module (texinfo html)
   #:use-module (json)
@@ -368,9 +369,12 @@ time."
           ((name commit date revision-exists? job-events)
            `(tr
              (td
-              (a (@ (href ,(string-append
-                            "/repository/" (number->string git-repository-id)
-                            "/branch/" name)))
+              (a (@ (href ,(encode-and-join-uri-path
+                            (list
+                             "repository"
+                             (number->string git-repository-id)
+                             "branch"
+                             name))))
                  ,name))
              (td ,date)
              (td ,@(if (string=? commit "")
