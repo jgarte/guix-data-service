@@ -386,8 +386,16 @@ WHERE
        "")
    (if exclude-unchanged-outputs?
        "
-  AND base_packages.derivation_output_details_set_id <>
+  AND
+  (
+    (
+      base_packages.derivation_output_details_set_id IS NULL OR
+      target_packages.derivation_output_details_set_id IS NULL
+    ) OR (
+      base_packages.derivation_output_details_set_id <>
       target_packages.derivation_output_details_set_id
+    )
+  )
   "
        "")
    (cond
