@@ -67,6 +67,7 @@
     "i586-gnu"
     "i686-linux"
     "mips64el-linux"
+    "powerpc64le-linux"
     "x86_64-linux"))
 
 (define (valid-targets conn)

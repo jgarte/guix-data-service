@@ -12,7 +12,7 @@
 
    (test-equal "valid-systems"
      '("aarch64-linux" "armhf-linux" "i586-gnu"
-       "i686-linux" "mips64el-linux" "x86_64-linux")
+       "i686-linux" "mips64el-linux" "powerpc64le-linux" "x86_64-linux")
      (valid-systems conn))
 
    (test-equal "count-derivations"
