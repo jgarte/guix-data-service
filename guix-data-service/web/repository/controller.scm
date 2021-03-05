@@ -368,6 +368,26 @@
            (render-no-latest-revision mime-types
                                       repository-id
                                       branch-name))))
+    (('GET "repository" repository-id "branch" branch-name
+           "latest-processed-revision" "system-tests")
+     (letpar& ((commit-hash
+                (with-thread-postgresql-connection
+                 (lambda (conn)
+                   (latest-processed-commit-for-branch conn
+                                                       repository-id
+                                                       branch-name)))))
+       (if commit-hash
+           (let ((parsed-query-parameters
+                  (parse-query-parameters
+                   request
+                   `((system ,parse-system #:default "x86_64-linux")))))
+             (render-revision-system-tests mime-types
+                                           commit-hash
+                                           parsed-query-parameters
+                                           #:path-base path))
+           (render-no-latest-revision mime-types
+                                      repository-id
+                                      branch-name))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision" "package-reproducibility")
      (letpar& ((commit-hash
                 (with-thread-postgresql-connection

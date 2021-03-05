@@ -60,6 +60,7 @@
             render-revision-package-derivations
             render-revision-fixed-output-package-derivations
             render-revision-package-derivation-outputs
+            render-revision-system-tests
             render-unknown-revision
             render-view-revision))
 
