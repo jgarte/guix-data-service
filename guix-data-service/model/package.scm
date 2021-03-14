@@ -34,7 +34,9 @@
             package-derivations-for-branch
             package-outputs-for-branch
 
-            any-package-synopsis-or-descriptions-translations?))
+            any-package-synopsis-or-descriptions-translations?
+
+            branches-by-package-version))
 
 (define (select-existing-package-entries package-entries)
   (string-append "SELECT id, packages.name, packages.version, "
@@ -532,3 +534,46 @@ ORDER BY first_datetime DESC, package_version DESC")
       (or (string=? synopsis-locale locale)
           (string=? description-locale locale))))
    packages))
+
+(define (branches-by-package-version conn package-name system target)
+  (define query
+    "
+WITH branches AS (
+  SELECT DISTINCT ON (git_repository_id, name) git_repository_id, name, commit
+  FROM git_branches
+  WHERE commit <> ''
+  ORDER BY git_repository_id, name, datetime DESC
+)
+SELECT packages.version,
+       JSON_AGG(
+         json_build_object(
+           'git_repository_id', branches.git_repository_id,
+           'name', branches.name
+         )
+       )
+FROM branches
+INNER JOIN guix_revisions
+  ON branches.git_repository_id = guix_revisions.git_repository_id
+ AND branches.commit = guix_revisions.commit
+INNER JOIN guix_revision_package_derivations
+  ON guix_revision_package_derivations.revision_id = guix_revisions.id
+INNER JOIN package_derivations
+  ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
+ AND package_derivations.system = $2
+ AND package_derivations.target = $3
+INNER JOIN packages
+ ON package_derivations.package_id = packages.id
+WHERE packages.name = $1
+GROUP BY packages.version
+ORDER BY packages.version DESC")
+
+  (list->vector
+   (map (match-lambda
+          ((version
+            branches-json)
+           `((version . ,version)
+             (branches . ,(json-string->scm branches-json)))))
+        (exec-query
+         conn
+         query
+         (list package-name system target)))))

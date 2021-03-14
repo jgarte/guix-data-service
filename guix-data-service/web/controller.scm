@@ -69,6 +69,7 @@
   #:use-module (guix-data-service web compare controller)
   #:use-module (guix-data-service web revision controller)
   #:use-module (guix-data-service web repository controller)
+  #:use-module (guix-data-service web package controller)
   #:export (%show-error-details
             controller))
 
@@ -646,6 +647,8 @@
      (delegate-to repository-controller))
     (('GET "repository" _ ...)
      (delegate-to repository-controller))
+    (('GET "package" _ ...)
+     (delegate-to package-controller))
     (('GET "gnu" "store" filename)
      ;; These routes are a little special, as the extensions aren't used for
      ;; content negotiation, so just use the path from the request

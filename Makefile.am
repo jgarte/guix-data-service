@@ -110,6 +110,8 @@ SOURCES =									\
   guix-data-service/web/compare/controller.scm					\
   guix-data-service/web/compare/html.scm					\
   guix-data-service/web/dumps/controller.scm					\
+  guix-data-service/web/package/controller.scm					\
+  guix-data-service/web/package/html.scm					\
   guix-data-service/web/dumps/html.scm						\
   guix-data-service/web/controller.scm						\
   guix-data-service/web/html-utils.scm						\
