@@ -28,6 +28,7 @@
             view-branch-package
             view-branch-package-derivations
             view-branch-package-outputs
+            view-branch-system-test-history
             view-no-latest-revision))
 
 (define* (view-git-repositories git-repositories)
@@ -840,6 +841,179 @@
                                 (rationalize width 1)))))))))))
                versions-list
                outputs-by-revision-range))))))))))
+
+(define (view-branch-system-test-history query-parameters
+                                         git-repository-id
+                                         branch-name
+                                         system-test-name
+                                         valid-systems
+                                         system-test-history)
+  (layout
+   #:body
+   `(,(header)
+     (div
+      (@ (class "container-fluid"))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (a (@ (href ,(string-append "/repository/" git-repository-id)))
+           (h3 "Repository"))
+        (a (@ (href ,(string-append "/repository/" git-repository-id
+                                    "/branch/" branch-name)))
+           (h3 ,(string-append branch-name " branch")))
+        (a (@ (class "btn btn-default btn-lg pull-right")
+              (style "margin-left: 0.5em;")
+              (href ,(string-append
+                      "/repository/" git-repository-id
+                      "/branch/" branch-name
+                      "/system-test/" system-test-name
+                      ".json")))
+           "View JSON")
+        (h1 (@ (style "white-space: nowrap;"))
+            (samp ,system-test-name))))
+      (div
+       (@ (class "col-md-12"))
+       (div
+        (@ (class "well"))
+        (form
+         (@ (method "get")
+            (action "")
+            (class "form-horizontal"))
+         ,(form-horizontal-control
+           "System" query-parameters
+           #:options valid-systems
+           #:allow-selecting-multiple-options #f
+           #:help-text "Show derivations with this system.")
+         (div (@ (class "form-group form-group-lg"))
+              (div (@ (class "col-sm-offset-2 col-sm-10"))
+                   (button (@ (type "submit")
+                              (class "btn btn-lg btn-primary"))
+                           "Update results"))))))
+      (div
+       (@ (class "row"))
+       (div
+        (@ (class "col-md-12"))
+        (table
+         (@ (class "table")
+            (style "table-layout: fixed;"))
+         (thead
+          (tr
+           (th (@ (class "col-sm-6")) "Derivation")
+           (th (@ (class "col-sm-2")) "From")
+           (th (@ (class "col-sm-2")) "To")
+           (th (@ (class "col-sm-1")) "")
+           (th (@ (class "col-sm-1")) "")))
+         (tbody
+          ,@(let* ((times-in-seconds
+                    (map (lambda (d)
+                           (time-second
+                            (date->time-monotonic
+                             (string->date d "~Y-~m-~d ~H:~M:~S"))))
+                         (append (map third system-test-history)
+                                 (map fifth system-test-history))))
+                   (earliest-date-seconds
+                    (apply min
+                           times-in-seconds))
+                   (latest-date-seconds
+                    (apply max
+                           times-in-seconds))
+                   (min-to-max-seconds
+                    (- latest-date-seconds
+                       earliest-date-seconds)))
+              (map
+               (match-lambda*
+                 (((derivation-file-name
+                    first-guix-revision-commit
+                    first-datetime
+                    last-guix-revision-commit
+                    last-datetime
+                    builds)
+                   next-derivation-file-name)
+                  `((tr
+                     (@ (style "border-bottom: 0;"))
+                     (td
+                      (a (@ (href ,derivation-file-name))
+                         ,(display-store-item derivation-file-name)
+                         ,@(build-statuses->build-status-labels builds)))
+                     (td (a (@ (href ,(string-append
+                                       "/revision/" first-guix-revision-commit))
+                               (title ,(simple-format
+                                        #f
+                                        "~A\n (Revision created at ~A)"
+                                        first-guix-revision-commit
+                                        first-datetime)))
+                            (samp ,(string-take first-guix-revision-commit 8) "…"))
+                         (small (@ (style "display: block;")
+                                   (title
+                                    ,(simple-format #f "Revision created at ~A" first-datetime)))
+                                ,first-datetime))
+                     (td (a (@ (href ,(string-append
+                                       "/revision/" last-guix-revision-commit))
+                               (title ,(simple-format
+                                        #f
+                                        "~A\n (Revision created at ~A)"
+                                        last-guix-revision-commit
+                                        last-datetime)))
+                            (samp ,(string-take last-guix-revision-commit 8) "…"))
+                         (small (@ (style "display: block;")
+                                   (title
+                                    ,(simple-format #f "Revision created at ~A" last-datetime)))
+                                ,last-datetime))
+                     (td
+                      (@ (rowspan 4)
+                         (style "vertical-align: middle;"))
+                      ,@(if next-derivation-file-name
+                            `((a
+                               (@ (class "btn btn-sm btn-default")
+                                  (title "Compare")
+                                  (href
+                                   ,(string-append
+                                     "/compare/derivation"
+                                     "?base_derivation=" next-derivation-file-name
+                                     "&target_derivation=" derivation-file-name)))
+                               "⇕ Compare"))
+                            '())))
+                    (tr
+                     (td
+                      (@ (colspan 4)
+                         (style "border-top: 0; padding-top: 0;"))
+                      (div
+                       (@
+                        (style
+                            ,(let* ((start-seconds
+                                     (time-second
+                                      (date->time-monotonic
+                                       (string->date first-datetime
+                                                     "~Y-~m-~d ~H:~M:~S"))))
+                                    (end-seconds
+                                     (time-second
+                                      (date->time-monotonic
+                                       (string->date last-datetime
+                                                     "~Y-~m-~d ~H:~M:~S"))))
+                                    (margin-left
+                                     (min
+                                      (* (/ (- start-seconds earliest-date-seconds)
+                                            min-to-max-seconds)
+                                         100)
+                                      98))
+                                    (width
+                                     (max
+                                      (- (* (/ (- end-seconds earliest-date-seconds)
+                                               min-to-max-seconds)
+                                            100)
+                                         margin-left)
+                                      2)))
+                               (simple-format
+                                #f
+                                "margin-left: ~A%; width: ~A%; height: 10px; background: #BEBEBE;"
+                                (rationalize margin-left 1)
+                                (rationalize width 1)))))))))))
+               system-test-history
+               (append
+                (map first
+                     (cdr system-test-history))
+                '(#f))))))))))))
 
 (define (view-no-latest-revision branch-name)
   (layout

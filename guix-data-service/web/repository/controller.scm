@@ -28,6 +28,7 @@
   #:use-module (guix-data-service model build-server)
   #:use-module (guix-data-service model derivation)
   #:use-module (guix-data-service model package)
+  #:use-module (guix-data-service model system-test)
   #:use-module (guix-data-service model git-branch)
   #:use-module (guix-data-service model git-repository)
   #:use-module (guix-data-service web view html)
@@ -201,6 +202,56 @@
                                            repository-id
                                            branch-name
                                            package-name))
+    (('GET "repository" repository-id "branch" branch-name
+           "system-test" system-test-name)
+     (let ((parsed-query-parameters
+            (parse-query-parameters
+             request
+             `((system ,parse-system #:default "x86_64-linux")))))
+       (letpar& ((system-test-history
+                  (with-thread-postgresql-connection
+                   (lambda (conn)
+                     (system-test-derivations-for-branch
+                      conn
+                      (string->number repository-id)
+                      branch-name
+                      (assq-ref parsed-query-parameters
+                                'system)
+                      system-test-name))))
+                 (valid-systems
+                  (with-thread-postgresql-connection valid-systems)))
+         (case (most-appropriate-mime-type
+                '(application/json text/html)
+                mime-types)
+           ((application/json)
+            (render-json
+             `((versions
+                . ,(list->vector
+                    (map (match-lambda
+                           ((derivation-file-name
+                             first-guix-revision-commit
+                             first-datetime
+                             last-guix-revision-commit
+                             last-datetime
+                             builds)
+                            `((derivation_file_name . ,derivation-file-name)
+                              (first_revision
+                               . ((commit . ,first-guix-revision-commit)
+                                  (datetime . ,first-datetime)))
+                              (last_revision
+                               . ((commit . ,last-guix-revision-commit)
+                                  (datetime . ,last-datetime)))
+                              (builds . ,(list->vector builds)))))
+                         system-test-history))))))
+           (else
+            (render-html
+             #:sxml (view-branch-system-test-history
+                     parsed-query-parameters
+                     repository-id
+                     branch-name
+                     system-test-name
+                     valid-systems
+                     system-test-history)))))))
     (('GET "repository" repository-id "branch" branch-name "latest-processed-revision")
      (letpar& ((commit-hash
                 (with-thread-postgresql-connection

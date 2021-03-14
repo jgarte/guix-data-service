@@ -25,7 +25,9 @@
   #:use-module (guix-data-service model location)
   #:use-module (guix-data-service model derivation)
   #:export (insert-system-tests-for-guix-revision
-            select-system-tests-for-guix-revision))
+
+            select-system-tests-for-guix-revision
+            system-test-derivations-for-branch))
 
 (define (insert-system-tests-for-guix-revision conn
                                                guix-revision-id
@@ -137,3 +139,102 @@ ORDER BY name ASC")
                     (vector->list
                      (json-string->scm builds-json))))))
    (exec-query conn query (list system commit-hash))))
+
+(define (system-test-derivations-for-branch conn
+                                            git-repository-id
+                                            branch-name
+                                            system
+                                            system-test-name)
+  (define query
+    "
+SELECT derivations.file_name,
+       first_guix_revisions.commit,
+       data2.first_datetime,
+       last_guix_revisions.commit,
+       data2.last_datetime,
+       JSON_AGG(
+         json_build_object(
+           'build_server_id', builds.build_server_id,
+           'build_server_build_id', builds.build_server_build_id,
+           'status',  latest_build_status.status,
+           'timestamp',  latest_build_status.timestamp,
+           'build_for_equivalent_derivation',
+           builds.derivation_file_name != derivations.file_name
+         )
+         ORDER BY latest_build_status.timestamp
+       ) AS builds
+FROM (
+  SELECT DISTINCT
+      derivation_id,
+      first_value(guix_revision_id)
+        OVER derivation_window AS first_guix_revision_id,
+      first_value(datetime)
+        OVER derivation_window AS first_datetime,
+      last_value(guix_revision_id)
+        OVER derivation_window AS last_guix_revision_id,
+      last_value(datetime)
+        OVER derivation_window AS last_datetime
+  FROM (
+    SELECT guix_revision_id,
+           git_branches.datetime,
+           derivation_id
+    FROM guix_revision_system_test_derivations
+    INNER JOIN system_tests
+      ON guix_revision_system_test_derivations.system_test_id = system_tests.id
+    INNER JOIN guix_revisions
+      ON guix_revisions.id = guix_revision_id
+    INNER JOIN git_branches
+      ON guix_revisions.git_repository_id = git_branches.git_repository_id
+     AND git_branches.commit = guix_revisions.commit
+    WHERE system_tests.name = $1
+      AND guix_revisions.git_repository_id = $2
+      AND git_branches.name = $3
+      AND system = $4
+  ) AS data1
+  WINDOW derivation_window AS (
+    PARTITION BY data1.derivation_id
+    ORDER BY data1.datetime ASC
+    RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+  )
+) AS data2
+INNER JOIN guix_revisions AS first_guix_revisions
+  ON first_guix_revisions.id = data2.first_guix_revision_id
+INNER JOIN guix_revisions AS last_guix_revisions
+  ON last_guix_revisions.id = data2.last_guix_revision_id
+INNER JOIN derivations
+  ON derivations.id = data2.derivation_id
+INNER JOIN derivations_by_output_details_set
+  ON derivations_by_output_details_set.derivation_id = derivations.id
+LEFT OUTER JOIN builds
+  ON derivations_by_output_details_set.derivation_output_details_set_id =
+     builds.derivation_output_details_set_id
+LEFT OUTER JOIN latest_build_status
+  ON builds.id = latest_build_status.build_id
+GROUP BY 1, 2, 3, 4, 5
+ORDER BY data2.first_datetime DESC")
+
+  (map (match-lambda
+         ((derivation-file-name
+           first-guix-revision-commit
+           first-datetime
+           last-guix-revision-commit
+           last-datetime
+           builds-json)
+          (list derivation-file-name
+                first-guix-revision-commit
+                first-datetime
+                last-guix-revision-commit
+                last-datetime
+                (if (string-null? builds-json)
+                    '()
+                    (filter (lambda (build)
+                              (number? (assoc-ref build "build_server_id")))
+                            (vector->list
+                             (json-string->scm builds-json)))))))
+       (exec-query
+        conn
+        query
+        (list system-test-name
+              (number->string git-repository-id)
+              branch-name
+              system))))
