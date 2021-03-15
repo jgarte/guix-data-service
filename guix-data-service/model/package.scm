@@ -539,7 +539,7 @@ ORDER BY first_datetime DESC, package_version DESC")
   (define query
     "
 WITH branches AS (
-  SELECT DISTINCT ON (git_repository_id, name) git_repository_id, name, commit
+  SELECT DISTINCT ON (git_repository_id, name) git_repository_id, name
   FROM git_branches
   WHERE commit <> ''
   ORDER BY git_repository_id, name, datetime DESC
@@ -552,17 +552,31 @@ SELECT packages.version,
          )
        )
 FROM branches
-INNER JOIN guix_revisions
-  ON branches.git_repository_id = guix_revisions.git_repository_id
- AND branches.commit = guix_revisions.commit
+CROSS JOIN LATERAL (
+  SELECT guix_revisions.id
+  FROM git_branches
+  INNER JOIN guix_revisions
+    ON git_branches.commit = guix_revisions.commit
+  INNER JOIN load_new_guix_revision_jobs
+    ON load_new_guix_revision_jobs.commit = guix_revisions.commit
+  INNER JOIN load_new_guix_revision_job_events
+    ON job_id = load_new_guix_revision_jobs.id
+  WHERE guix_revisions.git_repository_id = branches.git_repository_id
+    AND git_branches.git_repository_id = branches.git_repository_id
+    AND git_branches.name = branches.name
+    AND load_new_guix_revision_job_events.event = 'success'
+  ORDER BY datetime DESC
+  LIMIT 1
+) AS latest_processed_guix_revision
 INNER JOIN guix_revision_package_derivations
-  ON guix_revision_package_derivations.revision_id = guix_revisions.id
+  ON guix_revision_package_derivations.revision_id =
+     latest_processed_guix_revision.id
 INNER JOIN package_derivations
   ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
  AND package_derivations.system = $2
  AND package_derivations.target = $3
 INNER JOIN packages
- ON package_derivations.package_id = packages.id
+  ON package_derivations.package_id = packages.id
 WHERE packages.name = $1
 GROUP BY packages.version
 ORDER BY packages.version DESC")
