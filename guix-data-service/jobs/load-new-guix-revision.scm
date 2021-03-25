@@ -1370,27 +1370,27 @@ WHERE job_id = $1")
             store
             channel-derivations-by-system)))
       (if store-item
-          (begin
-            (extract-information-from conn store
-                                      guix-revision-id
-                                      commit store-item)
+          (and
+           (extract-information-from conn store
+                                     guix-revision-id
+                                     commit store-item)
 
-            (if (defined? 'channel-news-for-commit
-                  (resolve-module '(guix channels)))
-                (with-time-logging "inserting channel news entries"
-                  (insert-channel-news-entries-for-guix-revision
-                   conn
-                   guix-revision-id
-                   (channel-news-for-commit channel-for-commit commit)))
-                (begin
-                  (simple-format
-                   #t "debug: importing channel news not supported\n")
-                  #t))
+           (if (defined? 'channel-news-for-commit
+                 (resolve-module '(guix channels)))
+               (with-time-logging "inserting channel news entries"
+                 (insert-channel-news-entries-for-guix-revision
+                  conn
+                  guix-revision-id
+                  (channel-news-for-commit channel-for-commit commit)))
+               (begin
+                 (simple-format
+                  #t "debug: importing channel news not supported\n")
+                 #t))
 
-            (update-package-derivations-table conn
-                                              git-repository-id
-                                              guix-revision-id
-                                              commit))
+           (update-package-derivations-table conn
+                                             git-repository-id
+                                             guix-revision-id
+                                             commit))
           (begin
             (simple-format #t "Failed to generate store item for ~A\n"
                            commit)
