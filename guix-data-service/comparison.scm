@@ -1095,8 +1095,12 @@ ORDER BY coalesce(base_system_tests.name, target_system_tests.name) ASC"))
                                  (string=? base_derivation_file_name
                                            target_derivation_file_name))
                             base_derivation_file_name
-                            `((base   . ,base_derivation_file_name)
-                              (target . ,target_derivation_file_name))))
+                            `((base   . ,(if (null? base_derivation_file_name)
+                                             'null
+                                             base_derivation_file_name))
+                              (target . ,(if (null? target_derivation_file_name)
+                                             'null
+                                             target_derivation_file_name)))))
         (location    . ,(if
                          (and (string? base_file)
                               (string? target_file)
