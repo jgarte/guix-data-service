@@ -18,7 +18,7 @@
 (define-module (guix-data-service substitutes)
   #:use-module (srfi srfi-1)
   #:use-module (ice-9 match)
-  #:use-module (guix scripts substitute)
+  #:use-module (guix substitutes)
   #:use-module (guix narinfo)
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service model build-server)

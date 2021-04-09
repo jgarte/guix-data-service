@@ -35,7 +35,6 @@
                           (open-connection-for-uri
                            . guix:open-connection-for-uri)))
   #:use-module ((guix build utils) #:select (dump-port))
-  #:use-module (guix scripts substitute)
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service builds)
   #:use-module (guix-data-service model utils)
