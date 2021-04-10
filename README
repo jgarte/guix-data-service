@@ -146,6 +146,10 @@ text within the index function, in the =(guix-data-service web view html)=
 module (contained in the =guix-data-service/web/view/html.scm= file). That
 text appears towards the top of the index page (the page with the path =/=).
 
+* Contributing
+
+Please send patches to guix-devel@gnu.org.
+
 * Roadmap
 
 Ideas for future enhancements to the Guix Data Service, in no particular
