@@ -17,6 +17,7 @@
 
 (define-module (guix-data-service substitutes)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-19)
   #:use-module (ice-9 match)
   #:use-module (guix substitutes)
   #:use-module (guix narinfo)
@@ -69,7 +70,13 @@
         (select-outputs-without-known-nar-entries
          conn
          build-server-id
-         revision-commits)))
+         revision-commits
+         #:build-success-after
+         (if (null? revision-commits)
+             (time-utc->date
+              (subtract-duration (current-time)
+                                 (make-time time-duration 0 (* 60 5))))
+             #f))))
 
   (simple-format #t "Querying ~A outputs\n"
                  (length outputs))
