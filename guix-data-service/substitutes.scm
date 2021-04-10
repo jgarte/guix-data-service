@@ -80,22 +80,25 @@
     (simple-format #t "Got ~A narinfo files\n"
                    (length narinfos))
 
-    (unless (eq? (length narinfos) 0)
-      (with-postgresql-transaction
-       conn
-       (lambda (conn)
-         (record-narinfo-details-and-return-ids
-          conn
-          build-server-id
-          (filter-map
-           (lambda (narinfo)
-             (if (> (narinfo-size narinfo)
-                    %narinfo-max-size)
-                 (begin
-                   (simple-format (current-error-port)
-                                  "narinfo ~A has excessive size ~A\n"
-                                  (narinfo-path narinfo)
-                                  (narinfo-size narinfo))
-                   #f)
-                 narinfo))
-           narinfos)))))))
+    (let ((filtered-narinfos
+           (filter-map
+            (lambda (narinfo)
+              (if (> (narinfo-size narinfo)
+                     %narinfo-max-size)
+                  (begin
+                    (simple-format (current-error-port)
+                                   "narinfo ~A has excessive size ~A\n"
+                                   (narinfo-path narinfo)
+                                   (narinfo-size narinfo))
+                    #f)
+                  narinfo))
+            narinfos)))
+
+      (unless (null? filtered-narinfos)
+        (with-postgresql-transaction
+         conn
+         (lambda (conn)
+           (record-narinfo-details-and-return-ids
+            conn
+            build-server-id
+            filtered-narinfos)))))))
