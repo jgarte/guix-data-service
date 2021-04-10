@@ -17,6 +17,7 @@
 
 (define-module (guix-data-service model nar)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-19)
   #:use-module (ice-9 match)
   #:use-module (web uri)
   #:use-module (squee)
@@ -371,17 +372,34 @@ ORDER BY COUNT(*) DESC")
                  (string->number count))))
         (exec-query-with-null-handling conn query (list revision-commit)))))
 
-(define (select-outputs-without-known-nar-entries
-         conn
-         build-server-id
-         guix-revision-commits)
+(define* (select-outputs-without-known-nar-entries
+          conn
+          build-server-id
+          guix-revision-commits
+          #:key
+          build-success-after)
   (define query
     (string-append
      "
 SELECT DISTINCT derivation_output_details.path, derivation_output_details.id
 FROM derivation_outputs
 INNER JOIN derivation_output_details
-  ON derivation_outputs.derivation_output_details_id = derivation_output_details.id
+  ON derivation_outputs.derivation_output_details_id =
+     derivation_output_details.id"
+     (if build-success-after
+         "
+INNER JOIN derivation_output_details_sets
+  ON ARRAY[derivation_output_details.id] <@
+     derivation_output_details_sets.derivation_output_details_ids
+INNER JOIN builds
+  ON builds.build_server_id = $1
+ AND builds.derivation_output_details_set_id = derivation_output_details_sets.id
+INNER JOIN latest_build_status
+  ON latest_build_status.build_id = builds.id
+ AND latest_build_status.status = 'succeeded'
+ AND latest_build_status.timestamp > $2"
+         "")
+     "
 WHERE derivation_output_details.path NOT IN (
   -- Ignore outputs that have already been fetched
   SELECT store_path
@@ -420,7 +438,12 @@ WHERE derivation_output_details.path NOT IN (
 ORDER BY derivation_output_details.id DESC
 LIMIT 100000"))
 
-  (map car (exec-query conn query (list (number->string build-server-id)))))
+  (map car (exec-query conn
+                       query
+                       `(,(number->string build-server-id)
+                         ,@(if build-success-after
+                               (list (date->string build-success-after "~1 ~3"))
+                               '())))))
 
 (define (select-nars-for-output conn output-file-name)
   (define query
