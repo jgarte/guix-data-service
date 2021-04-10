@@ -75,7 +75,8 @@
          (if (null? revision-commits)
              (time-utc->date
               (subtract-duration (current-time)
-                                 (make-time time-duration 0 (* 60 5))))
+                                 (make-time time-duration 0 (* 60 5)))
+              0)                        ; tz-offset
              #f))))
 
   (simple-format #t "Querying ~A outputs\n"
