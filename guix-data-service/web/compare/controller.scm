@@ -588,9 +588,82 @@
                  '(application/json text/html)
                  mime-types)
             ((application/json)
-             (render-json
-              '((error . "unimplemented")) ; TODO
-              #:extra-headers http-headers-for-unchanging-content))
+             (let ((outputs
+                    (map
+                     (lambda (label items)
+                       (cons label
+                             (list->vector
+                              (map
+                               (match-lambda
+                                 ((name path hash-alg hash recursive)
+                                  `((name . ,name)
+                                    (path . ,path)
+                                    ,@(if (string? hash-alg)
+                                          `((hash-algorithm . ,hash-alg))
+                                          '())
+                                    ,@(if (string? hash)
+                                          `((hash . ,hash))
+                                          '())
+                                    (recursive . ,(string=? recursive "t")))))
+                               (or items '())))))
+                     '(base target common)
+                     (let ((output-groups (assq-ref data 'outputs)))
+                       (list (assq-ref output-groups 'base)
+                             (assq-ref output-groups 'target)
+                             (assq-ref output-groups 'common)))))
+
+                   (inputs
+                    (map
+                     (lambda (label items)
+                       (cons label
+                             (list->vector
+                              (map
+                               (match-lambda
+                                 ((derivation output)
+                                  `((derivation . ,derivation)
+                                    (output . ,output))))
+                               (or items '())))))
+                     '(base target common)
+                     (let ((input-groups (assq-ref data 'inputs)))
+                       (list (assq-ref input-groups 'base)
+                             (assq-ref input-groups 'target)
+                             (assq-ref input-groups 'common)))))
+
+                   (sources
+                    (map
+                     (lambda (label items)
+                       (cons label
+                             (list->vector
+                              (map
+                               (match-lambda
+                                 ((derivation)
+                                  `((derivation . ,derivation))))
+                               (or items '())))))
+                     '(base target common)
+                     (let ((source-groups (assq-ref data 'sources)))
+                       (list (assq-ref source-groups 'base)
+                             (assq-ref source-groups 'target)
+                             (assq-ref source-groups 'common)))))
+
+                   (arguments
+                    (map
+                     (match-lambda
+                       ((label args ...)
+                        `(,label . ,(list->vector args))))
+                     (assq-ref data 'arguments))))
+
+               (render-json
+                `((base                  . ((derivation . ,base-derivation)))
+                  (target                . ((derivation . ,target-derivation)))
+                  (outputs               . ,outputs)
+                  (inputs                . ,inputs)
+                  (sources               . ,sources)
+                  (system                . ,(assq-ref data 'system))
+                  (builder               . ,(assq-ref data 'builder))
+                  (arguments             . ,arguments)
+                  (environment-variables . ,(assq-ref
+                                             data 'environment-variables)))
+                #:extra-headers http-headers-for-unchanging-content)))
             (else
              (render-html
               #:sxml (compare/derivation
