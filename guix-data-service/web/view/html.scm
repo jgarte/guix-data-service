@@ -761,7 +761,7 @@ time."
                        ,(display-store-item path))
                     "\","
                     ,(string-append (if recursive? "\"r:" "\"")
-                                    hash-algorithm)
+                                    (or hash-algorithm ""))
                     "\""
                     ","
                     "\"" ,hash "\""
