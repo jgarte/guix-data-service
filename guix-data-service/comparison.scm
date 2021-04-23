@@ -264,7 +264,7 @@ GROUP BY derivation_source_files.store_path"))
     (string-append
      (if systems
          (string-append
-          " AND package_derivations.system IN ("
+          " AND systems.system IN ("
           (string-join (map
                         (lambda (s)
                           (string-append "'" s "'"))
@@ -287,11 +287,13 @@ GROUP BY derivation_source_files.store_path"))
     (string-append "
 WITH base_packages AS (
   SELECT packages.*, derivations.id AS derivation_id, derivations.file_name,
-    package_derivations.system, package_derivations.target,
+    systems.system, package_derivations.target,
     derivations_by_output_details_set.derivation_output_details_set_id
   FROM packages
   INNER JOIN package_derivations
     ON packages.id = package_derivations.package_id
+  INNER JOIN systems
+    ON package_derivations.system_id = systems.id
   INNER JOIN derivations
     ON package_derivations.derivation_id = derivations.id
   INNER JOIN derivations_by_output_details_set
@@ -303,11 +305,13 @@ WITH base_packages AS (
   )" extra-constraints "
 ), target_packages AS (
   SELECT packages.*, derivations.id AS derivation_id, derivations.file_name,
-    package_derivations.system, package_derivations.target,
+    systems.system, package_derivations.target,
     derivations_by_output_details_set.derivation_output_details_set_id
   FROM packages
   INNER JOIN package_derivations
     ON packages.id = package_derivations.package_id
+  INNER JOIN systems
+    ON package_derivations.system_id = systems.id
   INNER JOIN derivations
     ON package_derivations.derivation_id = derivations.id
   INNER JOIN derivations_by_output_details_set

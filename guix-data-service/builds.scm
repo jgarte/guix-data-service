@@ -572,12 +572,14 @@ WHERE derivation_output_details_set_id NOT IN (
 ) AND derivation_output_details_set_id IN (
   SELECT derivation_output_details_set_id
   FROM package_derivations
+  INNER JOIN systems
+    ON package_derivations.system_id = systems.id
   INNER JOIN derivations_by_output_details_set
     ON package_derivations.derivation_id =
        derivations_by_output_details_set.derivation_id
   INNER JOIN build_servers_build_config
     ON build_servers_build_config.build_server_id = $1
-   AND build_servers_build_config.system = package_derivations.system
+   AND build_servers_build_config.system = systems.system
    AND build_servers_build_config.target = package_derivations.target
 "
      (if (null? revision-commits)
@@ -623,12 +625,14 @@ WHERE NOT EXISTS (
 ) AND derivation_output_details_sets.id IN (
   SELECT derivation_output_details_set_id
   FROM package_derivations
+  INNER JOIN systems
+    ON package_derivations.system_id = systems.id
   INNER JOIN derivations_by_output_details_set
     ON package_derivations.derivation_id =
        derivations_by_output_details_set.derivation_id
   INNER JOIN build_servers_build_config
     ON build_servers_build_config.build_server_id = $1
-   AND build_servers_build_config.system = package_derivations.system
+   AND build_servers_build_config.system = systems.system
    AND build_servers_build_config.target = package_derivations.target
 "
      (if (null? revision-commits)
@@ -646,7 +650,7 @@ WHERE NOT EXISTS (
      (if systems
          (string-append
           "
-      AND package_derivations.system IN ("
+      AND systems.system IN ("
           (string-join
            (map quote-string systems)
            ",")
