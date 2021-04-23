@@ -10,11 +10,6 @@
  (lambda (conn)
    (check-test-database! conn)
 
-   (test-equal "valid-systems"
-     '("aarch64-linux" "armhf-linux" "i586-gnu"
-       "i686-linux" "mips64el-linux" "powerpc64le-linux" "x86_64-linux")
-     (valid-systems conn))
-
    (test-equal "count-derivations"
      '("0")
      (count-derivations conn))))

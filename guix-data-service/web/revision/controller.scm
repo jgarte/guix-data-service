@@ -35,6 +35,7 @@
   #:use-module (guix-data-service model build)
   #:use-module (guix-data-service model build-server)
   #:use-module (guix-data-service model build-status)
+  #:use-module (guix-data-service model system)
   #:use-module (guix-data-service model channel-news)
   #:use-module (guix-data-service model channel-instance)
   #:use-module (guix-data-service model package)
@@ -548,7 +549,7 @@
                      (git-repositories-containing-commit conn
                                                          commit-hash))))
                  (systems
-                  (with-thread-postgresql-connection valid-systems)))
+                  (with-thread-postgresql-connection list-systems)))
          (render-html
           #:sxml (view-revision-system-tests
                   commit-hash
@@ -1013,7 +1014,7 @@
           `((error . "invalid query"))))
         (else
          (letpar& ((systems
-                    (with-thread-postgresql-connection valid-systems))
+                    (with-thread-postgresql-connection list-systems))
                    (targets
                     (with-thread-postgresql-connection valid-targets)))
            (render-html
@@ -1104,7 +1105,7 @@
                                         derivations))))))
               (else
                (letpar& ((systems
-                          (with-thread-postgresql-connection valid-systems))
+                          (with-thread-postgresql-connection list-systems))
                          (targets
                           (with-thread-postgresql-connection valid-targets)))
                  (render-html
@@ -1140,7 +1141,7 @@
           `((error . "invalid query"))))
         (else
          (letpar& ((systems
-                    (with-thread-postgresql-connection valid-systems))
+                    (with-thread-postgresql-connection list-systems))
                    (targets
                     (with-thread-postgresql-connection valid-targets)))
            (render-html
@@ -1194,7 +1195,7 @@
                 `((derivations . ,(list->vector derivations)))))
               (else
                (letpar& ((systems
-                          (with-thread-postgresql-connection valid-systems))
+                          (with-thread-postgresql-connection list-systems))
                          (targets
                           (with-thread-postgresql-connection valid-targets)))
                  (render-html
@@ -1233,7 +1234,7 @@
           `((error . "invalid query"))))
         (else
          (letpar& ((systems
-                    (with-thread-postgresql-connection valid-systems))
+                    (with-thread-postgresql-connection list-systems))
                    (targets
                     (with-thread-postgresql-connection valid-targets)))
            (render-html
@@ -1330,7 +1331,7 @@
                             derivation-outputs))))))
               (else
                (letpar& ((systems
-                          (with-thread-postgresql-connection valid-systems))
+                          (with-thread-postgresql-connection list-systems))
                          (targets
                           (with-thread-postgresql-connection valid-targets)))
                  (render-html
@@ -1357,7 +1358,7 @@
                                   (string-append "/revision/" commit-hash)))
   (if (any-invalid-query-parameters? query-parameters)
       (letpar& ((systems
-                 (with-thread-postgresql-connection valid-systems))
+                 (with-thread-postgresql-connection list-systems))
                 (targets
                  (with-thread-postgresql-connection valid-targets)))
         (render-html
@@ -1373,7 +1374,7 @@
       (let ((system (assq-ref query-parameters 'system))
             (target (assq-ref query-parameters 'target)))
         (letpar& ((systems
-                   (with-thread-postgresql-connection valid-systems))
+                   (with-thread-postgresql-connection list-systems))
                   (targets
                    (with-thread-postgresql-connection valid-targets))
                   (build-server-options

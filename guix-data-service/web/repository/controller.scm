@@ -26,6 +26,7 @@
   #:use-module (guix-data-service web util)
   #:use-module (guix-data-service model utils)
   #:use-module (guix-data-service model build-server)
+  #:use-module (guix-data-service model system)
   #:use-module (guix-data-service model derivation)
   #:use-module (guix-data-service model package)
   #:use-module (guix-data-service model system-test)
@@ -219,7 +220,7 @@
                                 'system)
                       system-test-name))))
                  (valid-systems
-                  (with-thread-postgresql-connection valid-systems)))
+                  (with-thread-postgresql-connection list-systems)))
          (case (most-appropriate-mime-type
                 '(application/json text/html)
                 mime-types)
@@ -551,7 +552,7 @@
   (let ((systems
          (parallel-via-thread-pool-channel
           (with-thread-postgresql-connection
-           valid-systems))))
+           list-systems))))
     (lambda (s)
       (if (member s systems)
           s
@@ -627,7 +628,7 @@
           (else
            (letpar& ((systems
                       (with-thread-postgresql-connection
-                       valid-systems))
+                       list-systems))
                      (targets
                       (with-thread-postgresql-connection
                        valid-targets)))
@@ -703,7 +704,7 @@
           (else
            (letpar& ((systems
                       (with-thread-postgresql-connection
-                       valid-systems))
+                       list-systems))
                      (targets
                       (with-thread-postgresql-connection
                        valid-targets)))

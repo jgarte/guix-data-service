@@ -34,8 +34,7 @@
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service model utils)
   #:use-module (guix-data-service model system)
-  #:export (valid-systems
-            valid-targets
+  #:export (valid-targets
             count-derivations
             select-derivation-by-file-name
             select-derivation-by-file-name-hash
@@ -60,16 +59,6 @@
             select-derivations-by-id
             select-derivations-and-build-status
             derivation-file-names->derivation-ids))
-
-(define (valid-systems conn)
-  ;; TODO, use the database, but make it quick!
-  '("aarch64-linux"
-    "armhf-linux"
-    "i586-gnu"
-    "i686-linux"
-    "mips64el-linux"
-    "powerpc64le-linux"
-    "x86_64-linux"))
 
 (define (valid-targets conn)
   '("arm-linux-gnueabihf"

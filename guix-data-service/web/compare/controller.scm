@@ -34,6 +34,7 @@
   #:use-module (guix-data-service comparison)
   #:use-module (guix-data-service jobs load-new-guix-revision)
   #:use-module (guix-data-service model guix-revision)
+  #:use-module (guix-data-service model system)
   #:use-module (guix-data-service model git-repository)
   #:use-module (guix-data-service model derivation)
   #:use-module (guix-data-service model build-server)
@@ -683,7 +684,7 @@
         (else
          (letpar& ((systems
                     (with-thread-postgresql-connection
-                     valid-systems))
+                     list-systems))
                    (targets
                     (with-thread-postgresql-connection
                      valid-targets))
@@ -748,7 +749,7 @@
                   (else
                    (letpar& ((systems
                               (with-thread-postgresql-connection
-                               valid-systems))
+                               list-systems))
                              (targets
                               (with-thread-postgresql-connection
                                valid-targets)))
@@ -777,7 +778,7 @@
                   query-parameters
                   'datetime
                   (parallel-via-thread-pool-channel
-                   (with-thread-postgresql-connection valid-systems))
+                   (with-thread-postgresql-connection list-systems))
                   (valid-targets->options
                    (parallel-via-thread-pool-channel
                     (with-thread-postgresql-connection valid-targets)))
@@ -852,7 +853,7 @@
                               query-parameters
                               'datetime
                               (parallel-via-thread-pool-channel
-                               (with-thread-postgresql-connection valid-systems))
+                               (with-thread-postgresql-connection list-systems))
                               (valid-targets->options
                                (parallel-via-thread-pool-channel
                                 (with-thread-postgresql-connection valid-targets)))
@@ -960,7 +961,7 @@
         (else
          (letpar& ((systems
                     (with-thread-postgresql-connection
-                     valid-systems))
+                     list-systems))
                    (build-server-urls
                     (with-thread-postgresql-connection
                      select-build-server-urls-by-id)))
@@ -998,7 +999,7 @@
                       (git-repositories-containing-commit conn target-commit))))
                   (systems
                    (with-thread-postgresql-connection
-                    valid-systems)))
+                    list-systems)))
           (case (most-appropriate-mime-type
                  '(application/json text/html)
                  mime-types)
@@ -1033,7 +1034,7 @@
         (else
          (letpar& ((systems
                     (with-thread-postgresql-connection
-                     valid-systems))
+                     list-systems))
                    (build-server-urls
                     (with-thread-postgresql-connection
                      select-build-server-urls-by-id)))
@@ -1090,7 +1091,7 @@
                          (second target-revision-details)))))
                     (systems
                      (with-thread-postgresql-connection
-                      valid-systems)))
+                      list-systems)))
             (case (most-appropriate-mime-type
                    '(application/json text/html)
                    mime-types)
