@@ -71,10 +71,12 @@ FROM packages
 INNER JOIN (
   SELECT package_derivations.package_id,
          package_derivations.derivation_id,
-         package_derivations.system,
+         systems.system,
          package_derivations.target,
          guix_revision_package_derivations.revision_id
   FROM package_derivations
+  INNER JOIN systems
+    ON package_derivations.system_id = systems.id
   INNER JOIN guix_revision_package_derivations
     ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
 ) AS revision_packages ON packages.id = revision_packages.package_id

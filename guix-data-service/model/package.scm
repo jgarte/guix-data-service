@@ -573,8 +573,10 @@ INNER JOIN guix_revision_package_derivations
      latest_processed_guix_revision.id
 INNER JOIN package_derivations
   ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
- AND package_derivations.system = $2
  AND package_derivations.target = $3
+INNER JOIN systems
+  ON package_derivations.system_id = systems_id
+ AND systems.system = $2
 INNER JOIN packages
   ON package_derivations.package_id = packages.id
 WHERE packages.name = $1

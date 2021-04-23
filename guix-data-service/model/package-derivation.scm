@@ -21,6 +21,7 @@
   #:use-module (ice-9 match)
   #:use-module (squee)
   #:use-module (guix-data-service model utils)
+  #:use-module (guix-data-service model system)
   #:export (insert-package-derivations
             count-packages-derivations-in-revision))
 
@@ -32,7 +33,7 @@
            (((package-id system target) derivation-id)
             (list package-id
                   derivation-id
-                  system
+                  (system->system-id conn system)
                   target)))
          package-ids-systems-and-targets
          derivation-ids))
@@ -42,15 +43,16 @@
       (insert-missing-data-and-return-all-ids
        conn
        "package_derivations"
-       '(package_id derivation_id system target)
+       '(package_id derivation_id system_id target)
        data-4-tuples)))
 
 (define (count-packages-derivations-in-revision conn commit-hash)
   (define query
     "
-SELECT package_derivations.system, package_derivations.target,
+SELECT systems.system, package_derivations.target,
 COUNT(DISTINCT package_derivations.derivation_id)
 FROM package_derivations
+INNER JOIN systems ON package_derivations.system_id = systems.id
 WHERE package_derivations.id IN (
  SELECT guix_revision_package_derivations.package_derivation_id
  FROM guix_revision_package_derivations
@@ -58,7 +60,7 @@ WHERE package_derivations.id IN (
    ON guix_revision_package_derivations.revision_id = guix_revisions.id
  WHERE guix_revisions.commit = $1
 )
-GROUP BY package_derivations.system, package_derivations.target
-ORDER BY package_derivations.system DESC, package_derivations.target ASC")
+GROUP BY systems.system, package_derivations.target
+ORDER BY systems.system DESC, package_derivations.target ASC")
 
   (exec-query conn query (list commit-hash)))

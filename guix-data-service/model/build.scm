@@ -23,6 +23,7 @@
   #:use-module (json)
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service model utils)
+  #:use-module (guix-data-service model system)
   #:export (select-build-stats
             select-builds-with-context
             select-builds-with-context-by-derivation-file-name
@@ -51,7 +52,8 @@
             `(("guix_revisions.commit = $" . ,revision-commit))
             '())
       ,@(if system
-            `(("package_derivations.system = $" . ,system))
+            `(("package_derivations.system_id = $" .
+               ,(system->system-id conn system)))
             '())
       ,@(if target
             `(("package_derivations.target = $" . ,target))
@@ -143,7 +145,8 @@ ORDER BY status"))
             `(("guix_revisions.commit = $" . ,revision-commit))
             '())
       ,@(if system
-            `(("package_derivations.system = $" . ,system))
+            `(("package_derivations.system_id = $" .
+               ,(system->system-id conn system)))
             '())
       ,@(if target
             `(("package_derivations.target = $" . ,target))

@@ -78,3 +78,4 @@ regenerate_latest_build_status 2020-10-21T18:39:03Z Christopher Baines <mail@cba
 guix_revision_package_derivations_add_package_derivation_index 2020-10-27T16:58:08Z Christopher Baines <mail@cbaines.net> # Add index for guix_revision_package_derivations.package_derivation_id
 increase_derivation_inputs_statistics_targets 2020-12-27T10:34:58Z Christopher Baines <mail@cbaines.net> # Increase stats targets on derivation_inputs fields
 remove_guix_revisions_store_path 2021-02-02T20:06:18Z Christopher Baines <mail@cbaines.net> # Drop guix_revisions.store_path
+systems_table 2021-04-22T08:12:10Z Christopher Baines <mail@cbaines.net> # Add a systems table

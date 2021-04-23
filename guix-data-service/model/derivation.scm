@@ -33,6 +33,7 @@
   #:use-module (guix derivations)
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service model utils)
+  #:use-module (guix-data-service model system)
   #:export (valid-systems
             valid-targets
             count-derivations
@@ -130,7 +131,7 @@
 (define (select-derivations-by-revision-name-and-version
          conn revision-commit-hash name version)
   (define query "
-SELECT derivations.system,
+SELECT systems.system,
        package_derivations.target,
        derivations.file_name,
        JSON_AGG(
@@ -145,6 +146,8 @@ SELECT derivations.system,
          ORDER BY latest_build_status.timestamp
        )
 FROM derivations
+INNER JOIN systems
+  ON derivations.system_id = systems.id
 INNER JOIN package_derivations
   ON derivations.id = package_derivations.derivation_id
 INNER JOIN packages
@@ -165,10 +168,10 @@ LEFT OUTER JOIN latest_build_status
 WHERE guix_revisions.commit = $1
   AND packages.name = $2
   AND packages.version = $3
-GROUP BY derivations.system,
+GROUP BY systems.system,
          package_derivations.target,
          derivations.file_name
-ORDER BY derivations.system DESC,
+ORDER BY systems.system DESC,
          NULLIF(package_derivations.target, '') DESC NULLS FIRST,
          derivations.file_name")
 
@@ -213,7 +216,7 @@ ORDER BY derivations.system DESC,
                               ",")
                  ")")
                 #f))
-          '("derivations.system"
+          '("systems.system"
             "target")
           (list systems
                 targets))
@@ -306,7 +309,7 @@ EXISTS (
     (string-append
      "
 SELECT derivations.file_name,
-       derivations.system,
+       systems.system,
        package_derivations.target"
      (if include-builds?
          ",
@@ -331,6 +334,8 @@ SELECT derivations.file_name,
          "")
      "
 FROM derivations
+INNER JOIN systems
+  ON derivations.system_id = systems.id
 INNER JOIN derivations_by_output_details_set
   ON derivations.id = derivations_by_output_details_set.derivation_id
 INNER JOIN package_derivations
@@ -402,7 +407,7 @@ ORDER BY derivations.file_name
                               ",")
                  ")")
                 #f))
-          '("derivations.system"
+          '("systems.system"
             "target")
           (list systems
                 targets))
@@ -495,7 +500,7 @@ EXISTS (
     (string-append
      "
 SELECT derivations.file_name,
-       derivations.system,
+       systems.system,
        package_derivations.target"
      (if include-builds?
          ",
@@ -520,6 +525,8 @@ SELECT derivations.file_name,
          "")
      "
 FROM derivations
+INNER JOIN systems
+  ON derivations.system_id = systems.id
 INNER JOIN derivations_by_output_details_set
   ON derivations.id = derivations_by_output_details_set.derivation_id
 INNER JOIN package_derivations
@@ -585,13 +592,15 @@ ORDER BY derivations.file_name
 WITH RECURSIVE all_derivations(id) AS (
     SELECT package_derivations.derivation_id
     FROM package_derivations
+    INNER JOIN systems
+      ON package_derivations.system_id = systems.id
     INNER JOIN guix_revision_package_derivations
       ON package_derivations.id =
          guix_revision_package_derivations.package_derivation_id
     INNER JOIN guix_revisions
       ON guix_revision_package_derivations.revision_id = guix_revisions.id
     WHERE guix_revisions.commit = $1
-      AND package_derivations.system = $2
+      AND systems.system = $2
       AND package_derivations.target = $3
   UNION
     SELECT derivation_outputs.derivation_id
@@ -715,6 +724,8 @@ INNER JOIN derivation_output_details
   ON derivation_outputs.derivation_output_details_id = derivation_output_details.id
 INNER JOIN package_derivations
   ON derivations.id = package_derivations.derivation_id
+INNER JOIN systems
+  ON package_derivations.system_id = systems.id
 INNER JOIN guix_revision_package_derivations
   ON package_derivations.id = guix_revision_package_derivations.package_derivation_id
 INNER JOIN guix_revisions
@@ -728,7 +739,7 @@ WHERE guix_revisions.commit = $1
                     '(" AND derivation_output_details.path > ")
                     '())
               ,@(if system
-                    '(" AND package_derivations.system = ")
+                    '(" AND systems.system = ")
                     '())
               ,@(if target
                     '(" AND package_derivations.target = ")
@@ -1038,8 +1049,9 @@ VALUES ($1, $2)"
 (define (select-derivation-by-file-name-hash conn file-name-hash)
   (define query
     (string-append
-     "SELECT id, file_name, builder, args, to_json(env_vars), system "
+     "SELECT derivations.id, file_name, builder, args, to_json(env_vars), system "
      "FROM derivations "
+     "INNER JOIN systems ON derivations.system_id = systems.id "
      "WHERE substring(file_name from 12 for 32) = $1"))
 
   (match (exec-query conn query (list file-name-hash))
@@ -1060,8 +1072,9 @@ VALUES ($1, $2)"
 (define (select-derivation-by-file-name conn file-name)
   (define query
     (string-append
-     "SELECT id, file_name, builder, args, to_json(env_vars), system "
+     "SELECT derivations.id, file_name, builder, args, to_json(env_vars), system "
      "FROM derivations "
+     "INNER JOIN systems ON derivations.system_id = systems.id "
      "WHERE file_name = $1"))
 
   (match (exec-query conn query (list file-name))
@@ -1522,7 +1535,7 @@ LIMIT $1"
   (define (insert-into-derivations)
     (string-append
      "INSERT INTO derivations "
-     "(file_name, builder, args, env_vars, system) VALUES "
+     "(file_name, builder, args, env_vars, system_id) VALUES "
      (string-join
       (map (match-lambda
              (($ <derivation> outputs inputs sources
@@ -1539,7 +1552,7 @@ LIMIT $1"
                                      value "$$ ]")))
                                  env-vars)
                             ",")
-               system)))
+               (system->system-id conn system))))
            derivations)
       ",")
      " RETURNING id"
@@ -1641,7 +1654,7 @@ LIMIT $1"
              ")")
             #f))
       '("derivations.file_name"
-        "derivations.system"
+        "systems.system"
         "target"
         "latest_build_status.status")
       (list (deduplicate-strings file-names)
@@ -1655,10 +1668,12 @@ LIMIT $1"
      "
 SELECT
   derivations.file_name,
-  derivations.system,
+  systems.system,
   package_derivations.target,
   latest_build_status.status
 FROM derivations
+INNER JOIN systems
+  ON derivations.system_id = systems.id
 INNER JOIN package_derivations
   ON derivations.id = package_derivations.derivation_id
 INNER JOIN derivations_by_output_details_set

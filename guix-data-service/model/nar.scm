@@ -247,7 +247,7 @@ SELECT build_server_id, system, target, substitute_known, COUNT(*)
 FROM (
   SELECT build_servers.id AS build_server_id,
          derivation_output_details.path,
-         package_derivations.system,
+         systems.system,
          package_derivations.target,
          nar_data.build_server_id IS NOT NULL AS substitute_known
   FROM derivation_output_details
@@ -256,6 +256,8 @@ FROM (
        derivation_output_details.id
   INNER JOIN package_derivations
     ON derivation_outputs.derivation_id = package_derivations.derivation_id
+  INNER JOIN systems
+    ON package_derivations.system_id = systems.id
   INNER JOIN guix_revision_package_derivations
     ON package_derivations.id =
        guix_revision_package_derivations.package_derivation_id
@@ -264,7 +266,7 @@ FROM (
   CROSS JOIN build_servers
   INNER JOIN build_servers_build_config
     ON build_servers.id = build_servers_build_config.build_server_id
-   AND package_derivations.system = build_servers_build_config.system
+   AND systems.system = build_servers_build_config.system
    AND package_derivations.target = build_servers_build_config.target
   LEFT JOIN (
     SELECT nars.store_path, narinfo_fetch_records.build_server_id
@@ -318,7 +320,7 @@ ORDER BY build_server_id DESC, system, target, build_server_id, substitute_known
 SELECT system, target, reproducible, COUNT(*)
 FROM (
   SELECT derivation_output_details.path,
-         package_derivations.system,
+         systems.system,
          package_derivations.target,
          CASE
            WHEN (COUNT(DISTINCT nar_data.build_server_id) <= 1) THEN NULL
@@ -330,6 +332,8 @@ FROM (
        derivation_output_details.id
   INNER JOIN package_derivations
     ON derivation_outputs.derivation_id = package_derivations.derivation_id
+  INNER JOIN systems
+    ON package_derivations.system_id = systems.id
   INNER JOIN guix_revision_package_derivations
     ON package_derivations.id =
        guix_revision_package_derivations.package_derivation_id
@@ -351,7 +355,7 @@ FROM (
         guix_revisions.commit = $1 AND
         package_derivations.target = '' -- Exclude cross builds
   GROUP BY derivation_output_details.path,
-           package_derivations.system,
+           systems.system,
            package_derivations.target
 ) data
 GROUP BY system, target, reproducible
@@ -421,9 +425,11 @@ WHERE derivation_output_details.path NOT IN (
     -- Select outputs that are in the relevant revisions
     SELECT derivation_id
     FROM package_derivations
+    INNER JOIN systems
+      ON package_derivations.system_id = systems.id
     INNER JOIN build_servers_build_config
       ON build_servers_build_config.build_server_id = $1
-     AND build_servers_build_config.system = package_derivations.system
+     AND build_servers_build_config.system = systems.system
      AND build_servers_build_config.target = package_derivations.target
     INNER JOIN guix_revision_package_derivations
       ON guix_revision_package_derivations.package_derivation_id = package_derivations.id
