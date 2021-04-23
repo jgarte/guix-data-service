@@ -30,7 +30,11 @@
                    jobs-and-events
                    recent-events
                    show-next-page?)
+  (define page-header "Jobs")
+
   (layout
+   #:title
+   page-header
    #:body
    `(,(header)
      (div
@@ -40,7 +44,7 @@
        (div
         (@ (class "col-sm-12"))
         (h1 (@ (style "display: inline-block;"))
-            "Jobs")
+            ,page-header)
         (div
          (@ (class "btn-group pull-right")
             (style "margin-top: 1.3rem;")
@@ -189,7 +193,11 @@
 
 (define (view-job-events query-parameters
                          recent-events)
+  (define page-header "Recent events")
+
   (layout
+   #:title
+   page-header
    #:body
    `(,(header)
      (div
@@ -200,7 +208,7 @@
         (@ (class "col-sm-12"))
         (a (@ (href "/jobs"))
            (h3 "Jobs"))
-        (h1 "Recent events")))
+        (h1 ,page-header)))
       (div
        (@ (class "row"))
        (div
@@ -256,7 +264,14 @@
              recent-events)))))))))
 
 (define (view-job-queue jobs-and-events)
+  (define page-header
+    (string-append "Queued jobs ("
+                   (number->string (length jobs-and-events))
+                   ")"))
+
   (layout
+   #:title
+   page-header
    #:body
    `(,(header)
      (div
@@ -267,9 +282,7 @@
         (@ (class "col-sm-12"))
         (a (@ (href "/jobs"))
            (h3 "Jobs"))
-        (h1 "Queued jobs ("
-            ,(length jobs-and-events)
-            ")")))
+        (h1 ,page-header)))
       (div
        (@ (class "row"))
        (div
@@ -330,7 +343,11 @@
                  jobs-and-events)))))))))
 
 (define (view-job job-id query-parameters log)
+  (define page-header (string-append "Job " job-id))
+
   (layout
+   #:title
+   page-header
    #:body
    `(,(header)
      (div
@@ -339,7 +356,7 @@
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
-        (h1 "Job " ,job-id)))
+        (h1 ,page-header)))
       (div
        (@ (class "row"))
        (div

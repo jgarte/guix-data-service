@@ -32,7 +32,11 @@
             view-no-latest-revision))
 
 (define* (view-git-repositories git-repositories)
+  (define page-header "Git repositories")
+
   (layout
+   #:title
+   page-header
    #:body
    `(,(header)
      (div
@@ -41,7 +45,7 @@
        (@ (class "row"))
        (div
         (@ (class "col-md-12"))
-        (h1 "Git repositories")))
+        (h1 ,page-header)))
       ,@(map
          (match-lambda
            ((id label url cgit-base-url)
@@ -65,7 +69,11 @@
 (define* (view-git-repository git-repository-id
                               label url cgit-url-base
                               branches-with-most-recent-commits)
+  (define page-header (string-append "Repository " (string-drop url 8)))
+
   (layout
+   #:title
+   page-header
    #:body
    `(,(header)
      (div
@@ -86,7 +94,11 @@
 
 (define (view-branch git-repository-id
                      branch-name query-parameters branch-commits)
+  (define page-header (string-append branch-name " branch"))
+
   (layout
+   #:title
+   page-header
    #:body
    `(,(header)
      (div
@@ -197,7 +209,11 @@
                              branch-name
                              package-name
                              versions-by-revision-range)
+  (define page-header (string-append package-name " on " branch-name))
+
   (layout
+   #:title
+   page-header
    #:body
    `(,(header)
      (div
@@ -386,6 +402,8 @@
                 (map first derivations-by-revision-range))))
 
   (layout
+   #:title
+   (string-append package-name " package derivations")
    #:body
    `(,(header)
      (div
@@ -636,6 +654,8 @@
                 (map first outputs-by-revision-range))))
 
   (layout
+   #:title
+   (string-append package-name " package outputs")
    #:body
    `(,(header)
      (div
@@ -849,6 +869,8 @@
                                          valid-systems
                                          system-test-history)
   (layout
+   #:title
+   (string-append system-test-name " history")
    #:body
    `(,(header)
      (div
@@ -1016,12 +1038,16 @@
                 '(#f))))))))))))
 
 (define (view-no-latest-revision branch-name)
+  (define page-header "No latest revision")
+
   (layout
+   #:title
+   (string-append page-header " for " branch-name)
    #:body
    `(,(header)
      (div
       (@ (class "container"))
-      (h1 "No latest revision")
+      (h1 ,page-header)
       (p "No latest revision for "
          (strong (samp ,branch-name))
          " branch")))))

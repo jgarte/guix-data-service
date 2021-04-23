@@ -25,6 +25,8 @@
 
 (define* (view-package name package-version-with-branches)
   (layout
+   #:title
+   (string-append "Package: " name)
    #:body
    `(,(header)
      (div

@@ -97,6 +97,11 @@
       (query-parameters->string query-parameters)))
 
   (layout
+   #:title
+   (if invalid-query?
+       "Compare"
+       (string-append "Comparing " (string-take base-commit 8) " and "
+                      (string-take target-commit 8)))
    #:body
    `(,(header)
      (div
@@ -420,6 +425,8 @@
               (style "font-size: 1.5em; padding-right: 0.4em;"))))
 
   (layout
+   #:title
+   "Comparing derivations"
    #:body
    `(,(header)
      (div
@@ -685,7 +692,11 @@
   (define fields
     (assq-ref query-parameters 'field))
 
+  (define page-header "Package derivation changes")
+
   (layout
+   #:title
+   page-header
    #:body
    `(,(header)
      (div
@@ -835,7 +846,7 @@ enough builds to determine a change")))
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
-        (h1 "Package derivation changes")
+        (h1 ,page-header)
         ,(if
           (null? derivation-changes)
           '(p "No derivation changes")
@@ -950,7 +961,14 @@ enough builds to determine a change")))
     (string-append "?base_commit=" base-commit
                    "&target_commit=" target-commit))
 
+  (define page-header
+    (string-append "Comparing "
+                   (string-take base-commit 8) " and "
+                   (string-take target-commit 8)))
+
   (layout
+   #:title
+   page-header
    #:body
    `(,(header)
      (div
@@ -1042,7 +1060,11 @@ enough builds to determine a change")))
                                           #:optional
                                           base-revision-details
                                           target-revision-details)
+  (define page-header "System test derivation changes")
+
   (layout
+   #:title
+   page-header
    #:body
    `(,(header)
      (div
@@ -1141,7 +1163,7 @@ enough builds to determine a change")))
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
-        (h1 "System test derivation changes")
+        (h1 ,page-header)
         ,(if
           (null? changes)
           '(p "No system test derivation changes")

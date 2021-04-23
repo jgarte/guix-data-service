@@ -22,7 +22,10 @@
   #:export (view-substitutes))
 
 (define (view-substitutes narinfo-signing-public-key)
+  (define page-header "Substitutes")
   (layout
+   #:title
+   page-header
    #:body
    `(,(header)
      (div
@@ -31,7 +34,7 @@
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
-        (h1 "Substitutes")
+        (h1 ,page-header)
         ,@(if (canonical-sexp? narinfo-signing-public-key)
               `((h3 "Public key")
                 (pre

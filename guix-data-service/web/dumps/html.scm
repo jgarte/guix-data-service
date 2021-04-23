@@ -22,7 +22,11 @@
   #:export (view-dumps))
 
 (define (view-dumps available-dumps)
+  (define page-header "Database dumps")
+
   (layout
+   #:title
+   page-header
    #:body
    `(,(header)
      (div
@@ -31,7 +35,7 @@
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
-        (h1 "Database dumps")))
+        (h1 ,page-header)))
       ,@(map
          (match-lambda
            ((date-string . files)

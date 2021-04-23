@@ -27,7 +27,11 @@
 (define (view-build query-parameters
                     build
                     required-failed-builds)
+  (define page-header "Build")
+
   (layout
+   #:title
+   page-header
    #:body
    `(,(header)
      (div
@@ -36,7 +40,7 @@
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
-        (h1 "Build")))
+        (h1 ,page-header)))
       (div
        (@ (class "row"))
        ,@(match build
@@ -98,7 +102,11 @@
             '())))))
 
 (define (view-build-servers build-servers)
+  (define page-header "Build servers")
+
   (layout
+   #:title
+   page-header
    #:body
    `(,(header)
      (div
@@ -107,7 +115,7 @@
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
-        (h2 "Build servers")
+        (h2 ,page-header)
         ,@(map
            (match-lambda
              ((id url lookup-all-derivations? lookup-builds?)
@@ -127,7 +135,11 @@
            build-servers)))))))
 
 (define (view-build-server build-server)
+  (define page-header "Build server")
+
   (layout
+   #:title
+   page-header
    #:body
    `(,(header)
      (div
@@ -136,7 +148,7 @@
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
-        (h2 "Build server")
+        (h2 ,page-header)
         ,(match build-server
            ((url lookup-all-derivations?)
             `(dl
@@ -150,7 +162,11 @@
                        "No")))))))))))
 
 (define (view-signing-key sexp)
+  (define page-header "Signing key")
+
   (layout
+   #:title
+   page-header
    #:body
    `(,(header)
      (div
@@ -159,5 +175,5 @@
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
-        (h2 "Signing key")
+        (h2 ,page-header)
         ,(sexp-div sexp)))))))

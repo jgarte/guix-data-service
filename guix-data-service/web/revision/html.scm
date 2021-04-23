@@ -49,6 +49,9 @@
                              query-parameters
                              news-entries)
   (layout
+   #:title
+   (string-append "Channel News Entries - Revision "
+                  (string-take commit-hash 7))
    #:body
    `(,(header)
      (div
@@ -108,6 +111,9 @@
                                 header-text
                                 header-link)
   (layout
+   #:title
+   (string-append "Package: " name " - Revision "
+                  (string-take revision-commit-hash 7))
    #:body
    `(,(header)
      (div
@@ -135,7 +141,7 @@
                                          branch-name))))
                   branches)))
           git-repositories-and-branches)
-        (h1 "Package " ,name)))
+        (h1 "Package: " ,name)))
       (div
        (@ (class "row"))
        (div
@@ -170,6 +176,9 @@
                                             header-link
                                             version-history-link)
   (layout
+   #:title
+   (string-append "Package: " name " @ " version " - Revision "
+                  (string-take revision-commit-hash 7))
    #:body
    `(,(header)
      (div
@@ -224,7 +233,7 @@
                       (role "button"))
                    "Version history"))
               '())
-        (h1 "Package " ,name " @ " ,version)))
+        (h1 "Package: " ,name " @ " ,version)))
       (div
        (@ (class "row"))
        (div
@@ -472,6 +481,8 @@
                         #:key (path-base "/revision/")
                         header-text)
   (layout
+   #:title
+   (string-append "Revision " (string-take commit-hash 7))
    #:body
    `(,(header)
      (div
@@ -548,6 +559,9 @@
        "Home page" "Location" "Licenses")))
 
   (layout
+   #:title
+   (string-append  "Packages - Revision "
+                   (string-take revision-commit-hash 7))
    #:body
    `(,(header)
      (div
@@ -756,6 +770,9 @@
      package-description-counts))
 
   (layout
+   #:title
+   (string-append "Packages translation availability - Revision "
+                  (string-take commit-hash 7))
    #:body
    `(,(header)
      (div
@@ -836,6 +853,8 @@
                                      #:key (path-base "/revision/")
                                      header-text header-link)
   (layout
+   #:title
+   (string-append  "System tests - Revision " (string-take commit-hash 7))
    #:body
    `(,(header)
      (div
@@ -937,6 +956,9 @@
                                           #:key (path-base "/revision/")
                                           header-text header-link)
   (layout
+   #:title
+   (string-append "Channel instances - Revision "
+                  (string-take commit-hash 7))
    #:body
    `(,(header)
      (div
@@ -1217,6 +1239,9 @@ figure {
                 colours))))))
 
   (layout
+   #:title
+   (string-append "Package substitute availability - Revision "
+                  (string-take revision-commit-hash 7))
    #:body
    `(,(header)
      (style ,chart-css)
@@ -1255,6 +1280,9 @@ figure {
                                                 header-text
                                                 header-link)
   (layout
+   #:title
+   (string-append  "Package reproducibility - Revision "
+                   (string-take revision-commit-hash 7))
    #:body
    `(,(header)
      (style "
@@ -1522,6 +1550,9 @@ figure {
     (assq-ref query-parameters 'field))
 
   (layout
+   #:title
+   (string-append  "Package derivations - Revision "
+                   (string-take commit-hash 7))
    #:body
    `(,(header)
      (div
@@ -1703,6 +1734,9 @@ figure {
       ))
 
   (layout
+   #:title
+   (string-append  "Fixed output package derivations - Revision "
+                   (string-take commit-hash 7))
    #:body
    `(,(header)
      (div
@@ -1843,6 +1877,9 @@ figure {
          build-server-urls))
 
   (layout
+   #:title
+   (string-append "Package derivation outputs - Revision "
+                  (string-take commit-hash 7))
    #:body
    `(,(header)
      (div
@@ -2022,6 +2059,8 @@ figure {
                               stats
                               builds)
   (layout
+   #:title
+   (string-append  "Builds - Revision " (string-take commit-hash 7))
    #:body
    `(,(header)
      (div
@@ -2159,6 +2198,9 @@ figure {
      '("Linter" "Message" "Location")))
 
   (layout
+   #:title
+   (string-append "Lint warnings - Revision "
+                  (string-take revision-commit-hash 7))
    #:body
    `(,(header)
      (div
@@ -2314,7 +2356,11 @@ figure {
 
 (define (unknown-revision commit-hash job git-repositories-and-branches
                           jobs-and-events)
+  (define page-header "Unknown revision")
+
   (layout
+   #:title
+   page-header
    #:body
    `(,(header)
      (div
@@ -2347,13 +2393,16 @@ figure {
                 (strong (@ (class "text-center")
                            (style "font-size: 2em; display: block;"))
                         "Unknown"))))
-            `((h1 "Unknown revision")
+            `((h1 ,page-header)
               (p "No known revision with commit "
                  (strong (samp ,commit-hash)))))))))
 
 (define (unprocessed-revision commit-hash job git-repositories-and-branches
                               jobs-and-events)
+  (define page-header "Unknown revision")
   (layout
+   #:title
+   page-header
    #:body
    `(,(header)
      (div
@@ -2375,6 +2424,6 @@ figure {
                        git-repositories-and-branches
                        commit-hash))
                 ,@(view-revision/jobs-and-events jobs-and-events))))
-            `((h1 "Unknown revision")
+            `((h1 ,page-header)
               (p "No known revision with commit "
                  (strong (samp ,commit-hash)))))))))

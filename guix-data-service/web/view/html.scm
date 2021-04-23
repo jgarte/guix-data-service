@@ -65,13 +65,15 @@
 (define* (layout #:key
                  (head '())
                  (body '())
-                 (title "Guix Data Service")
+                 title
                  description)
   `((doctype "html")
     (html
      (@ (lang "en"))
      (head
-      (title ,title)
+      (title ,(if title
+                  (string-append title " — Guix Data Service")
+                  "Guix Data Service"))
       (meta (@ (http-equiv "Content-Type")
                (content "text/html; charset=UTF-8")))
       (meta (@ (name "viewport")
@@ -286,8 +288,7 @@
 (define (index git-repositories-and-revisions)
   (layout
    #:description
-   "The Guix Data Service processes, stores and provides data about Guix over
-time."
+   "The Guix Data Service processes, stores and provides data about Guix over time."
    #:body
    `(,(header)
      (div
@@ -334,7 +335,10 @@ time."
          git-repositories-and-revisions)))))
 
 (define (view-statistics guix-revisions-count derivations-count)
+  (define page-header "Statistics")
   (layout
+   #:title
+   page-header
    #:body
    `(,(header)
      (div

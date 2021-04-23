@@ -29,7 +29,11 @@
                      valid-targets
                      stats
                      builds)
+  (define page-header "Builds")
+
   (layout
+   #:title
+   page-header
    #:body
    `(,(header)
      (div
@@ -38,7 +42,7 @@
        (@ (class "row"))
        (div
         (@ (class "col-sm-12"))
-        (h1 "Builds")
+        (h1 ,page-header)
         (table
          (@ (class "table"))
          (thead
