@@ -39,21 +39,24 @@
             branches-by-package-version))
 
 (define (select-existing-package-entries package-entries)
-  (string-append "SELECT id, packages.name, packages.version, "
-                 "packages.package_metadata_id "
-                 "FROM packages "
-                 "JOIN (VALUES "
-                 (string-join (map (lambda (package-entry)
-                                     (apply
-                                      simple-format
-                                      #f "('~A', '~A', ~A)"
-                                      package-entry))
-                                   package-entries)
-                              ", ")
-                 ") AS vals (name, version, package_metadata_id) "
-                 "ON packages.name = vals.name AND "
-                 "packages.version = vals.version AND "
-                 "packages.package_metadata_id = vals.package_metadata_id"))
+  (string-append
+   "
+SELECT id, packages.name, packages.version,
+       packages.package_metadata_id
+FROM packages
+JOIN (VALUES "
+   (string-join (map (lambda (package-entry)
+                       (apply
+                        simple-format
+                        #f "('~A', '~A', ~A)"
+                        package-entry))
+                     package-entries)
+                ", ")
+   "
+) AS vals (name, version, package_metadata_id)
+  ON packages.name = vals.name
+ AND packages.version = vals.version
+ AND packages.package_metadata_id = vals.package_metadata_id"))
 
 (define* (select-packages-in-revision conn commit-hash
                                       #:key limit-results
@@ -242,20 +245,21 @@ WHERE packages.id IN (
   (exec-query conn query (list commit-hash)))
 
 (define (insert-into-package-entries package-entries)
-  (string-append "INSERT INTO packages "
-                 "(name, version, package_metadata_id) VALUES "
-                 (string-join
-                  (map
-                   (match-lambda
-                     ((name version package_metadata_id)
-                      (simple-format #f "('~A', '~A', ~A)"
-                                     name
-                                     version
-                                     package_metadata_id)))
-                   package-entries)
-                  ",")
-                 " RETURNING id"
-                 ";"))
+  (string-append
+   "
+INSERT INTO packages (name, version, package_metadata_id) VALUES "
+   (string-join
+    (map
+     (match-lambda
+       ((name version package_metadata_id)
+        (simple-format #f "('~A', '~A', ~A)"
+                       name
+                       version
+                       package_metadata_id)))
+     package-entries)
+    ",")
+   "
+RETURNING id"))
 
 (define (inferior-packages->package-ids conn package-entries)
   (insert-missing-data-and-return-all-ids
