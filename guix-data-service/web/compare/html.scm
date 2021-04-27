@@ -494,27 +494,23 @@
                  (th "Hash")
                  (th "Recursive")))
                (tbody
-                ,@(let ((base-outputs (assq-ref outputs 'base))
-                        (target-outputs (assq-ref outputs 'target))
-                        (common-outputs (assq-ref outputs 'common)))
-                    (append-map
-                     (lambda (label items)
-                       (map
-                        (match-lambda
-                          ((name path hash-algorithm hash recursive)
-                           `(tr
-                             (td ,label)
-                             (td ,name)
-                             (td (a (@ (href ,path))
-                                    ,(display-store-item path)))
-                             (td ,hash-algorithm)
-                             (td ,hash)
-                             (td ,recursive))))
-                        (or items '())))
-                     (list base target "Common")
-                     (list (assq-ref outputs 'base)
-                           (assq-ref outputs 'target)
-                           (assq-ref outputs 'common))))))))
+                ,@(append-map
+                   (lambda (label items)
+                     (map
+                      (lambda (alist)
+                        `(tr
+                          (td ,label)
+                          (td ,(assq-ref alist 'output-name))
+                          (td (a (@ (href ,(assq-ref alist 'path)))
+                                 ,(display-store-item (assq-ref alist 'path))))
+                          (td ,(assq-ref alist 'hash-algorithm))
+                          (td ,(assq-ref alist 'hash))
+                          (td ,(assq-ref alist 'recursive))))
+                      (or (and=> items vector->list) '())))
+                   (list base target "Common")
+                   (list (assq-ref outputs 'base)
+                         (assq-ref outputs 'target)
+                         (assq-ref outputs 'common)))))))
         (h2 "Inputs")
         ,@(let ((inputs (assq-ref data 'inputs)))
             `((table
@@ -528,14 +524,13 @@
                 ,@(append-map
                    (lambda (label items)
                      (map
-                      (match-lambda
-                        ((derivation outputs)
-                         `(tr
-                           (td ,label)
-                           (td (a (@ (href ,derivation))
-                                  ,(display-store-item derivation)))
-                           (td ,outputs))))
-                      (or items '())))
+                      (lambda (alist)
+                        `(tr
+                          (td ,label)
+                          (td (a (@ (href ,(assq-ref alist 'derivation_file_name)))
+                                 ,(display-store-item (assq-ref alist 'derivation_file_name))))
+                          (td ,(assq-ref alist 'derivation_output_name))))
+                      (or (and=> items vector->list) '())))
                    (list base target)
                    (list (assq-ref inputs 'base)
                          (assq-ref inputs 'target)))))))
@@ -552,13 +547,12 @@
                 ,@(append-map
                    (lambda (label items)
                      (map
-                      (match-lambda
-                        ((file)
-                         `(tr
-                           (td ,label)
-                           (td (a (@ (href ,file))
-                                  ,(display-store-item file))))))
-                      (or items '())))
+                      (lambda (alist)
+                        `(tr
+                          (td ,label)
+                          (td (a (@ (href ,(assq-ref alist 'store_path)))
+                                 ,(display-store-item (assq-ref alist 'store_path))))))
+                      (or (and=> items vector->list) '())))
                    (list base target "Common")
                    (list (assq-ref sources 'base)
                          (assq-ref sources 'target)
@@ -622,8 +616,8 @@
                            (td (ol
                                 ,@(map (lambda (arg)
                                          `(li ,(display-possible-store-item arg)))
-                                       (or common-args
-                                           base-args)))))
+                                       (or (and=> common-args vector->list)
+                                           (vector->list base-args))))))
                           (tr
                            (td ,target)
                            (td ,(display-possible-store-item
@@ -632,8 +626,8 @@
                            (td (ol
                                 ,@(map (lambda (arg)
                                          `(li ,(display-possible-store-item arg)))
-                                       (or common-args
-                                           target-args))))))))))))
+                                       (or (and=> common-args vector->list)
+                                           (vector->list target-args)))))))))))))
         (h2 "Environment variables")
         ,(let ((environment-variables (assq-ref data 'environment-variables)))
            `(table

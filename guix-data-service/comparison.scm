@@ -74,19 +74,20 @@
               'value))
 
   `((outputs
-     . ,(group-to-alist
+     . ,(group-to-alist/vector
          group-by-last-element
          (derivation-outputs-differences-data conn
                                               (first base-derivation)
                                               (first target-derivation))))
     (inputs
-     . ,(group-to-alist
+     . ,(group-to-alist/vector
          group-by-last-element
          (derivation-inputs-differences-data conn
                                              (first base-derivation)
                                              (first target-derivation))))
+
     (sources
-     . ,(group-to-alist
+     . ,(group-to-alist/vector
          group-by-last-element
          (derivation-sources-differences-data conn
                                               (first base-derivation)
@@ -107,9 +108,9 @@
                         (target . ,target-builder))))
               (arguments
                . ,(if (eq? base-args target-args)
-                      `((common . ,base-args))
-                      `((base . ,base-args)
-                        (target . ,target-args))))
+                      `((common . ,(list->vector base-args)))
+                      `((base . ,(list->vector base-args))
+                        (target . ,(list->vector target-args)))))
               (environment-variables
                . ,(map (lambda (key)
                          (let ((base-value (fetch-value base-env-vars key))
@@ -158,19 +159,23 @@ GROUP BY 1, 2, 3, 4, 5"))
           (let ((parsed-derivation-ids
                  (map string->number
                       (parse-postgresql-array-string derivation_ids))))
-            (list output-name
-                  path
-                  hash-algorithm
-                  hash
-                  recursive
-                  (append (if (memq base-derivation-id
-                                    parsed-derivation-ids)
-                              '(base)
-                              '())
-                          (if (memq target-derivation-id
-                                    parsed-derivation-ids)
-                              '(target)
-                              '()))))))
+            `((output-name . ,output-name)
+              (path . ,path)
+              ,@(if (string? hash-algorithm)
+                    `((hash-algorithm . ,hash-algorithm))
+                    `((hash-algorithm . null)))
+              ,@(if (string? hash)
+                    `((hash . ,hash))
+                    `((hash . null)))
+              (recursive . ,(string=? recursive "t"))
+              ,(append (if (memq base-derivation-id
+                                 parsed-derivation-ids)
+                           '(base)
+                           '())
+                       (if (memq target-derivation-id
+                                 parsed-derivation-ids)
+                           '(target)
+                           '()))))))
        (exec-query conn query)))
 
 (define (derivation-inputs-differences-data conn
@@ -202,16 +207,16 @@ INNER JOIN derivations ON derivation_outputs.derivation_id = derivations.id
           (let ((parsed-derivation-ids
                  (map string->number
                       (parse-postgresql-array-string derivation_ids))))
-          (list derivation_file_name
-                derivation_output_name
-                (append (if (memq base-derivation-id
-                                  parsed-derivation-ids)
-                            '(base)
-                            '())
-                        (if (memq target-derivation-id
-                                  parsed-derivation-ids)
-                            '(target)
-                            '()))))))
+            `((derivation_file_name . ,derivation_file_name)
+              (derivation_output_name . ,derivation_output_name)
+              ,(append (if (memq base-derivation-id
+                                 parsed-derivation-ids)
+                           '(base)
+                           '())
+                       (if (memq target-derivation-id
+                                 parsed-derivation-ids)
+                           '(target)
+                           '()))))))
        (exec-query conn query)))
 
 (define (derivation-sources-differences-data conn
@@ -235,15 +240,15 @@ GROUP BY derivation_source_files.store_path"))
           (let ((parsed-derivation-ids
                  (map string->number
                       (parse-postgresql-array-string derivation_ids))))
-            (list store_path
-                  (append (if (memq base-derivation-id
-                                    parsed-derivation-ids)
-                              '(base)
-                              '())
-                          (if (memq target-derivation-id
-                                    parsed-derivation-ids)
-                              '(target)
-                              '()))))))
+            `((store_path . ,store_path)
+              ,(append (if (memq base-derivation-id
+                                 parsed-derivation-ids)
+                           '(base)
+                           '())
+                       (if (memq target-derivation-id
+                                 parsed-derivation-ids)
+                           '(target)
+                           '()))))))
        (exec-query conn query)))
 
 (define* (package-derivation-differences-data conn

@@ -33,6 +33,7 @@
             deduplicate-strings
             group-list-by-first-n-fields
             group-to-alist
+            group-to-alist/vector
             insert-missing-data-and-return-all-ids))
 
 (define NULL '())
@@ -113,6 +114,13 @@
                   ,@result))))))
         '()
         lst))
+
+(define (group-to-alist/vector process lst)
+  (map
+   (match-lambda
+     ((label . items)
+      (cons label (list->vector items))))
+   (group-to-alist process lst)))
 
 (define (table-schema conn table-name)
   (let ((results
