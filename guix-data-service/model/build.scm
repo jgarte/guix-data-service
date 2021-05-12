@@ -53,7 +53,7 @@
             '())
       ,@(if system
             `(("package_derivations.system_id = $" .
-               ,(system->system-id conn system)))
+               ,(number->string (system->system-id conn system))))
             '())
       ,@(if target
             `(("package_derivations.target = $" . ,target))
@@ -146,7 +146,7 @@ ORDER BY status"))
             '())
       ,@(if system
             `(("package_derivations.system_id = $" .
-               ,(system->system-id conn system)))
+               ,(number->string (system->system-id conn system))))
             '())
       ,@(if target
             `(("package_derivations.target = $" . ,target))
