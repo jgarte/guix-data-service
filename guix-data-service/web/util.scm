@@ -53,10 +53,13 @@
                            path))
          (map car extensions-to-mime-types)))
 
+  (define accept-mime-types
+    (map car (request-accept request)))
+
   (match (split-and-decode-uri-path (uri-path (request-uri request)))
     (()
      (values '()
-             (or (request-accept request)
+             (or accept-mime-types
                  (list 'text/html))))
     ((single-component)
      (if (ends-with-recognised-extension? single-component)
@@ -65,10 +68,10 @@
             (values (list (string-join first-parts "."))
                     (or (cons
                          (assoc-ref extensions-to-mime-types extension)
-                         (or (request-accept request)
+                         (or accept-mime-types
                              (list 'text/html)))))))
          (values (list single-component)
-                 (or (request-accept request)
+                 (or accept-mime-types
                      (list 'text/html)))))
     ((first-components ... last-component)
      (if (ends-with-recognised-extension? last-component)
@@ -78,11 +81,11 @@
                             (list (string-join first-parts ".")))
                     (or (cons
                          (assoc-ref extensions-to-mime-types extension)
-                         (or (request-accept request)
+                         (or accept-mime-types
                              (list 'text/html)))))))
          (values (append first-components
                          (list last-component))
-                 (or (request-accept request)
+                 (or accept-mime-types
                      (list 'text/html)))))))
 
 (define (file-extension file-name)
