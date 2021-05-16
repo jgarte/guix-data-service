@@ -474,22 +474,20 @@ WHERE job_id = $1")
               (cons (cons source-locale source-message)
                     messages-by-locale))))
 
-         (filter
-          (match-lambda
-            ((package-id . warnings)
-             (not (null? warnings))))
-          (map
-           (lambda (package-id)
-             (let ((package (hashv-ref %package-table package-id)))
-               (cons
-                package-id
-                (map process-lint-warning
-                     (if (and lint-checker-requires-store?-defined?
-                              (lint-checker-requires-store? checker))
+         (filter-map
+          (lambda (package-id)
+            (let* ((package (hashv-ref %package-table package-id))
+                   (warnings
+                    (map process-lint-warning
+                         (if (and lint-checker-requires-store?-defined?
+                                  (lint-checker-requires-store? checker))
 
-                         (check package #:store store)
-                         (check package))))))
-           (list ,@(map inferior-package-id packages)))))))
+                             (check package #:store store)
+                             (check package)))))
+              (if (null? warnings)
+                  #f
+                  (cons package-id warnings))))
+          (list ,@(map inferior-package-id packages))))))
 
   (and
    (or (inferior-eval '(and (resolve-module '(guix lint) #:ensure #f)
