@@ -450,7 +450,6 @@
 
 (define (view-store-item filename
                          derivations
-                         derivations-using-store-item-list
                          nars
                          builds)
   (layout
@@ -530,7 +529,7 @@
                                        derivation-file-name)))
                   ,(build-status-span status))))
            builds)))
-      ,@(map (lambda (derivation derivations-using-store-item)
+      ,@(map (lambda (derivation)
                `((div
                   (@ (class "row"))
                   (div
@@ -539,26 +538,8 @@
                    ,(match derivation
                       ((file-name output-id)
                        `(a (@ (href ,file-name))
-                           ,(display-store-item file-name))))))
-                 (div
-                  (@ (class "row"))
-                  (div
-                   (@ (class "col-sm-12"))
-                   (h2 "Derivations using this store item "
-                       ,(let ((count (length derivations-using-store-item)))
-                          (if (eq? count 100)
-                              "(> 100)"
-                              (simple-format #f "(~A)" count))))
-                   (ul
-                    (@ (class "list-unstyled"))
-                    ,(map
-                      (match-lambda
-                        ((file-name)
-                         `(li (a (@ (href ,file-name))
-                                 ,(display-store-item file-name)))))
-                      derivations-using-store-item))))))
-             derivations
-             derivations-using-store-item-list)))))
+                           ,(display-store-item file-name))))))))
+             derivations)))))
 
 (define (view-derivation-source-file filename details)
   (define labels

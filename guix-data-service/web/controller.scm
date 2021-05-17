@@ -424,16 +424,7 @@
                         filename)))))
            #:extra-headers http-headers-for-unchanging-content))))
       (derivations
-       (letpar& ((derivations-using-store-item-list
-                  (with-thread-postgresql-connection
-                   (lambda (conn)
-                     (map (lambda (derivation)
-                            (match derivation
-                              ((file-name output-id rest ...)
-                               (select-derivations-using-output
-                                conn output-id))))
-                          derivations))))
-                 (nars
+       (letpar& ((nars
                   (with-thread-postgresql-connection
                    (lambda (conn)
                      (select-nars-for-output conn filename))))
@@ -446,7 +437,6 @@
          (render-html
           #:sxml (view-store-item filename
                                   derivations
-                                  derivations-using-store-item-list
                                   nars
                                   builds)))))))
 
@@ -510,16 +500,8 @@
                  (map
                   (match-lambda
                     ((filename output-id)
-                     `((filename . ,filename)
-                       (derivations-using-store-item
-                        . ,(list->vector
-                            (map car
-                                 (parallel-via-thread-pool-channel
-                                  (with-thread-postgresql-connection
-                                   (lambda (conn)
-                                     (select-derivations-using-output
-                                      conn output-id))))))))))
-                derivations))))))))))
+                     `((filename . ,filename))))
+                  derivations))))))))))
 
 (define handle-static-assets
   (if assets-dir-in-store?
