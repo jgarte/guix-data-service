@@ -636,8 +636,8 @@
      ;; content negotiation, so just use the path from the request
      (let ((path (uri-path (request-uri request))))
        (if (string-suffix? ".drv" path)
-           (render-derivation path)
-           (render-store-item path))))
+           (render-derivation (uri-decode path))
+           (render-store-item (uri-decode path)))))
     (('GET "gnu" "store" filename "formatted")
      (if (string-suffix? ".drv" filename)
          (render-formatted-derivation (string-append "/gnu/store/" filename))
