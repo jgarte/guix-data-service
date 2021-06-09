@@ -683,7 +683,10 @@
           ,@(map (match-lambda
                    ((output-name path hash-algorithm hash recursive?)
                     `(tr
-                      (td (a (@ (href ,path))
+                      (td (a (@ (href ,(string-join
+                                        (map uri-encode
+                                             (string-split path #\/))
+                                        "/")))
                              ,(display-store-item-short path))))))
                  derivation-outputs)))))))))
 
