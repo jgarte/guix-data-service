@@ -920,52 +920,52 @@ WHERE job_id = $1")
              "guix-data-service: computing the derivation-file-name for ~A\n"
              system)
 
-            (parameterize ((%current-system system))
-              (let ((manifest
-                     (catch #t
+            (let ((manifest
+                   (catch #t
+                     (lambda ()
+                       ((channel-instances->manifest instances #:system system) store))
+                     (lambda (key . args)
+                       (simple-format
+                        (current-error-port)
+                        "error: while computing manifest entry derivation for ~A\n"
+                        system)
+                       (simple-format
+                        (current-error-port)
+                        "error ~A: ~A\n" key args)
+                       #f))))
+              (define (add-tmp-root-and-return-drv drv)
+                (add-temp-root store drv)
+                drv)
+
+              `(,system
+                .
+                ((manifest-entry-item
+                  . ,(and manifest
+                          (add-tmp-root-and-return-drv
+                           (derivation-file-name
+                            (manifest-entry-item
+                             (first
+                              (manifest-entries manifest)))))))
+                 (profile
+                  . ,(catch #t
                        (lambda ()
-                         ((channel-instances->manifest instances) store))
+                         (and manifest
+                              (add-tmp-root-and-return-drv
+                               (derivation-file-name
+                                (parameterize ((%current-system system))
+                                  (run-with-store store
+                                    (profile-derivation
+                                     manifest
+                                     #:hooks %channel-profile-hooks)))))))
                        (lambda (key . args)
                          (simple-format
                           (current-error-port)
-                          "error: while computing manifest entry derivation for ~A\n"
+                          "error: while computing profile derivation for ~A\n"
                           system)
                          (simple-format
                           (current-error-port)
                           "error ~A: ~A\n" key args)
-                         #f))))
-                (define (add-tmp-root-and-return-drv drv)
-                  (add-temp-root store drv)
-                  drv)
-
-                `(,system
-                  .
-                  ((manifest-entry-item
-                    . ,(and manifest
-                            (add-tmp-root-and-return-drv
-                             (derivation-file-name
-                              (manifest-entry-item
-                               (first
-                                (manifest-entries manifest)))))))
-                   (profile
-                    . ,(catch #t
-                         (lambda ()
-                           (and manifest
-                                (add-tmp-root-and-return-drv
-                                 (derivation-file-name
-                                  (run-with-store store
-                                    (profile-derivation
-                                     manifest
-                                     #:hooks %channel-profile-hooks))))))
-                         (lambda (key . args)
-                           (simple-format
-                            (current-error-port)
-                            "error: while computing profile derivation for ~A\n"
-                            system)
-                           (simple-format
-                            (current-error-port)
-                            "error ~A: ~A\n" key args)
-                           #f))))))))
+                         #f)))))))
           (list ,@systems)))))
 
     (let ((inferior
@@ -1015,7 +1015,7 @@ WHERE job_id = $1")
                                        (guix grafts)
                                        (guix profiles))
                          inferior)
-          (inferior-eval '(when (defined? '%graft?) (%graft? #f))
+          (inferior-eval '(%graft? #f)
                          inferior)
           (inferior-eval '(define channel-instance
                             (@@ (guix channels) channel-instance))
