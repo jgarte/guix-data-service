@@ -1580,7 +1580,7 @@ LIMIT $1"
                        (sources-ids
                         (insert-derivation-sources conn
                                                    derivation-id
-                                                   (derivation-sources derivation))))
+                                                   sources)))
                   (map (lambda (id source-file)
                          (insert-derivation-source-file-nar conn
                                                             id
