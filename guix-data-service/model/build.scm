@@ -145,7 +145,7 @@ ORDER BY status"))
             `(("guix_revisions.commit = $" . ,revision-commit))
             '())
       ,@(if system
-            `(("package_derivations.system_id = $" .
+            `(("derivations.system_id = $" .
                ,(number->string (system->system-id conn system))))
             '())
       ,@(if target
