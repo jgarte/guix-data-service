@@ -141,18 +141,36 @@
            (list (%config 'sqitch)
                  "deploy"
                  "--db-client" (%config 'sqitch-psql)
-                 "--chdir" (dirname (%config 'sqitch-plan))
+                 "--chdir" (dirname (dirname (%config 'sqitch-plan)))
                  "--plan-file" (%config 'sqitch-plan)
-                 (string-append "db:pg://"
-                                (%config 'database-user)
-                                "@"
-                                (if (string=? (%config 'database-host)
-                                              "localhost")
-                                    ""  ; This means the unix socket
+                 (let* ((database-config (get-database-config))
+                        (params          (string-join
+                                          (map
+                                           (match-lambda
+                                             ((key . val)
+                                              (string-append key "=" val)))
+                                           (filter
+                                            (match-lambda
+                                              ((key . _)
+                                               (not (member key '("user"
+                                                                  "host"
+                                                                  "dbname")))))
+                                            database-config))
+                                          "&")))
+                   (string-append "db:pg://"
+                                  (assoc-ref database-config "user")
+                                  "@"
+                                  (if (string=? (assoc-ref database-config "host")
+                                                "localhost")
+                                      ""  ; This means the unix socket
                                         ; connection will be used
-                                    (%config 'database-host))
-                                "/"
-                                (%config 'database-name)))))
+                                      (assoc-ref database-config "host"))
+                                  "/"
+                                  (assoc-ref database-config "dbname")
+                                  (if (string-null? params)
+                                      ""
+                                      "?")
+                                  params)))))
       (simple-format #t "running command: ~A\n"
                      (string-join command))
       (unless (zero? (apply system* command))

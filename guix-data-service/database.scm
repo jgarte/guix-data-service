@@ -21,7 +21,9 @@
   #:use-module (ice-9 threads)
   #:use-module (squee)
   #:use-module (guix-data-service config)
-  #:export (with-postgresql-connection
+  #:export (get-database-config
+
+            with-postgresql-connection
 
             with-postgresql-connection-per-thread
             with-thread-postgresql-connection
@@ -38,6 +40,22 @@
 ;; TODO This isn't exported for some reason
 (define pg-conn-finish
   (@@ (squee) pg-conn-finish))
+
+(define (paramstring->alist s)
+  (map
+   (lambda (param)
+     (match (string-split param #\=)
+       ((key val)
+        (cons key val))))
+   (string-split s #\space)))
+
+(define (get-database-config)
+  (let ((paramstring (getenv "GUIX_DATA_SERVICE_DATABASE_PARAMSTRING")))
+    (if paramstring
+        (paramstring->alist paramstring)
+        `(("dbname"   . ,(%config 'database-name))
+          ("user"     . ,(%config 'database-user))
+          ("host"     . ,(%config 'database-host))))))
 
 (define (open-postgresql-connection name statement-timeout)
   (define paramstring
