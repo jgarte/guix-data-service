@@ -143,6 +143,8 @@
                  "--db-client" (%config 'sqitch-psql)
                  "--chdir" (dirname (dirname (%config 'sqitch-plan)))
                  "--plan-file" (%config 'sqitch-plan)
+                 "--mode" "change"      ; this helps when migrations don't
+                                        ; have the revert bit implemented
                  (let* ((database-config (get-database-config))
                         (params          (string-join
                                           (map
