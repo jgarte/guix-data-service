@@ -82,3 +82,4 @@ systems_table 2021-04-22T08:12:10Z Christopher Baines <mail@cbaines.net> # Add a
 some_indexes 2021-05-17T17:36:38Z Christopher Baines <mail@cbaines.net> # Add some indexes
 package_metadata_location_id_index 2021-05-27T19:51:13Z Canan Talayhan <canan.t.talayhan@gmail.com> # Add index for location id
 packages_replacement 2021-04-24T04:52:57Z Christopher Baines <mail@cbaines.net> # Add packages.replacement_package_id
+package_derivations_not_null_hash_index 2021-07-11T14:19:32Z Christopher Baines <mail@cbaines.net> # Add an index to package_derivations
