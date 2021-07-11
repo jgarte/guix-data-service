@@ -109,9 +109,16 @@
                        fields)
                   " AND ")))
 
-(define (select-package-metadata-by-revision-name-and-version
-         conn revision-commit-hash name version locale)
-  (define query "
+(define* (select-package-metadata-by-revision-name-and-version
+          conn
+          revision-commit-hash
+          name
+          version
+          locale
+          #:key replacement?)
+  (define query
+    (string-append
+     "
 SELECT translated_package_synopsis.synopsis, translated_package_synopsis.locale,
   translated_package_descriptions.description, translated_package_descriptions.locale,
   package_metadata.home_page,
@@ -179,7 +186,12 @@ WHERE packages.id IN (
   WHERE guix_revisions.commit = $1
 )
   AND packages.name = $2
-  AND packages.version = $3")
+  AND packages.version = $3"
+     (if replacement?
+         "
+  AND packages.replacement_package_id IS NOT NULL"
+         "
+  AND packages.replacement_package_id IS NULL")))
 
   (map
    (match-lambda

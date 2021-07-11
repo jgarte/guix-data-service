@@ -53,7 +53,8 @@
           `(("en_US.UTF-8" . "Fake description")))))
 (with-mock-inferior-packages
  (lambda ()
-   (use-modules (guix-data-service model package)
+   (use-modules (guix-data-service model utils)
+                (guix-data-service model package)
                 (guix-data-service model git-repository)
                 (guix-data-service model guix-revision)
                 (guix-data-service model package-metadata))
@@ -71,12 +72,16 @@
                                         conn
                                         ""
                                         mock-inferior-packages
-                                        (test-license-set-ids conn))))
+                                        (test-license-set-ids conn)))
+                 (package-replacement-package-ids
+                  (make-list (length mock-inferior-packages)
+                             (cons "integer" NULL))))
              (match (inferior-packages->package-ids
                      conn
                      (zip (map mock-inferior-package-name mock-inferior-packages)
                           (map mock-inferior-package-version mock-inferior-packages)
-                          package-metadata-ids))
+                          package-metadata-ids
+                          package-replacement-package-ids))
                ((x) (number? x))))))
        #:always-rollback? #t)
 
@@ -87,18 +92,23 @@
                                       conn
                                       ""
                                       mock-inferior-packages
-                                      (test-license-set-ids conn))))
+                                      (test-license-set-ids conn)))
+               (package-replacement-package-ids
+                (make-list (length mock-inferior-packages)
+                           (cons "integer" NULL))))
            (test-equal
                (inferior-packages->package-ids
                 conn
                 (zip (map mock-inferior-package-name mock-inferior-packages)
                      (map mock-inferior-package-version mock-inferior-packages)
-                     package-metadata-ids))
+                     package-metadata-ids
+                     package-replacement-package-ids))
              (inferior-packages->package-ids
               conn
               (zip (map mock-inferior-package-name mock-inferior-packages)
                    (map mock-inferior-package-version mock-inferior-packages)
-                   package-metadata-ids)))))
+                   package-metadata-ids
+                   package-replacement-package-ids)))))
        #:always-rollback? #t))))))
 
 (test-end)

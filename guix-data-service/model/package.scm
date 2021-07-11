@@ -162,7 +162,9 @@ WITH revision_packages AS (
     WHERE guix_revisions.commit = $1
   )
 ), search_results AS (
-  SELECT DISTINCT ON (packages.name) packages.name,
+  SELECT DISTINCT ON
+           (packages.name, packages.version, packages.replacement_package_id)
+         packages.name,
          packages.version, package_synopsis.synopsis,
          package_synopsis.locale AS synopsis_locale,
          package_descriptions.description,
@@ -195,7 +197,7 @@ WITH revision_packages AS (
     OR
     package_metadata_tsvectors.synopsis_and_description @@ plainto_tsquery($2)
   )
-  ORDER BY name,
+  ORDER BY name, packages.version, packages.replacement_package_id,
     CASE WHEN package_metadata_tsvectors.locale = 'en_US.UTF-8' THEN 2
          WHEN package_metadata_tsvectors.locale = $3 THEN 1
          ELSE 0
@@ -265,7 +267,7 @@ RETURNING id"))
   (insert-missing-data-and-return-all-ids
    conn
    "packages"
-   '(name version package_metadata_id)
+   '(name version package_metadata_id replacement_package_id)
    package-entries))
 
 (define (select-package-versions-for-revision conn

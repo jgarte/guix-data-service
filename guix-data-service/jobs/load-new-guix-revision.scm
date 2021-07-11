@@ -39,6 +39,7 @@
   #:use-module (guix-data-service config)
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service utils)
+  #:use-module (guix-data-service model utils)
   #:use-module (guix-data-service model build)
   #:use-module (guix-data-service model channel-instance)
   #:use-module (guix-data-service model channel-news)
@@ -765,7 +766,34 @@ WHERE job_id = $1")
                  (string<? a-name
                            b-name)))))))
 
-(define (insert-packages conn inf packages)
+(define (inferior-packages-plus-replacements inf)
+  (let* ((packages
+          ;; This isn't perfect, sometimes there can be two packages with the
+          ;; same name and version, but different derivations.  Guix will warn
+          ;; about this case though, generally this means only one of the
+          ;; packages should be exported.
+          (deduplicate-inferior-packages
+           (inferior-packages inf)))
+         (replacements (filter-map inferior-package-replacement packages))
+
+         (package-id-hash-table (make-hash-table)))
+
+    (for-each (lambda (pkg)
+                (hash-set! package-id-hash-table
+                           (inferior-package-id pkg)
+                           #t))
+              packages)
+
+    (let ((non-exported-replacements
+           (filter (lambda (pkg)
+                     (eq? #f
+                          (hash-ref package-id-hash-table
+                                    (inferior-package-id pkg))))
+                   replacements)))
+
+      (append packages non-exported-replacements))))
+
+(define* (insert-packages conn inf packages #:key (process-replacements? #t))
   (let* ((package-license-set-ids
           (with-time-logging "fetching inferior package license metadata"
             (inferior-packages->license-set-ids
@@ -777,7 +805,24 @@ WHERE job_id = $1")
         (((all-package-metadata-ids new-package-metadata-ids)
            (with-time-logging "fetching inferior package metadata"
              (inferior-packages->package-metadata-ids
-              conn inf packages package-license-set-ids))))
+              conn inf packages package-license-set-ids)))
+         ((package-replacement-package-ids)
+          (map (lambda (package)
+                 (let ((replacement (inferior-package-replacement package)))
+                   (if (and process-replacements? replacement)
+                       ;; I'm not sure if replacements can themselves be
+                       ;; replaced, but I do know for sure that there are
+                       ;; infinite chains of replacements (python(2)-urllib3
+                       ;; in 7c4c781aa40c42d4cd10b8d9482199f3db345e1b for
+                       ;; example).
+                       ;;
+                       ;; This code currently just capures the first level of
+                       ;; replacements
+                       (car
+                        (insert-packages conn inf (list replacement)
+                                         #:process-replacements? #f))
+                       (cons "integer" NULL))))
+               packages)))
 
       (unless (null? new-package-metadata-ids)
         (with-time-logging "fetching package metadata tsvector entries"
@@ -789,7 +834,8 @@ WHERE job_id = $1")
          conn
          (zip (map inferior-package-name packages)
               (map inferior-package-version packages)
-              all-package-metadata-ids))))))
+              all-package-metadata-ids
+              package-replacement-package-ids))))))
 
 (define (insert-lint-warnings conn inferior-package-id->package-database-id
                               lint-checker-ids
@@ -1201,8 +1247,7 @@ WHERE job_id = $1")
       (lambda ()
         (let* ((packages
                 (with-time-logging "fetching inferior packages"
-                  (deduplicate-inferior-packages
-                   (inferior-packages inf))))
+                  (inferior-packages-plus-replacements inf)))
                (inferior-lint-warnings
                 (with-time-logging "fetching inferior lint warnings"
                   (all-inferior-lint-warnings inf store packages)))
