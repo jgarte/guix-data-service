@@ -57,7 +57,7 @@
            (sqitch-plan . ,(let ((installed-plan
                                   "@prefix@/share/guix-data-service/sqitch/sqitch.plan")
                                  (dev-plan
-                                  (string-append (getcwd) "/sqitch/sqitch.plan")))
+                                  "@abs_top_builddir@/sqitch/sqitch.plan"))
                              (if (file-exists? installed-plan)
                                  installed-plan
                                  dev-plan)))

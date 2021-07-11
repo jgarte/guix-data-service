@@ -141,7 +141,13 @@
            (list (%config 'sqitch)
                  "deploy"
                  "--db-client" (%config 'sqitch-psql)
-                 "--chdir" (dirname (dirname (%config 'sqitch-plan)))
+                 ;; For some reason, sqitch behaves differently when the
+                 ;; guix-data-service is packaged, and when it's not, so try
+                 ;; and hack around this here.
+                 "--chdir" (let ((base (dirname (%config 'sqitch-plan))))
+                             (if (string-prefix? "/gnu" (%config 'sqitch-plan))
+                                 base
+                                 (dirname base)))
                  "--plan-file" (%config 'sqitch-plan)
                  "--mode" "change"      ; this helps when migrations don't
                                         ; have the revert bit implemented
