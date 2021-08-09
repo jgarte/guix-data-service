@@ -237,7 +237,8 @@ WHERE packages.id IN (
              (source-description
               (begin
                 (setlocale LC_MESSAGES source-locale)
-                (P_ (package-description package))))
+                (and=> (package-description package)
+                       P_)))
              (synopsis-by-locale
               (filter-map
                (lambda (locale)
@@ -258,29 +259,33 @@ WHERE packages.id IN (
                        (cons locale synopsis))))
                (list ,@locales)))
              (descriptions-by-locale
-              (filter-map
-               (lambda (locale)
-                 (catch 'system-error
-                   (lambda ()
-                     (setlocale LC_MESSAGES locale))
-                   (lambda (key . args)
-                     (error
-                      (simple-format
-                       #f
-                       "error changing locale to ~A: ~A ~A"
-                       locale key args))))
-                 (let ((description
-                        (P_ (package-description package))))
-                   (setlocale LC_MESSAGES source-locale)
-                   (if (string=? description source-description)
-                       #f
-                       (cons locale description))))
-               (list ,@locales))))
-        (cons
-         (cons (cons source-locale source-description)
-               descriptions-by-locale)
-         (cons (cons source-locale source-synopsis)
-               synopsis-by-locale))))
+              (if (string? source-description)
+                  (filter-map
+                   (lambda (locale)
+                     (catch 'system-error
+                       (lambda ()
+                         (setlocale LC_MESSAGES locale))
+                       (lambda (key . args)
+                         (error
+                          (simple-format
+                           #f
+                           "error changing locale to ~A: ~A ~A"
+                           locale key args))))
+                     (let ((description
+                            (P_ (package-description package))))
+                       (setlocale LC_MESSAGES source-locale)
+                       (if (string=? description source-description)
+                           #f
+                           (cons locale description))))
+                   (list ,@locales))
+                  ;; Could be #f
+                  '())))
+       (cons
+        ;; Pretend that #f descriptions are ""
+        (cons (cons source-locale (or source-description ""))
+              descriptions-by-locale)
+        (cons (cons source-locale source-synopsis)
+              synopsis-by-locale))))
 
   (inferior-eval (translate (inferior-package-id inferior-package)) inferior))
 
