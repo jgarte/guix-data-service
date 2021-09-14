@@ -1737,6 +1737,52 @@ WHERE " criteria ";"))
         result-for-missing-file-names)))))
 
 (define (derivation-file-names->derivation-ids conn derivation-file-names)
+  (define (select-source-files-missing-nars derivation-ids)
+    (define (split ids)
+      (if (> (length ids)
+             1000)
+          (call-with-values (lambda ()
+                              (split-at ids 1000))
+            (lambda (ids-lst rest)
+              (cons ids-lst
+                    (split rest))))
+          (list ids)))
+
+    (define (query ids)
+      (string-append
+       "
+WITH RECURSIVE all_derivations AS (
+    SELECT column1 AS derivation_id
+    FROM (VALUES ("
+       (string-join (map number->string ids)
+                    ", ")
+       ")) AS data
+  UNION
+    SELECT derivation_outputs.derivation_id
+    FROM all_derivations
+    INNER JOIN derivation_inputs
+      ON derivation_inputs.derivation_id = all_derivations.derivation_id
+    INNER JOIN derivation_outputs
+      ON derivation_outputs.id = derivation_inputs.derivation_output_id
+)
+SELECT derivation_sources.derivation_source_file_id, derivation_source_files.store_path
+FROM all_derivations
+INNER JOIN derivation_sources
+  ON derivation_sources.derivation_id = all_derivations.derivation_id
+LEFT JOIN derivation_source_file_nars
+  ON derivation_sources.derivation_source_file_id =
+     derivation_source_file_nars.derivation_source_file_id
+INNER JOIN derivation_source_files
+  ON derivation_sources.derivation_source_file_id =
+     derivation_source_files.id
+WHERE derivation_source_file_nars.derivation_source_file_id IS NULL"))
+
+    (delete-duplicates
+     (append-map
+      (lambda (ids)
+        (exec-query conn (query ids)))
+      (split derivation-ids))))
+
   (if (null? derivation-file-names)
       '()
       (let* ((derivations-count (length derivation-file-names))
@@ -1766,13 +1812,24 @@ WHERE " criteria ";"))
 
                (new-entries-id-lookup-vhash
                 (two-lists->vhash (map derivation-file-name missing-derivations)
-                                  new-derivation-entries)))
+                                  new-derivation-entries))
 
-          (map (lambda (derivation-file-name)
-                 (cdr
-                  (or (vhash-assoc derivation-file-name
-                                   existing-derivation-entries)
-                      (vhash-assoc derivation-file-name
-                                   new-entries-id-lookup-vhash)
-                      (error "missing derivation id"))))
-               derivation-file-names)))))
+               (all-ids
+                (map (lambda (derivation-file-name)
+                       (cdr
+                        (or (vhash-assoc derivation-file-name
+                                         existing-derivation-entries)
+                            (vhash-assoc derivation-file-name
+                                         new-entries-id-lookup-vhash)
+                            (error "missing derivation id"))))
+                     derivation-file-names)))
+
+          (for-each (match-lambda
+                      ((derivation-source-file-id store-path)
+                       (insert-derivation-source-file-nar
+                        conn
+                        (string->number derivation-source-file-id)
+                        store-path)))
+                    (select-source-files-missing-nars all-ids))
+
+          all-ids))))
