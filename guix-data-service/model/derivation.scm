@@ -1753,10 +1753,13 @@ WHERE " criteria ";"))
        "
 WITH RECURSIVE all_derivations AS (
     SELECT column1 AS derivation_id
-    FROM (VALUES ("
-       (string-join (map number->string ids)
+    FROM (VALUES "
+       (string-join (map
+                     (lambda (id)
+                       (string-append "(" id ")"))
+                     (map number->string ids))
                     ", ")
-       ")) AS data
+       ") AS data
   UNION
     SELECT derivation_outputs.derivation_id
     FROM all_derivations
