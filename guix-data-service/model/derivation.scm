@@ -1498,29 +1498,29 @@ LIMIT $1"
       (simple-format
        #t "debug: ensure-input-derivations-exist: processing ~A derivations\n"
        (length input-derivation-file-names))
-      (let ((existing-derivation-entries
-             (derivation-file-names->vhash conn
-                                           derivation-ids-hash-table
-                                           input-derivation-file-names)))
-        (simple-format
-         #t
-         "debug: ensure-input-derivations-exist: checking for missing input derivations\n")
-        (let ((missing-derivations-filenames
-               (filter (lambda (derivation-file-name)
-                         (not (vhash-assoc derivation-file-name
-                                           existing-derivation-entries)))
-                       input-derivation-file-names)))
 
-          (unless (null? missing-derivations-filenames)
-            (simple-format
-             #f
-             "debug: ensure-input-derivations-exist: inserting missing input derivations\n")
-            ;; Ensure all the input derivations exist
-            (insert-missing-derivations
-             conn
-             derivation-ids-hash-table
-             (map read-derivation-from-file
-                  missing-derivations-filenames)))))))
+      (update-derivation-ids-hash-table! conn
+                                         derivation-ids-hash-table
+                                         input-derivation-file-names)
+      (simple-format
+       #t
+       "debug: ensure-input-derivations-exist: checking for missing input derivations\n")
+      (let ((missing-derivations-filenames
+             (filter (lambda (derivation-file-name)
+                       (not (hash-ref derivation-ids-hash-table
+                                      derivation-file-name)))
+                     input-derivation-file-names)))
+
+        (unless (null? missing-derivations-filenames)
+          (simple-format
+           #f
+           "debug: ensure-input-derivations-exist: inserting missing input derivations\n")
+          ;; Ensure all the input derivations exist
+          (insert-missing-derivations
+           conn
+           derivation-ids-hash-table
+           (map read-derivation-from-file
+                missing-derivations-filenames))))))
 
   (define (insert-into-derivations)
     (string-append
@@ -1698,46 +1698,33 @@ WHERE " criteria ";"))
    '()
    sorted-derivations))
 
-(define (derivation-file-names->vhash conn derivation-ids-hash-table file-names)
-  (simple-format #t "debug: derivation-file-names->vhash: ~A file-names\n"
-                 (length file-names))
-  (match (fold (match-lambda*
-                 ((file-name (result . missing-file-names))
-                  (let ((cached-id (hash-ref derivation-ids-hash-table
-                                             file-name)))
-                    (if cached-id
-                        (cons (vhash-cons file-name cached-id result)
-                              missing-file-names)
-                        (cons result
-                              (cons file-name missing-file-names))))))
-               (cons vlist-null '())
-               file-names)
-    ((result)
-     (simple-format
-      #t "debug: derivation-file-names->vhash: lookup ~A file-names, all found\n"
-      (length file-names))
-     result)
-    ((result . missing-file-names)
-     (simple-format
-      #t "debug: derivation-file-names->vhash: lookup ~A file-names, ~A not cached\n"
-      (length file-names) (length missing-file-names))
-     (let ((result-for-missing-file-names
-            (exec-query->vhash
-             conn
-             (select-existing-derivations missing-file-names)
-             second ;; file_name
-             (lambda (result)
-               (string->number (first result)))))) ;; id
-       (simple-format
-        #t "debug: derivation-file-names->vhash: adding ~A entries to the cache\n"
-        (vlist-length result-for-missing-file-names))
-       (vhash-fold
-        (lambda (key value combined)
-          ;; Update the derivation-ids-hash-table as we go through the vhash
-          (hash-set! derivation-ids-hash-table key value)
-          (vhash-cons key value combined))
-        result
-        result-for-missing-file-names)))))
+(define (update-derivation-ids-hash-table! conn
+                                           derivation-ids-hash-table
+                                           file-names)
+  (define file-names-count (length file-names))
+
+  (simple-format #t "debug: update-derivation-ids-hash-table!: ~A file-names\n"
+                 file-names-count)
+  (let ((missing-file-names
+         (fold (lambda (file-name result)
+                 (if (hash-ref derivation-ids-hash-table
+                               file-name)
+                     result
+                     (cons file-name result)))
+               '()
+               file-names)))
+
+    (simple-format
+     #t "debug: update-derivation-ids-hash-table!: lookup ~A file-names, ~A not cached\n"
+     file-names-count (length missing-file-names))
+
+    (for-each
+     (match-lambda
+       ((id file-name)
+        (hash-set! derivation-ids-hash-table
+                   file-name
+                   (string->number id))))
+     (exec-query conn (select-existing-derivations missing-file-names)))))
 
 (define (derivation-file-names->derivation-ids conn derivation-file-names)
   (define (select-source-files-missing-nars derivation-ids)
@@ -1809,47 +1796,39 @@ INNER JOIN derivation_source_files
         (simple-format
          #t "debug: derivation-file-names->derivation-ids: processing ~A derivations\n"
          derivations-count)
-        (let* ((existing-derivation-entries
-                (derivation-file-names->vhash conn
-                                              derivation-ids-hash-table
-                                              derivation-file-names))
 
-               (missing-derivations
-                (map read-derivation-from-file
-                     (deduplicate-strings
-                      (filter (lambda (derivation-file-name)
-                                (not (vhash-assoc derivation-file-name
-                                                  existing-derivation-entries)))
-                              derivation-file-names))))
+        (update-derivation-ids-hash-table! conn
+                                           derivation-ids-hash-table
+                                           derivation-file-names)
 
-               (new-derivation-entries
-                (if (null? missing-derivations)
-                    '()
-                    (insert-missing-derivations conn
-                                                derivation-ids-hash-table
-                                                missing-derivations)))
+        (let ((missing-derivations
+               (map read-derivation-from-file
+                    (deduplicate-strings
+                     (filter (lambda (derivation-file-name)
+                               (not (hash-ref derivation-ids-hash-table
+                                              derivation-file-name)))
+                             derivation-file-names)))))
 
-               (new-entries-id-lookup-vhash
-                (two-lists->vhash (map derivation-file-name missing-derivations)
-                                  new-derivation-entries))
+          (unless (null? missing-derivations)
+            (insert-missing-derivations conn
+                                        derivation-ids-hash-table
+                                        missing-derivations))
 
-               (all-ids
-                (map (lambda (derivation-file-name)
-                       (cdr
-                        (or (vhash-assoc derivation-file-name
-                                         existing-derivation-entries)
-                            (vhash-assoc derivation-file-name
-                                         new-entries-id-lookup-vhash)
-                            (error "missing derivation id"))))
-                     derivation-file-names)))
 
-          (with-time-logging "inserting missing source files"
-            (for-each (match-lambda
-                        ((derivation-source-file-id store-path)
-                         (insert-derivation-source-file-nar
-                          conn
-                          (string->number derivation-source-file-id)
-                          store-path)))
-                      (select-source-files-missing-nars all-ids)))
+          (let ((all-ids
+                 (map (lambda (derivation-file-name)
+                        (or (hash-ref derivation-ids-hash-table
+                                      derivation-file-name)
+                            (error "missing derivation id")))
+                      derivation-file-names)))
 
-          all-ids))))
+            (with-time-logging "inserting missing source files"
+              (for-each (match-lambda
+                          ((derivation-source-file-id store-path)
+                           (insert-derivation-source-file-nar
+                            conn
+                            (string->number derivation-source-file-id)
+                            store-path)))
+                        (select-source-files-missing-nars all-ids)))
+
+            all-ids)))))
