@@ -1082,25 +1082,6 @@ VALUES ($1, $2)"
                 (vector->list (json-string->scm env_vars)))
            system))))
 
-(define select-derivation-output-id
-  (mlambda (conn name path)
-    (match (exec-query
-            conn
-            "
-SELECT derivation_outputs.id FROM derivation_outputs
-INNER JOIN derivations
-  ON derivation_outputs.derivation_id = derivations.id
-WHERE derivations.file_name = $1
-  AND derivation_outputs.name = $2"
-            path
-            name)
-      (((id))
-       id)
-      (()
-       (error (simple-format
-               #f "cannot find derivation-output with name ~A and path ~A"
-               name path))))))
-
 (define (select-derivation-outputs-by-derivation-id conn id)
   (define query
     (string-append
@@ -1347,40 +1328,46 @@ WHERE derivation_source_files.store_path = $1"
                           env-vars)))))))))
         #f)))
 
-(define (insert-derivation-inputs conn derivation-id derivation-inputs)
-  (define (insert-into-derivation-inputs output-ids)
-    (string-append "INSERT INTO derivation_inputs "
-                   "(derivation_id, derivation_output_id) VALUES "
-                   (string-join
-                    (map (lambda (output-id)
-                           (simple-format
-                            #f "(~A, ~A)"
-                            derivation-id output-id))
-                         output-ids)
-                    ",")
-                   ";"))
+(define (insert-derivation-inputs conn derivation-ids derivations)
+  (let ((data
+         (append-map
+          (lambda (derivation-id derivation)
+            (append-map
+             (match-lambda
+               (($ <derivation-input> derivation-or-path sub-derivations)
+                (let ((path
+                       (match derivation-or-path
+                         ((? derivation? d)
+                          ;; The first field changed to a derivation (from the file
+                          ;; name) in 5cf4b26d52bcea382d98fb4becce89be9ee37b55
+                          (derivation-file-name d))
+                         ((? string? s)
+                          s))))
+                  (map (lambda (sub-derivation)
+                         (string-append "("
+                                        (number->string derivation-id)
+                                        ", '" path
+                                        "', '" sub-derivation "')"))
+                       sub-derivations))))
+             (derivation-inputs derivation)))
+          derivation-ids
+          derivations)))
 
-  (unless (null? derivation-inputs)
-    (exec-query
-     conn
-     (insert-into-derivation-inputs
-      (append-map
-       (match-lambda
-         (($ <derivation-input> derivation-or-path sub-derivations)
-          (let ((path
-                 (match derivation-or-path
-                   ((? derivation? d)
-                    ;; The first field changed to a derivation (from the file
-                    ;; name) in 5cf4b26d52bcea382d98fb4becce89be9ee37b55
-                    (derivation-file-name d))
-                   ((? string? s)
-                    s))))
-            (map (lambda (sub-derivation)
-                   (select-derivation-output-id conn
-                                                sub-derivation
-                                                path))
-                 sub-derivations))))
-       derivation-inputs)))))
+    (unless (null? data)
+      (exec-query
+       conn
+       (string-append
+        "
+INSERT INTO derivation_inputs (derivation_id, derivation_output_id)
+SELECT vals.derivation_id, derivation_outputs.id
+FROM (VALUES "
+        (string-join data ", ")
+        ") AS vals (derivation_id, file_name, output_name)
+INNER JOIN derivations
+  ON derivations.file_name = vals.file_name
+INNER JOIN derivation_outputs
+  ON derivation_outputs.derivation_id = derivations.id
+ AND vals.output_name = derivation_outputs.name")))))
 
 (define (select-from-derivation-source-files store-paths)
   (string-append
@@ -1598,21 +1585,16 @@ LIMIT $1"
 
     (ensure-input-derivations-exist (deduplicate-strings
                                      (map derivation-input-path
-                                          (append-map
-                                           derivation-inputs
-                                           derivations))))
+                                          (append-map derivation-inputs
+                                                      derivations))))
 
     (with-time-logging
         (simple-format
          #f "insert-missing-derivations: inserting inputs for ~A derivations"
          (length derivations))
-      (for-each (lambda (derivation-id derivation)
-                  (insert-derivation-inputs conn
-                                            derivation-id
-                                            (derivation-inputs derivation)))
-
-                derivation-ids
-                derivations))
+      (insert-derivation-inputs conn
+                                derivation-ids
+                                derivations))
 
     derivation-ids))
 
