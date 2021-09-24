@@ -31,6 +31,7 @@
   #:use-module (guix inferior)
   #:use-module (guix memoization)
   #:use-module (guix derivations)
+  #:use-module (guix-data-service utils)
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service model utils)
   #:use-module (guix-data-service model system)
@@ -1599,15 +1600,17 @@ LIMIT $1"
                                            derivation-inputs
                                            derivations))))
 
-    (simple-format
-     #t "debug: insert-missing-derivations: inserting inputs\n")
-    (for-each (lambda (derivation-id derivation)
-                (insert-derivation-inputs conn
-                                          derivation-id
-                                          (derivation-inputs derivation)))
+    (with-time-logging
+        (simple-format
+         #f "insert-missing-derivations: inserting inputs for ~A derivations"
+         (length derivations))
+      (for-each (lambda (derivation-id derivation)
+                  (insert-derivation-inputs conn
+                                            derivation-id
+                                            (derivation-inputs derivation)))
 
-              derivation-ids
-              derivations)
+                derivation-ids
+                derivations))
 
     derivation-ids))
 
@@ -1738,19 +1741,20 @@ WHERE " criteria ";"))
 
 (define (derivation-file-names->derivation-ids conn derivation-file-names)
   (define (select-source-files-missing-nars derivation-ids)
-    (define (split ids)
+    (define (split ids max-length)
       (if (> (length ids)
-             1000)
+             max-length)
           (call-with-values (lambda ()
-                              (split-at ids 1000))
+                              (split-at ids max-length))
             (lambda (ids-lst rest)
               (cons ids-lst
-                    (split rest))))
+                    (split rest max-length))))
           (list ids)))
 
-    (define (query ids)
-      (string-append
-       "
+    (define (derivation-ids->all-related-derivation-ids ids)
+      (define query
+        (string-append
+         "
 WITH RECURSIVE all_derivations AS (
     SELECT column1 AS derivation_id
     FROM (VALUES "
@@ -1768,23 +1772,35 @@ WITH RECURSIVE all_derivations AS (
     INNER JOIN derivation_outputs
       ON derivation_outputs.id = derivation_inputs.derivation_output_id
 )
+SELECT all_derivations.derivation_id
+FROM all_derivations"))
+
+      (map car (exec-query conn query)))
+
+    (define (derivation-ids->missing-sources ids)
+      (define query
+        (string-append
+         "
 SELECT derivation_sources.derivation_source_file_id, derivation_source_files.store_path
-FROM all_derivations
-INNER JOIN derivation_sources
-  ON derivation_sources.derivation_id = all_derivations.derivation_id
+FROM derivation_sources
 LEFT JOIN derivation_source_file_nars
   ON derivation_sources.derivation_source_file_id =
      derivation_source_file_nars.derivation_source_file_id
 INNER JOIN derivation_source_files
   ON derivation_sources.derivation_source_file_id =
      derivation_source_files.id
-WHERE derivation_source_file_nars.derivation_source_file_id IS NULL"))
+     WHERE derivation_sources.derivation_id IN ("
+         (string-join ids ", ")
+         ")
+       AND derivation_source_file_nars.derivation_source_file_id IS NULL"))
 
-    (delete-duplicates
-     (append-map
-      (lambda (ids)
-        (exec-query conn (query ids)))
-      (split derivation-ids))))
+      (exec-query conn query))
+
+    (let ((all-derivation-ids
+           (append-map
+            derivation-ids->all-related-derivation-ids
+            (split derivation-ids 250))))
+      (derivation-ids->missing-sources all-derivation-ids)))
 
   (if (null? derivation-file-names)
       '()
@@ -1827,12 +1843,13 @@ WHERE derivation_source_file_nars.derivation_source_file_id IS NULL"))
                             (error "missing derivation id"))))
                      derivation-file-names)))
 
-          (for-each (match-lambda
-                      ((derivation-source-file-id store-path)
-                       (insert-derivation-source-file-nar
-                        conn
-                        (string->number derivation-source-file-id)
-                        store-path)))
-                    (select-source-files-missing-nars all-ids))
+          (with-time-logging "inserting missing source files"
+            (for-each (match-lambda
+                        ((derivation-source-file-id store-path)
+                         (insert-derivation-source-file-nar
+                          conn
+                          (string->number derivation-source-file-id)
+                          store-path)))
+                      (select-source-files-missing-nars all-ids)))
 
           all-ids))))
