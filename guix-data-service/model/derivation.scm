@@ -1086,12 +1086,14 @@ VALUES ($1, $2)"
   (mlambda (conn name path)
     (match (exec-query
             conn
-            (string-append
-             "SELECT derivation_outputs.id FROM derivation_outputs "
-             "INNER JOIN derivations ON "
-             "derivation_outputs.derivation_id = derivations.id "
-             "WHERE derivations.file_name = '" path "' "
-             "AND derivation_outputs.name = '" name "';"))
+            "
+SELECT derivation_outputs.id FROM derivation_outputs
+INNER JOIN derivations
+  ON derivation_outputs.derivation_id = derivations.id
+WHERE derivations.file_name = $1
+  AND derivation_outputs.name = $2"
+            path
+            name)
       (((id))
        id)
       (()
