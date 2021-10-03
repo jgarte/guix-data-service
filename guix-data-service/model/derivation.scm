@@ -1786,7 +1786,10 @@ INNER JOIN derivation_source_files
   (if (null? derivation-file-names)
       '()
       (let* ((derivations-count (length derivation-file-names))
-             (derivation-ids-hash-table (make-hash-table derivations-count)))
+             (derivation-ids-hash-table (make-hash-table
+                                         ;; Account for more derivations in
+                                         ;; the graph
+                                         (* 2 derivations-count))))
         (simple-format
          #t "debug: derivation-file-names->derivation-ids: processing ~A derivations\n"
          derivations-count)
