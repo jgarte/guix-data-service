@@ -1354,20 +1354,23 @@ WHERE derivation_source_files.store_path = $1"
           derivations)))
 
     (unless (null? data)
-      (exec-query
-       conn
-       (string-append
-        "
+      (for-each
+       (lambda (chunk)
+         (exec-query
+          conn
+          (string-append
+           "
 INSERT INTO derivation_inputs (derivation_id, derivation_output_id)
 SELECT vals.derivation_id, derivation_outputs.id
 FROM (VALUES "
-        (string-join data ", ")
-        ") AS vals (derivation_id, file_name, output_name)
+           (string-join chunk ", ")
+           ") AS vals (derivation_id, file_name, output_name)
 INNER JOIN derivations
   ON derivations.file_name = vals.file_name
 INNER JOIN derivation_outputs
   ON derivation_outputs.derivation_id = derivations.id
- AND vals.output_name = derivation_outputs.name")))))
+ AND vals.output_name = derivation_outputs.name")))
+       (chunk! data 1000)))))
 
 (define (select-from-derivation-source-files store-paths)
   (string-append
