@@ -1793,12 +1793,13 @@ INNER JOIN derivation_source_files
                                            derivation-file-names)
 
         (let ((missing-derivations
-               (map read-derivation-from-file
-                    (deduplicate-strings
-                     (filter (lambda (derivation-file-name)
-                               (not (hash-ref derivation-ids-hash-table
-                                              derivation-file-name)))
-                             derivation-file-names)))))
+               (with-time-logging "reading missing derivations"
+                 (map read-derivation-from-file
+                      (deduplicate-strings
+                       (filter (lambda (derivation-file-name)
+                                 (not (hash-ref derivation-ids-hash-table
+                                                derivation-file-name)))
+                               derivation-file-names))))))
 
           (unless (null? missing-derivations)
             (insert-missing-derivations conn
