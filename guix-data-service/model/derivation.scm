@@ -1514,7 +1514,7 @@ LIMIT $1"
            (map read-derivation-from-file
                 missing-derivations-filenames))))))
 
-  (define (insert-into-derivations)
+  (define (insert-into-derivations dervs)
     (string-append
      "INSERT INTO derivations "
      "(file_name, builder, args, env_vars, system_id) VALUES "
@@ -1535,7 +1535,7 @@ LIMIT $1"
                                  env-vars)
                             ",")
                (system->system-id conn system))))
-           derivations)
+           dervs)
       ",")
      " RETURNING id"
      ";"))
@@ -1544,9 +1544,12 @@ LIMIT $1"
    #t "debug: insert-missing-derivations: inserting ~A derivations\n"
    (length derivations))
   (let ((derivation-ids
-         (map (lambda (result)
-                (string->number (car result)))
-              (exec-query conn (insert-into-derivations)))))
+         (append-map
+          (lambda (chunk)
+            (map (lambda (result)
+                   (string->number (car result)))
+                 (exec-query conn (insert-into-derivations chunk))))
+          (chunk derivations 5000))))
 
     (simple-format
      #t "debug: insert-missing-derivations: updating hash table\n")
