@@ -16,6 +16,7 @@
 ;;; <http://www.gnu.org/licenses/>.
 
 (define-module (guix-data-service utils)
+  #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-11)
   #:use-module (ice-9 match)
   #:use-module (ice-9 threads)
@@ -28,7 +29,9 @@
 
             parallel-via-thread-pool-channel
             par-map&
-            letpar&))
+            letpar&
+
+            chunk!))
 
 (define (call-with-time-logging action thunk)
   (simple-format #t "debug: Starting ~A\n" action)
@@ -151,3 +154,13 @@
          '())))))
 
 (define par-map& (par-mapper' map cons))
+
+(define (chunk! lst max-length)
+  (if (> (length lst)
+         max-length)
+      (call-with-values (lambda ()
+                          (split-at! lst max-length))
+        (lambda (first-lst rest)
+          (cons first-lst
+                (chunk! rest max-length))))
+      (list lst)))
