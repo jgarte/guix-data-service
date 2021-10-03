@@ -1707,12 +1707,15 @@ WHERE " criteria ";"))
 
     (unless (null? missing-file-names)
       (for-each
-       (match-lambda
-         ((id file-name)
-          (hash-set! derivation-ids-hash-table
-                     file-name
-                     (string->number id))))
-       (exec-query conn (select-existing-derivations missing-file-names))))))
+       (lambda (chunk)
+         (for-each
+          (match-lambda
+            ((id file-name)
+             (hash-set! derivation-ids-hash-table
+                        file-name
+                        (string->number id))))
+          (exec-query conn (select-existing-derivations chunk))))
+       (chunk! missing-file-names 2000)))))
 
 (define (derivation-file-names->derivation-ids conn derivation-file-names)
   (define (select-source-files-missing-nars derivation-ids)
