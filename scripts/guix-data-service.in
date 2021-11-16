@@ -33,6 +33,7 @@
              (guix pki)
              (guix-data-service config)
              (guix-data-service database)
+             (guix-data-service substitutes)
              (guix-data-service web server)
              (guix-data-service web controller)
              (guix-data-service web nar controller))
@@ -226,6 +227,8 @@
                       #f)))
                  (%show-error-details
                   (assoc-ref opts 'show-error-details)))
+
+    (start-substitute-query-thread)
 
     ;; Provide some visual space between the startup output and the server
     ;; starting

@@ -19,12 +19,16 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-19)
   #:use-module (ice-9 match)
+  #:use-module (ice-9 threads)
   #:use-module (guix substitutes)
   #:use-module (guix narinfo)
   #:use-module (guix-data-service database)
   #:use-module (guix-data-service model build-server)
+  #:use-module (guix-data-service model git-branch)
+  #:use-module (guix-data-service model git-repository)
   #:use-module (guix-data-service model nar)
-  #:export (query-build-server-substitutes))
+  #:export (query-build-server-substitutes
+            start-substitute-query-thread))
 
 (define verbose-output?
   (make-parameter #f))
@@ -34,28 +38,27 @@
                                          #:key verbose?)
   (parameterize
       ((verbose-output? verbose?))
-    (while #t
-      (let ((build-servers (select-build-servers conn)))
-        (for-each
-         (match-lambda
-           ((id url lookup-all-derivations? lookup-builds?)
-            (when (or (or (not build-servers)
-                          (not build-server-ids))
-                      (member id build-server-ids))
-              (when lookup-all-derivations?
-                (simple-format #t "\nQuerying ~A\n" url)
-                (catch #t
-                  (lambda ()
-                    (simple-format #t "\nFetching narinfo files\n")
-                    (fetch-narinfo-files conn id url revision-commits
-                                         #:specific-outputs
-                                         outputs))
-                  (lambda (key . args)
-                    (simple-format
-                     (current-error-port)
-                     "exception in query-build-server: ~A ~A\n"
-                     key args)))))))
-         build-servers)))))
+    (let ((build-servers (select-build-servers conn)))
+      (for-each
+       (match-lambda
+         ((id url lookup-all-derivations? lookup-builds?)
+          (when (or (or (not build-servers)
+                        (not build-server-ids))
+                    (member id build-server-ids))
+            (when lookup-all-derivations?
+              (simple-format #t "\nQuerying ~A\n" url)
+              (catch #t
+                (lambda ()
+                  (simple-format #t "\nFetching narinfo files\n")
+                  (fetch-narinfo-files conn id url revision-commits
+                                       #:specific-outputs
+                                       outputs))
+                (lambda (key . args)
+                  (simple-format
+                   (current-error-port)
+                   "exception in query-build-server: ~A ~A\n"
+                   key args)))))))
+       build-servers))))
 
 (define %narinfo-max-size
   (- (expt 2 (- (* 8 8) ;; 8 bytes
@@ -110,3 +113,40 @@
             conn
             build-server-id
             filtered-narinfos)))))))
+
+(define (start-substitute-query-thread)
+  (call-with-new-thread
+   (lambda ()
+     (while #t
+       (with-exception-handler
+           (lambda (exn)
+             (simple-format (current-error-port)
+                            "exception when querying substitutes: ~A\n"
+                            exn))
+         (lambda ()
+           (with-postgresql-connection
+            "substitute-query-thread"
+            (lambda (conn)
+              (for-each
+               (match-lambda
+                 ((git-repository-id rest ...)
+                  (for-each
+                   (match-lambda
+                     ((branch-name rest ...)
+                      (and=> (latest-processed-commit-for-branch
+                              conn
+                              (number->string git-repository-id)
+                              branch-name)
+                             (lambda (commit)
+                               (query-build-server-substitutes
+                                conn
+                                #f ;; All build servers
+                                (list commit)
+                                #f)))))
+                   (all-branches-with-most-recent-commit
+                    conn
+                    git-repository-id))))
+               (all-git-repositories conn))))
+
+           (simple-format #t "finished checking substitutes, now sleeping\n")
+           (sleep (* 60 30))))))))
