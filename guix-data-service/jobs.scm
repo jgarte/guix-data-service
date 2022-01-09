@@ -19,6 +19,7 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 format)
   #:use-module (ice-9 threads)
+  #:use-module (ice-9 atomic)
   #:use-module (guix-data-service jobs load-new-guix-revision)
   #:export (process-jobs
 
@@ -132,6 +133,18 @@
                (handle-job-failure id)))))))
      processes))
 
+  (define (stop-running-processes)
+    (hash-map->list
+     (match-lambda*
+       ((pid (start-time job-args))
+        (display
+         (simple-format
+          #f "sending SIGTERM to pid ~A\n"
+          pid)
+         (current-error-port))
+        (kill pid SIGTERM)))
+     processes))
+
   (define (fork-and-process-job job-args)
     (match (primitive-fork)
       (0
@@ -146,10 +159,23 @@
                    (list (current-time) job-args))
        #t)))
 
+  (define exit?
+    (make-atomic-box #f))
+
+  (sigaction SIGTERM
+    (lambda args
+      (simple-format (current-error-port) "exiting due to SIGTERM\n")
+      (atomic-box-set! exit? #t)))
+
   (while #t
     (kill-long-running-processes)
     (wait-on-processes)
     (display-status)
+
+    (when (atomic-box-ref exit?)
+      (stop-running-processes)
+      (exit 0))
+
     (match (fetch-new-jobs)
       (()
        ;; Nothing to do
@@ -166,5 +192,4 @@
                           max-processes))
                (fork-and-process-job (list job-id))))))
         jobs)))
-    (unless (eq? 0 (sleep 15))
-      (exit 0))))
+    (sleep 15)))
