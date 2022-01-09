@@ -56,7 +56,7 @@
 
 (define default-timeout
   (* (* 60 60) ;; 1 hour in seconds
-     48))
+     72))
 
 (define* (process-jobs-concurrently
           fetch-new-jobs
