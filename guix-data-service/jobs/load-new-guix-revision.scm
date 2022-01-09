@@ -371,7 +371,9 @@ WHERE job_id = $1")
                      (lambda (key . args)
                        (simple-format
                         (current-error-port)
-                        "guix-data-service: error computing derivation ~A: ~A\n"
+                        "guix-data-service: error computing derivation for system test ~A (~A): ~A: ~A\n"
+                        (system-test-name system-test)
+                        system
                         key args)
                        #f)))
                  (list ,@inferior-%supported-systems))
