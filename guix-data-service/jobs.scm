@@ -103,10 +103,15 @@
            ;; No process to wait for
            #f)
           ((pid . status)
+           (match (hash-ref processes pid)
+             ((_ (id))
+              (simple-format (current-error-port)
+                             "pid ~A (job: ~A) failed with status ~A\n"
+                             pid id status)
+
+              (handle-job-failure id)))
+
            (hashv-remove! processes pid)
-           (simple-format (current-error-port)
-                          "pid ~A failed with status ~A\n"
-                          pid status)
 
            ;; Recurse, to check for other finished processes.
            (wait-on-processes))))
