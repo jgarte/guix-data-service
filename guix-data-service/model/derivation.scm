@@ -1329,48 +1329,51 @@ WHERE derivation_source_files.store_path = $1"
         #f)))
 
 (define (insert-derivation-inputs conn derivation-ids derivations)
-  (let ((data
-         (append-map
-          (lambda (derivation-id derivation)
-            (append-map
-             (match-lambda
-               (($ <derivation-input> derivation-or-path sub-derivations)
-                (let ((path
-                       (match derivation-or-path
-                         ((? derivation? d)
-                          ;; The first field changed to a derivation (from the file
-                          ;; name) in 5cf4b26d52bcea382d98fb4becce89be9ee37b55
-                          (derivation-file-name d))
-                         ((? string? s)
-                          s))))
-                  (map (lambda (sub-derivation)
-                         (string-append "("
-                                        (number->string derivation-id)
-                                        ", '" path
-                                        "', '" sub-derivation "')"))
-                       sub-derivations))))
-             (derivation-inputs derivation)))
-          derivation-ids
-          derivations)))
+  (define (process-chunk derivation-ids derivations)
+    (let ((query-parts
+           (append-map!
+            (lambda (derivation-id derivation)
+              (append-map!
+               (match-lambda
+                 (($ <derivation-input> derivation-or-path sub-derivations)
+                  (let ((path
+                         (match derivation-or-path
+                           ((? derivation? d)
+                            ;; The first field changed to a derivation (from the file
+                            ;; name) in 5cf4b26d52bcea382d98fb4becce89be9ee37b55
+                            (derivation-file-name d))
+                           ((? string? s)
+                            s))))
+                    (map (lambda (sub-derivation)
+                           (string-append "("
+                                          (number->string derivation-id)
+                                          ", '" path
+                                          "', '" sub-derivation "')"))
+                         sub-derivations))))
+               (derivation-inputs derivation)))
+            derivation-ids
+            derivations)))
 
-    (unless (null? data)
-      (for-each
-       (lambda (chunk)
-         (exec-query
-          conn
-          (string-append
-           "
+      (unless (null? query-parts)
+        (exec-query
+         conn
+         (string-append
+          "
 INSERT INTO derivation_inputs (derivation_id, derivation_output_id)
 SELECT vals.derivation_id, derivation_outputs.id
 FROM (VALUES "
-           (string-join chunk ", ")
-           ") AS vals (derivation_id, file_name, output_name)
+          (string-join query-parts ", ")
+          ") AS vals (derivation_id, file_name, output_name)
 INNER JOIN derivations
   ON derivations.file_name = vals.file_name
 INNER JOIN derivation_outputs
   ON derivation_outputs.derivation_id = derivations.id
- AND vals.output_name = derivation_outputs.name")))
-       (chunk! data 1000)))))
+ AND vals.output_name = derivation_outputs.name")))))
+
+  (chunk-map! process-chunk
+              1000
+              (list-copy derivation-ids)
+              (list-copy derivations)))
 
 (define (select-from-derivation-source-files store-paths)
   (string-append

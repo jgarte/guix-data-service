@@ -32,7 +32,8 @@
             letpar&
 
             chunk
-            chunk!))
+            chunk!
+            chunk-map!))
 
 (define (call-with-time-logging action thunk)
   (simple-format #t "debug: Starting ~A\n" action)
@@ -175,3 +176,28 @@
           (cons first-lst
                 (chunk! rest max-length))))
       (list lst)))
+
+(define* (chunk-map! proc chunk-size #:rest lsts)
+  (define (do-one-iteration lsts)
+    (if (> (length (car lsts))
+           chunk-size)
+        (let ((chunks-and-rest
+               (map (lambda (lst)
+                      (call-with-values (lambda ()
+                                          (split-at! lst chunk-size))
+                        (lambda (first-lst rest)
+                          (cons first-lst
+                                rest))))
+                    lsts)))
+          (apply proc
+                 (map car chunks-and-rest))
+          (do-one-iteration
+           (map cdr chunks-and-rest)))
+        (apply proc lsts)))
+
+  (unless (eq? 1
+               (length (delete-duplicates
+                        (map length lsts))))
+    (error "lists not equal length"))
+
+  (do-one-iteration lsts))
