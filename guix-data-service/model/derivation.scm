@@ -1801,20 +1801,34 @@ INNER JOIN derivation_source_files
                                            derivation-ids-hash-table
                                            derivation-file-names)
 
-        (let ((missing-derivations
-               (with-time-logging "reading missing derivations"
-                 (map read-derivation-from-file
-                      (deduplicate-strings
-                       (filter (lambda (derivation-file-name)
-                                 (not (hash-ref derivation-ids-hash-table
-                                                derivation-file-name)))
-                               derivation-file-names))))))
+        (let ((missing-derivation-filenames
+               (deduplicate-strings
+                (filter (lambda (derivation-file-name)
+                          (not (hash-ref derivation-ids-hash-table
+                                         derivation-file-name)))
+                        derivation-file-names))))
 
-          (unless (null? missing-derivations)
-            (insert-missing-derivations conn
-                                        derivation-ids-hash-table
-                                        missing-derivations))
+          (chunk-for-each!
+           (lambda (missing-derivation-filenames-chunk)
+             (let ((missing-derivations-chunk
+                    (with-time-logging
+                        (simple-format #f "reading ~A missing derivations"
+                                       (length missing-derivation-filenames-chunk))
+                      (map read-derivation-from-file
+                           ;; Do the filter again, since processing the last
+                           ;; chunk might have inserted some of the
+                           ;; derivations in this chunk
+                           (filter (lambda (derivation-file-name)
+                                     (not (hash-ref derivation-ids-hash-table
+                                                    derivation-file-name)))
+                                   missing-derivation-filenames-chunk)))))
 
+               (unless (null? missing-derivations-chunk)
+                 (insert-missing-derivations conn
+                                             derivation-ids-hash-table
+                                             missing-derivations-chunk))))
+           1000
+           missing-derivation-filenames)
 
           (let ((all-ids
                  (map (lambda (derivation-file-name)
