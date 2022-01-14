@@ -1370,10 +1370,10 @@ INNER JOIN derivation_outputs
   ON derivation_outputs.derivation_id = derivations.id
  AND vals.output_name = derivation_outputs.name")))))
 
-  (chunk-map! process-chunk
-              1000
-              (list-copy derivation-ids)
-              (list-copy derivations)))
+  (chunk-for-each! process-chunk
+                   1000
+                   (list-copy derivation-ids)
+                   (list-copy derivations)))
 
 (define (select-from-derivation-source-files store-paths)
   (string-append

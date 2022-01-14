@@ -33,7 +33,7 @@
 
             chunk
             chunk!
-            chunk-map!))
+            chunk-for-each!))
 
 (define (call-with-time-logging action thunk)
   (simple-format #t "debug: Starting ~A\n" action)
@@ -177,7 +177,7 @@
                 (chunk! rest max-length))))
       (list lst)))
 
-(define* (chunk-map! proc chunk-size #:rest lsts)
+(define* (chunk-for-each! proc chunk-size #:rest lsts)
   (define (do-one-iteration lsts)
     (if (> (length (car lsts))
            chunk-size)
