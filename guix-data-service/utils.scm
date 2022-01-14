@@ -195,9 +195,11 @@
            (map cdr chunks-and-rest)))
         (apply proc lsts)))
 
-  (unless (eq? 1
-               (length (delete-duplicates
-                        (map length lsts))))
-    (error "lists not equal length"))
+  (let ((list-lengths (map length lsts)))
+    (unless (eq? 1 (length (delete-duplicates list-lengths)))
+      (error "lists not equal length"))
 
-  (do-one-iteration lsts))
+    (unless (eq? 0 (first list-lengths))
+      (do-one-iteration lsts)))
+
+  #t)
