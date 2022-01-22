@@ -63,4 +63,10 @@ WHERE package_derivations.id IN (
 GROUP BY systems.system, package_derivations.target
 ORDER BY systems.system DESC, package_derivations.target ASC")
 
-  (exec-query conn query (list commit-hash)))
+  (map
+   (match-lambda
+     ((system target count)
+      (list system
+            target
+            (string->number count))))
+   (exec-query conn query (list commit-hash))))
