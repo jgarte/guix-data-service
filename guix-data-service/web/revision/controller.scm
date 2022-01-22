@@ -477,7 +477,8 @@
            mime-types)
       ((application/json)
        (render-json
-        `((packages_count  . ,(caar packages-count))
+        `((revision . ((commit . ,commit-hash)))
+          (packages_count  . ,(caar packages-count))
           (derivations_counts . ,(list->vector
                                   (map (match-lambda
                                          ((system target derivation_count)
