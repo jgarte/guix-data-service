@@ -680,7 +680,8 @@
      (lambda (field)
        (cons field
              (hyphenate-words
-              (string-downcase field))))
+              (remove-brackets
+               (string-downcase field)))))
      '("(no additional fields)" "Builds")))
 
   (define fields

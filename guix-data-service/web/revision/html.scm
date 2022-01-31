@@ -549,14 +549,18 @@
                                  any-translations-available?
                                  #:key path-base
                                  header-text header-link)
+  (define fields
+    '("Version" "Synopsis" "Description"
+      "Home page" "Location" "Licenses"))
+
   (define field-options
     (map
      (lambda (field)
        (cons field
              (hyphenate-words
-              (string-downcase field))))
-     '("Version" "Synopsis" "Description"
-       "Home page" "Location" "Licenses")))
+              (remove-brackets
+               (string-downcase field)))))
+     `("(no additional fields)" ,@fields)))
 
   (layout
    #:title
@@ -642,12 +646,12 @@
           (tr
            (th (@ (class "col-md-3")) "Name")
            ,@(filter-map
-              (match-lambda
-                ((label . value)
-                 (if (member value (assq-ref query-parameters 'field))
-                     `(th (@ (class "col-md-3")) ,label)
-                     #f)))
-              field-options)
+              (lambda (field)
+                (if (member (assoc-ref field-options field)
+                            (assq-ref query-parameters 'field))
+                    `(th (@ (class "col-md-3")) ,field)
+                    #f))
+              fields)
            (th (@ (class "col-md-3")) "")))
          (tbody
           ,@(let ((fields (assq-ref query-parameters 'field)))
@@ -1543,7 +1547,8 @@ figure {
      (lambda (field)
        (cons field
              (hyphenate-words
-              (string-downcase field))))
+              (remove-brackets
+               (string-downcase field)))))
      '("(no additional fields)" "System" "Target" "Builds")))
 
   (define fields
@@ -2210,13 +2215,17 @@ figure {
                                       any-translated-lint-warnings?
                                       #:key path-base
                                       header-text header-link)
+  (define fields
+    '("Linter" "Message" "Location"))
+
   (define field-options
     (map
      (lambda (field)
        (cons field
              (hyphenate-words
-              (string-downcase field))))
-     '("Linter" "Message" "Location")))
+              (remove-brackets
+               (string-downcase field)))))
+     `("(no additional fields)" ,@fields)))
 
   (layout
    #:title
@@ -2300,12 +2309,12 @@ figure {
           (tr
            (th (@ (class "col-md-3")) "Package")
            ,@(filter-map
-              (match-lambda
-                ((label . value)
-                 (if (member value (assq-ref query-parameters 'field))
-                     `(th (@ (class "col-md-3")) ,label)
-                     #f)))
-              field-options)
+              (lambda (field)
+                (if (member (assoc-ref field-options field)
+                            (assq-ref query-parameters 'field))
+                    `(th (@ (class "col-md-3")) ,field)
+                    #f))
+              fields)
            (th (@ (class "col-md-3")) "")))
          (tbody
           ,@(let ((fields (assq-ref query-parameters 'field)))
