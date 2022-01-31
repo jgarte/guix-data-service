@@ -267,6 +267,8 @@
                                         #:default "any")
                     (system ,parse-system #:default "x86_64-linux")
                     (target ,parse-target #:default "")
+                    (field          ,identity #:multi-value
+                                    #:default ("nars"))
                     (limit_results  ,parse-result-limit
                                     #:no-default-when (all_results)
                                     #:default 10)
@@ -1253,7 +1255,9 @@
       (let ((limit-results
              (assq-ref query-parameters 'limit_results))
             (all-results
-             (assq-ref query-parameters 'all_results)))
+             (assq-ref query-parameters 'all_results))
+            (fields
+             (assq-ref query-parameters 'field)))
         (letpar&
             ((derivation-outputs
               (with-thread-postgresql-connection
@@ -1270,6 +1274,7 @@
                   (assq-ref query-parameters 'output_consistency)
                   #:system (assq-ref query-parameters 'system)
                   #:target (assq-ref query-parameters 'target)
+                  #:include-nars? (member "nars" fields)
                   #:limit-results limit-results
                   #:after-path (assq-ref query-parameters 'after_path))))))
           (let ((show-next-page?
@@ -1286,6 +1291,11 @@
                   (store_paths
                    . ,(list->vector
                        (map (match-lambda
+                              ((package-name package-version
+                                             path hash-algorithm hash recursive)
+                               `((package . ((name    . ,package-name)
+                                             (version . ,package-version)))
+                                 (path . ,path)))
                               ((package-name package-version
                                              path hash-algorithm hash recursive
                                              nars)

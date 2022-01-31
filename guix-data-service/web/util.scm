@@ -28,6 +28,7 @@
             directory?
 
             hyphenate-words
+            remove-brackets
             underscore-join-words))
 
 (define (most-appropriate-mime-type accepted-mime-types
@@ -98,6 +99,14 @@
   (string-join
    (string-split words #\space)
    "-"))
+
+(define (remove-brackets s)
+  (string-filter
+   (lambda (c)
+     (not
+      (or (eq? #\( c)
+          (eq? #\) c))))
+   s))
 
 (define (underscore-join-words words)
   (string-join

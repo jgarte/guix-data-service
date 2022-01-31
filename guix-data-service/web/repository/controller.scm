@@ -398,6 +398,8 @@
                                           #:default "any")
                       (system ,parse-system #:default "x86_64-linux")
                       (target ,parse-target #:default "")
+                      (field          ,identity #:multi-value
+                                      #:default ("nars"))
                       (limit_results  ,parse-result-limit
                                       #:no-default-when (all_results)
                                       #:default 10)

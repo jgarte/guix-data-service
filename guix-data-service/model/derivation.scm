@@ -678,6 +678,7 @@ LIMIT $4"))
                                                 no-nars-from-build-servers
                                                 system
                                                 target
+                                                include-nars?
                                                 limit-results
                                                 after-path)
   (define query
@@ -688,7 +689,10 @@ SELECT packages.name,
        derivation_output_details.path,
        derivation_output_details.hash_algorithm,
        derivation_output_details.hash,
-       derivation_output_details.recursive,
+       derivation_output_details.recursive"
+
+     (if include-nars?
+         ",
        (
          SELECT JSON_AGG(
            json_build_object(
@@ -706,7 +710,9 @@ SELECT packages.name,
          INNER JOIN narinfo_fetch_records
            ON narinfo_signature_data.id = narinfo_fetch_records.narinfo_signature_data_id
          WHERE nars.store_path = derivation_output_details.path
-       ) AS nars
+       ) AS nars"
+         "")
+     "
 FROM derivations
 INNER JOIN derivation_outputs
   ON derivations.id = derivation_outputs.derivation_id
@@ -833,7 +839,15 @@ ORDER BY derivation_output_details.path
                 (string=? recursive "t")
                 (if (null? nars_json)
                     #()
-                    (json-string->scm nars_json)))))
+                    (json-string->scm nars_json))))
+         ((package_name package_version
+                        path hash_algorithm hash recursive)
+          (list package_name
+                package_version
+                path
+                hash
+                hash_algorithm
+                (string=? recursive "t"))))
        (exec-query-with-null-handling  conn
                                        query
                                        `(,commit-hash

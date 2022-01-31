@@ -1876,6 +1876,15 @@ figure {
             (cons url id)))
          build-server-urls))
 
+  (define field-options
+    (map
+     (lambda (field)
+       (cons field
+             (hyphenate-words
+              (remove-brackets
+               (string-downcase field)))))
+     '("(no additional fields)" "Nars")))
+
   (layout
    #:title
    (string-append "Package derivation outputs - Revision "
@@ -1938,6 +1947,11 @@ figure {
             #:help-text "Only include outputs from derivations that are build for this system."
             #:font-family "monospace")
           ,(form-horizontal-control
+            "Fields" query-parameters
+            #:name "field"
+            #:options field-options
+            #:help-text "Fields to return in the response.")
+          ,(form-horizontal-control
             "After path" query-parameters
             #:help-text
             "List outputs that are alphabetically after the given name.")
@@ -1977,11 +1991,18 @@ figure {
          (thead
           (tr
            (th (@ (class "col-sm-5")) "Path")
-           (th (@ (class "col-sm-5")) "Data")
-           (th (@ (class "col-sm-2")) "Output consistency")))
+           ,@(if (member "nars" (assq-ref query-parameters 'field))
+                 '((th (@ (class "col-sm-5")) "Data")
+                   (th (@ (class "col-sm-2")) "Output consistency"))
+                 '())))
          (tbody
           ,@(map
              (match-lambda
+               ((package-name package-version
+                              path hash-algorithm hash recursive)
+                `(tr
+                  (td (a (@ (href ,path))
+                         ,(display-store-item-short path)))))
                ((package-name package-version
                               path hash-algorithm hash recursive nars)
                 `(tr
