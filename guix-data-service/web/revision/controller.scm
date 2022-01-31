@@ -1302,7 +1302,7 @@
                                `((package . ((name    . ,package-name)
                                              (version . ,package-version)))
                                  (path . ,path)
-                                 (data
+                                 (nars
                                   . ,(if (null? hash-algorithm)
                                          (list->vector
                                           (map

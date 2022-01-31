@@ -1997,7 +1997,7 @@ figure {
           (tr
            (th (@ (class "col-sm-5")) "Path")
            ,@(if (member "nars" (assq-ref query-parameters 'field))
-                 '((th (@ (class "col-sm-5")) "Data")
+                 '((th (@ (class "col-sm-5")) "Nars")
                    (th (@ (class "col-sm-2")) "Output consistency"))
                  '())))
          (tbody
