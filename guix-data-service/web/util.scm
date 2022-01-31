@@ -29,7 +29,9 @@
 
             hyphenate-words
             remove-brackets
-            underscore-join-words))
+            underscore-join-words
+
+            uri-encode-filename))
 
 (define (most-appropriate-mime-type accepted-mime-types
                                     supported-mime-types)
@@ -112,3 +114,9 @@
   (string-join
    (string-split words #\space)
    "_"))
+
+(define (uri-encode-filename s)
+  (string-join
+   (map uri-encode
+        (string-split s #\/))
+   "/"))

@@ -300,7 +300,7 @@
                 `(tr
                   (td (samp ,system))
                   (td (samp ,target))
-                  (td (a (@ (href ,file-name))
+                  (td (a (@ (href ,(uri-encode-filename file-name)))
                          ,(display-store-item-short file-name)))
                   (td
                    (ul

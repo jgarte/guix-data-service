@@ -537,7 +537,7 @@
                    (h4 "Derivation: ")
                    ,(match derivation
                       ((file-name output-id)
-                       `(a (@ (href ,file-name))
+                       `(a (@ (href ,(uri-encode-filename file-name)))
                            ,(display-store-item file-name))))))))
              derivations)))))
 
@@ -623,7 +623,8 @@
                 ,@(map (match-lambda
                          ((derivation-file-name outputs)
                           `(tr
-                            (td (a (@ (href ,derivation-file-name))
+                            (td (a (@ (href ,(uri-encode-filename
+                                              derivation-file-name)))
                                    ,(display-store-item-short derivation-file-name))))))
                        derivation-inputs)))))
        (div
@@ -683,10 +684,7 @@
           ,@(map (match-lambda
                    ((output-name path hash-algorithm hash recursive?)
                     `(tr
-                      (td (a (@ (href ,(string-join
-                                        (map uri-encode
-                                             (string-split path #\/))
-                                        "/")))
+                      (td (a (@ (href ,(uri-encode-filename path)))
                              ,(display-store-item-short path))))))
                  derivation-outputs)))))))))
 
